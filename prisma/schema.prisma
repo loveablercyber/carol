@@ -1,0 +1,319 @@
+// Schema completo para Loja Virtual - CarolSol Studio
+// E-commerce focado em Mega Hair, Perucas e Acessórios Capilares
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// AUTH MODELS (NextAuth)
+// ============================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId  String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  cpf           String?   @unique
+  birthday      DateTime?
+  role          String    @default("customer") // customer, admin
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  carts         Cart[]
+  orders        Order[]
+  reviews       Review[]
+  addresses     Address[]
+}
+
+// ============================================
+// CATEGORIAS DE PRODUTOS
+// ============================================
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  image       String?
+  isActive    Boolean  @default(true)
+  order       Int      @default(0)
+  products    Product[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([slug])
+  @@index([isActive])
+}
+
+// ============================================
+// PRODUTOS
+// ============================================
+
+model Product {
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  description       String
+  shortDescription  String?
+  categoryId        String
+  price             Float
+  compareAtPrice    Float?
+  weight            Float    @default(0.5) // em kg
+  length            Float?   // em cm para megahair
+  hairType          String?  // HUMANO, SINTETICO, MISTO
+  texture           String?  // LISO, CACHEADO, ONDULADO
+  color             String?
+  isActive          Boolean  @default(true)
+  inStock           Boolean  @default(true)
+  stock             Int      @default(10)
+  featured          Boolean  @default(false)
+  images            String   @default("[]") // JSON array de URLs
+  specs             String?  @default("{}") // JSON com especificações técnicas
+  seoTitle          String?
+  seoDescription    String?
+  seoKeywords       String?
+  category          Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  cartItems         CartItem[]
+  orderItems        OrderItem[]
+  reviews           Review[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([slug])
+  @@index([isActive])
+  @@index([featured])
+  @@index([hairType])
+  @@index([texture])
+}
+
+// ============================================
+// CARRINHO DE COMPRAS
+// ============================================
+
+model Cart {
+  id        String     @id @default(cuid())
+  sessionId String?
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  expiresAt DateTime?
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([sessionId])
+  @@unique([userId])
+  @@index([sessionId])
+  @@index([userId])
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int      @default(1)
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, productId])
+  @@index([cartId])
+  @@index([productId])
+}
+
+// ============================================
+// PEDIDOS
+// ============================================
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique
+  userId          String?
+  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  shippingAddress String      @default("{}") // JSON com endereço completo
+  status          OrderStatus @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   String      // MERCADO_PAGO_PIX, MERCADO_PAGO_CREDIT_CARD, etc
+  paymentId       String?     @unique
+  subtotal        Float
+  shippingCost     Float
+  discount        Float       @default(0)
+  couponCode      String?
+  total           Float
+  trackingCode    String?
+  estimatedDelivery DateTime?
+  deliveredAt     DateTime?
+  notes           String?
+  items           OrderItem[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([orderNumber])
+  @@index([paymentId])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  productId   String
+  productName String
+  productImage String?
+  price       Float
+  quantity    Int
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+// ============================================
+// AVALIAÇÕES DE PRODUTOS
+// ============================================
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  author    String?
+  rating    Int
+  title     String?
+  comment   String
+  verified  Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([userId])
+  @@index([rating])
+}
+
+// ============================================
+// CUPONS DE DESCONTO
+// ============================================
+
+model Coupon {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  type          CouponType @default(PERCENTAGE)
+  value         Float
+  minPurchase   Float    @default(0)
+  maxDiscount   Float?
+  usageLimit    Int?
+  usageCount    Int      @default(0)
+  validFrom     DateTime @default(now())
+  validTo       DateTime
+  isActive      Boolean  @default(true)
+  applicableTo  String?  // CATEGORIA_ID ou PRODUTO_ID ou null (todos)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([code])
+  @@index([isActive])
+  @@index([validFrom])
+  @@index([validTo])
+}
+
+// ============================================
+// ENDEREÇOS DE CLIENTE
+// ============================================
+
+model Address {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipient   String
+  zipCode     String
+  street      String
+  number      String
+  complement  String?
+  neighborhood String
+  city        String
+  state       String
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REFUNDED
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_SHIPPING
+}

@@ -1,0 +1,15 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "generate-images",
+      "dependencies": {
+        "z-ai-web-dev-sdk": "latest",
+      },
+    },
+  },
+  "packages": {
+    "z-ai-web-dev-sdk": ["z-ai-web-dev-sdk@0.0.15", "", { "bin": { "z-ai": "dist/cli.js", "z-ai-generate": "dist/cli.js" } }, "sha512-e1Lk8q7Z5BJcXlTIFv+jAMaOF4TxJv5Ex5zY1lLVh1ee6USQAHBojV6GdwCK6gJTAjXcARMFNQzcHXfX62a5Vg=="],
+  }
+}

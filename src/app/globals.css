@@ -1,0 +1,228 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-cormorant);
+  --font-body: var(--font-inter);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* CarolSol Studio Brand Colors */
+  --primary: #E91E63;
+  --primary-foreground: #ffffff;
+  --primary-hover: #D81B60;
+  --primary-active: #C2185B;
+
+  --secondary: #F8B6D8;
+  --secondary-foreground: #333333;
+  --secondary-hover: #F59BBD;
+  --secondary-active: #F380A2;
+
+  --accent: #FFD54F;
+  --accent-foreground: #333333;
+  --accent-subtle: rgba(255, 213, 79, 0.15);
+
+  --background: #ffffff;
+  --foreground: #333333;
+
+  --card: #ffffff;
+  --card-foreground: #333333;
+
+  --popover: #ffffff;
+  --popover-foreground: #333333;
+
+  --muted: #FAFAFA;
+  --muted-foreground: #666666;
+
+  --border: #F0F0F0;
+  --input: #F0F0F0;
+  --ring: #E91E63;
+
+  --destructive: #DC2626;
+  --success: #10B981;
+  --warning: #F59E0B;
+
+  --chart-1: #E91E63;
+  --chart-2: #F8B6D8;
+  --chart-3: #FFD54F;
+  --chart-4: #9333EA;
+  --chart-5: #06B6D4;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #333333;
+  --sidebar-primary: #E91E63;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #F8B6D8;
+  --sidebar-accent-foreground: #333333;
+  --sidebar-border: #F0F0F0;
+  --sidebar-ring: #E91E63;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* CarolSol Studio Custom Styles */
+@layer utilities {
+  .font-display {
+    font-family: 'Cormorant Garamond', serif;
+  }
+  .font-body {
+    font-family: 'Inter', sans-serif;
+  }
+
+  .bg-gradient-pink {
+    background: linear-gradient(180deg, #FFF5F8 0%, #ffffff 100%);
+  }
+
+  .bg-gradient-primary {
+    background: linear-gradient(135deg, #E91E63 0%, #F8B6D8 100%);
+  }
+
+  .text-gradient-primary {
+    background: linear-gradient(135deg, #E91E63 0%, #F8B6D8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .shadow-pink-soft {
+    box-shadow: 0 4px 20px rgba(233, 30, 99, 0.1);
+  }
+
+  .shadow-gold-soft {
+    box-shadow: 0 4px 20px rgba(255, 213, 79, 0.15);
+  }
+
+  /* Card hover animation */
+  .card-hover {
+    transition: all 0.3s ease-out;
+  }
+  .card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(233, 30, 99, 0.15);
+  }
+
+  /* Button shine effect */
+  .btn-shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-shine::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent
+    );
+    transition: left 0.5s ease-out;
+  }
+  .btn-shine:hover::before {
+    left: 100%;
+  }
+
+  /* Fade in animation */
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.6s ease-out forwards;
+  }
+
+  /* Staggered animation delays */
+  .animation-delay-100 { animation-delay: 100ms; }
+  .animation-delay-200 { animation-delay: 200ms; }
+  .animation-delay-300 { animation-delay: 300ms; }
+  .animation-delay-400 { animation-delay: 400ms; }
+  .animation-delay-500 { animation-delay: 500ms; }
+  .animation-delay-600 { animation-delay: 600ms; }
+  .animation-delay-700 { animation-delay: 700ms; }
+  .animation-delay-800 { animation-delay: 800ms; }
+
+  /* Smooth scroll */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #FFF5F8;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #E91E63 0%, #F8B6D8 100%);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #D81B60;
+  }
+
+  /* Focus visible styles for accessibility */
+  *:focus-visible {
+    outline: 2px solid #E91E63;
+    outline-offset: 2px;
+  }
+}
