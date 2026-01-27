@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import Image from 'next/image'
 import { Calendar, DollarSign, ShoppingBag, Sparkles, Camera, User, Instagram, Mail, Star, Heart, Clock, CalendarPlus } from 'lucide-react'
 import Chatbot from '@/components/chatbot/Chatbot'
@@ -76,7 +76,7 @@ const cardData = [
     subtitle: '👩‍🦰',
     description: 'Carol - 14 anos de experiência',
     href: '/profissional',
-    image: '/images/perfil.jpg',
+    image: '/images/perfil.png',
     buttonText: 'Saiba Mais',
     color: 'bg-[#FFF0F5]',
     textColor: 'text-foreground'
@@ -89,14 +89,10 @@ const cardData = [
     buttonText: 'Ver Perfil',
     instagramUrl: 'https://www.instagram.com/carolsolhair/',
     instagramPhotos: [
-      '/assets/salon.png',
-      '/assets/transformation.png',
-      '/assets/hair-closeup.png',
-      '/assets/products.png',
-      '/images/perfil.jpg',
-      '/images/services/extensions-destaque.png',
-      '/images/services/megahair-invisible.png',
-      '/images/services/megahair-fita.png',
+      '/images/molde1.png',
+      '/images/molde2.png',
+      '/images/molde3.png',
+      '/images/molde4.png',
     ],
     color: 'bg-gradient-to-br from-[#E91E63] to-[#F8B6D8]',
     textColor: 'text-white',
@@ -119,7 +115,7 @@ const HeroSection = () => {
       {/* Professional Portrait */}
       <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden shadow-2xl border-4 border-white relative">
         <Image
-          src="/images/perfil.jpg"
+          src="/images/perfil.png"
           alt="Carol - Profissional de Megahair e Perucas"
           fill
           className="object-cover"
@@ -162,12 +158,7 @@ const HeroSection = () => {
 
 const ActionCard = ({ data, index, onClick }: { data: typeof cardData[0], index: number, onClick?: () => void }) => {
   const Icon = data.icon
-  const instagramPhotos = useMemo(() => {
-    if (!data.instagramPhotos) return []
-    return [...data.instagramPhotos]
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 5)
-  }, [data.instagramPhotos])
+  const instagramPhotos = data.instagramPhotos ?? []
 
   return (
     <div
@@ -203,15 +194,15 @@ const ActionCard = ({ data, index, onClick }: { data: typeof cardData[0], index:
 
         {/* Instagram photos */}
         {instagramPhotos.length > 0 && (
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {instagramPhotos.map((photo, i) => (
-              <div key={i} className="relative w-full aspect-[3/2] rounded-lg overflow-hidden">
+              <div key={i} className="relative w-full h-20 sm:h-24 md:h-28 rounded-lg overflow-hidden">
                 <Image
                   src={photo}
                   alt={`Instagram CarolSolHair ${i + 1}`}
                   fill
                   className="object-cover"
-                  sizes="(max-width: 768px) 20vw, 10vw"
+                  sizes="(max-width: 640px) 48vw, 20vw"
                 />
               </div>
             ))}

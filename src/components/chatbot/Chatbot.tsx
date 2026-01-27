@@ -119,6 +119,7 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, initialMessage, prom
   const [inputValue, setInputValue] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const hasAutoScrolledCategories = useRef(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -130,14 +131,21 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, initialMessage, prom
 
   // Garantir que o card de Mega Hair fique em evidência quando a lista de categorias aparece
   useEffect(() => {
-    const hasCategories = messages.some((m) => (m as any).data?.showCategories)
-    if (hasCategories) {
-      setTimeout(() => {
-        const megaHairCard = document.getElementById('chat-cat-extensoes')
-        megaHairCard?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 100)
-    }
+    const lastMessage = messages[messages.length - 1]
+    if (!lastMessage?.data?.showCategories) return
+    if (hasAutoScrolledCategories.current) return
+    hasAutoScrolledCategories.current = true
+    setTimeout(() => {
+      const megaHairCard = document.getElementById('chat-cat-extensoes')
+      megaHairCard?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
   }, [messages])
+
+  useEffect(() => {
+    if (!isOpen) {
+      hasAutoScrolledCategories.current = false
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {

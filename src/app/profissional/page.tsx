@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Star, MapPin, Sparkles, Heart, Scissors, BadgeCheck, Instagram } from 'lucide-react'
@@ -11,7 +11,7 @@ const instagramPhotos = [
   '/assets/transformation.png',
   '/assets/hair-closeup.png',
   '/assets/products.png',
-  '/images/perfil.jpg',
+  '/images/perfil.png',
   '/images/services/extensions-destaque.png',
   '/images/services/megahair-invisible.png',
   '/images/services/megahair-fita.png',
@@ -43,7 +43,7 @@ const techniques = [
 
 export default function ProfissionalPage() {
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
-  const photos = useMemo(() => [...instagramPhotos].sort(() => Math.random() - 0.5).slice(0, 5), [])
+  const photos = instagramPhotos.slice(0, 5)
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-white via-[#FFF7FB] to-white pb-20">
@@ -63,7 +63,7 @@ export default function ProfissionalPage() {
           <div className="flex flex-col items-center text-center bg-white rounded-2xl shadow-xl p-6">
             <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-xl relative">
               <Image
-                src="/images/perfil.jpg"
+                src="/images/perfil.png"
                 alt="CarolSol - Especialista em Mega Hair"
                 fill
                 className="object-cover"
