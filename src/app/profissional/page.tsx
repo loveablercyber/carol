@@ -11,7 +11,7 @@ const instagramPhotos = [
   '/assets/transformation.png',
   '/assets/hair-closeup.png',
   '/assets/products.png',
-  '/assets/portrait.png',
+  '/images/perfil.jpg',
   '/images/services/extensions-destaque.png',
   '/images/services/megahair-invisible.png',
   '/images/services/megahair-fita.png',
@@ -63,7 +63,7 @@ export default function ProfissionalPage() {
           <div className="flex flex-col items-center text-center bg-white rounded-2xl shadow-xl p-6">
             <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-xl relative">
               <Image
-                src="/assets/portrait.png"
+                src="/images/perfil.jpg"
                 alt="CarolSol - Especialista em Mega Hair"
                 fill
                 className="object-cover"
