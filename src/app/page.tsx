@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import { Calendar, DollarSign, ShoppingBag, Sparkles, Camera, User, Instagram, Mail, Star, Heart, Clock, CalendarPlus } from 'lucide-react'
 import Chatbot from '@/components/chatbot/Chatbot'
@@ -54,6 +54,7 @@ const cardData = [
     title: 'Assinar Clube Capilar',
     subtitle: '🌸',
     description: 'Planos exclusivos de manutenção',
+    href: '/clube-capilar',
     plans: ['R$180/mês', 'R$280/mês', 'R$380/mês'],
     buttonText: 'Assinar Agora',
     color: 'bg-[#F8B6D8]',
@@ -74,6 +75,7 @@ const cardData = [
     title: 'Conhecer a Profissional',
     subtitle: '👩‍🦰',
     description: 'Carol - 14 anos de experiência',
+    href: '/profissional',
     image: '/assets/portrait.png',
     buttonText: 'Saiba Mais',
     color: 'bg-[#FFF0F5]',
@@ -84,7 +86,18 @@ const cardData = [
     title: 'Seguir no Instagram',
     subtitle: '📱',
     description: 'Acompanhe meu dia a dia e resultados reais',
-    buttonText: '@carolsolstudio',
+    buttonText: 'Ver Perfil',
+    instagramUrl: 'https://www.instagram.com/carolsolhair/',
+    instagramPhotos: [
+      '/assets/salon.png',
+      '/assets/transformation.png',
+      '/assets/hair-closeup.png',
+      '/assets/products.png',
+      '/assets/portrait.png',
+      '/images/services/extensions-destaque.png',
+      '/images/services/megahair-invisible.png',
+      '/images/services/megahair-fita.png',
+    ],
     color: 'bg-gradient-to-br from-[#E91E63] to-[#F8B6D8]',
     textColor: 'text-white',
     shadow: 'shadow-lg'
@@ -149,6 +162,12 @@ const HeroSection = () => {
 
 const ActionCard = ({ data, index, onClick }: { data: typeof cardData[0], index: number, onClick?: () => void }) => {
   const Icon = data.icon
+  const instagramPhotos = useMemo(() => {
+    if (!data.instagramPhotos) return []
+    return [...data.instagramPhotos]
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 5)
+  }, [data.instagramPhotos])
 
   return (
     <div
@@ -182,6 +201,23 @@ const ActionCard = ({ data, index, onClick }: { data: typeof cardData[0], index:
           </div>
         )}
 
+        {/* Instagram photos */}
+        {instagramPhotos.length > 0 && (
+          <div className="grid grid-cols-5 gap-2">
+            {instagramPhotos.map((photo, i) => (
+              <div key={i} className="relative w-full aspect-[3/2] rounded-lg overflow-hidden">
+                <Image
+                  src={photo}
+                  alt={`Instagram CarolSolHair ${i + 1}`}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 20vw, 10vw"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Plans if present */}
         {data.plans && (
           <div className="grid grid grid-cols-3 gap-2 text-center">
@@ -194,18 +230,35 @@ const ActionCard = ({ data, index, onClick }: { data: typeof cardData[0], index:
         )}
 
         {/* CTA Button */}
-        <button
-          onClick={onClick}
-          className={`
-            ${data.isPrimary ? 'bg-white text-primary' : 'bg-primary text-white'}
-            btn-glow font-semibold py-4 px-6 rounded-xl text-lg
-            hover:shadow-xl transition-all duration-300
-            min-h-[52px] flex items-center justify-center gap-2
-          `}
-        >
-          {data.buttonText}
-          <Heart className={`w-5 h-5 ${data.isPrimary ? 'fill-current' : ''}`} />
-        </button>
+        {data.instagramUrl ? (
+          <a
+            href={data.instagramUrl}
+            target="_blank"
+            rel="noreferrer"
+            className={`
+              ${data.isPrimary ? 'bg-white text-primary' : 'bg-primary text-white'}
+              btn-glow font-semibold py-4 px-6 rounded-xl text-lg
+              hover:shadow-xl transition-all duration-300
+              min-h-[52px] flex items-center justify-center gap-2
+            `}
+          >
+            {data.buttonText}
+            <Heart className={`w-5 h-5 ${data.isPrimary ? 'fill-current' : ''}`} />
+          </a>
+        ) : (
+          <button
+            onClick={onClick}
+            className={`
+              ${data.isPrimary ? 'bg-white text-primary' : 'bg-primary text-white'}
+              btn-glow font-semibold py-4 px-6 rounded-xl text-lg
+              hover:shadow-xl transition-all duration-300
+              min-h-[52px] flex items-center justify-center gap-2
+            `}
+          >
+            {data.buttonText}
+            <Heart className={`w-5 h-5 ${data.isPrimary ? 'fill-current' : ''}`} />
+          </button>
+        )}
       </div>
     </div>
   )
@@ -226,6 +279,8 @@ export default function Home() {
             const handleClick = () => {
               if (card.href) {
                 window.location.href = card.href
+              } else if (card.instagramUrl) {
+                window.open(card.instagramUrl, '_blank', 'noopener,noreferrer')
               } else if (card.isPrimary || index === 0) {
                 setIsChatbotOpen(true)
               }
