@@ -65,6 +65,11 @@ function CheckoutContent() {
   const [couponCode, setCouponCode] = useState('')
   const [coupon, setCoupon] = useState<any>(null)
   const [validatingCoupon, setValidatingCoupon] = useState(false)
+  const [showCouponForm, setShowCouponForm] = useState(false)
+  const [showShippingOptions, setShowShippingOptions] = useState(false)
+  const [showCepField, setShowCepField] = useState(false)
+  const [prefillCoupon, setPrefillCoupon] = useState(false)
+  const [prefillShippingCode, setPrefillShippingCode] = useState<string | null>(null)
 
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD'>('PIX')
   const [cardNumber, setCardNumber] = useState('')
@@ -95,6 +100,35 @@ function CheckoutContent() {
     fetchCart()
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const storedCoupon = localStorage.getItem('checkout_coupon')
+      if (storedCoupon) {
+        const parsed = JSON.parse(storedCoupon)
+        if (parsed?.code) {
+          setCouponCode(parsed.code.toUpperCase())
+          setPrefillCoupon(true)
+        }
+      }
+    } catch (error) {
+      console.warn('Erro ao ler cupom salvo:', error)
+    }
+
+    try {
+      const storedShipping = localStorage.getItem('checkout_shipping')
+      if (storedShipping) {
+        const parsed = JSON.parse(storedShipping)
+        if (parsed?.zipCode) {
+          setShippingAddress((prev) => ({ ...prev, zipCode: parsed.zipCode }))
+          setPrefillShippingCode(parsed?.option?.code || null)
+        }
+      }
+    } catch (error) {
+      console.warn('Erro ao ler frete salvo:', error)
+    }
+  }, [])
+
   // Se não houver itens no carrinho, redirecionar
   useEffect(() => {
     if (!loading && (!cart || cart.items.length === 0)) {
@@ -102,14 +136,32 @@ function CheckoutContent() {
     }
   }, [cart, loading, router])
 
+  useEffect(() => {
+    if (prefillCoupon && couponCode && cart && !coupon) {
+      validateCoupon(couponCode)
+      setPrefillCoupon(false)
+    }
+  }, [prefillCoupon, couponCode, cart, coupon])
+
+  useEffect(() => {
+    if (!cart) return
+    if (shippingAddress.zipCode.length === 8) {
+      calculateShipping(shippingAddress.zipCode, prefillShippingCode || undefined)
+    }
+  }, [cart, shippingAddress.zipCode, prefillShippingCode])
+
   // Calcular totais
   const subtotal = cart?.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) || 0
   const discount = coupon ? (coupon.type === 'PERCENTAGE' ? subtotal * (coupon.value / 100) : coupon.value) : 0
   const shippingCost = selectedShipping?.price || 0
   const total = subtotal - discount + shippingCost
+  const formattedZip = shippingAddress.zipCode
+    ? shippingAddress.zipCode.replace(/^(\d{5})(\d)/, '$1-$2')
+    : ''
+  const shouldShowShippingOptions = showShippingOptions || !selectedShipping
 
   // Buscar frete
-  const calculateShipping = async (cep: string) => {
+  const calculateShipping = async (cep: string, preferredCode?: string) => {
     if (cep.length !== 8) return
 
     setCalculatingShipping(true)
@@ -132,8 +184,17 @@ function CheckoutContent() {
       })
 
       const data = await response.json()
-      setShippingOptions(data.shippingOptions || [])
-      setSelectedShipping(data.shippingOptions?.[0] || null)
+      const options = data.shippingOptions || []
+      setShippingOptions(options)
+      let nextSelection = options[0] || null
+      if (preferredCode) {
+        const match = options.find((option: any) => option.code === preferredCode)
+        if (match) nextSelection = match
+      }
+      setSelectedShipping(nextSelection)
+      if (nextSelection && typeof window !== 'undefined') {
+        localStorage.setItem('checkout_shipping', JSON.stringify({ zipCode: cep, option: nextSelection }))
+      }
     } catch (error) {
       console.error('Erro ao calcular frete:', error)
       setErrors({ shipping: 'Erro ao calcular frete. Tente novamente.' })
@@ -143,14 +204,15 @@ function CheckoutContent() {
   }
 
   // Validar cupom
-  const validateCoupon = async () => {
-    if (!couponCode) return
+  const validateCoupon = async (codeOverride?: string) => {
+    const code = (codeOverride || couponCode).trim().toUpperCase()
+    if (!code) return
 
     setValidatingCoupon(true)
     setErrors({})
 
     try {
-      const response = await fetch(`/api/shop/coupons/${couponCode}`)
+      const response = await fetch(`/api/shop/coupons/${code}`)
       const data = await response.json()
 
       if (data.coupon) {
@@ -160,6 +222,11 @@ function CheckoutContent() {
           })
         } else {
           setCoupon(data.coupon)
+          setCouponCode(code)
+          setShowCouponForm(false)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('checkout_coupon', JSON.stringify({ code }))
+          }
         }
       } else {
         setErrors({ coupon: 'Cupom inválido' })
@@ -338,6 +405,47 @@ function CheckoutContent() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Coluna Esquerda - Formulários */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Identificação */}
+            <div className="bg-white rounded-2xl shadow-md p-6">
+              <h2 className="font-display font-bold text-xl mb-4 flex items-center gap-2">
+                <CheckCircle className="w-6 h-6 text-primary" />
+                Identificação
+              </h2>
+              {session?.user ? (
+                <div className="text-sm text-muted-foreground">
+                  <p>
+                    Você está logada como <span className="font-semibold text-foreground">{session.user.email}</span>
+                  </p>
+                  <div className="mt-3">
+                    <Link href="/account" className="text-primary font-semibold hover:underline">
+                      Acessar minha conta
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <p>Você pode finalizar como convidada ou entrar para acompanhar pedidos.</p>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Link
+                      href="/login"
+                      className="px-4 py-3 rounded-xl border border-pink-200 text-foreground font-semibold text-center hover:border-pink-300"
+                    >
+                      Entrar
+                    </Link>
+                    <Link
+                      href="/register"
+                      className="px-4 py-3 rounded-xl bg-primary text-white font-semibold text-center hover:bg-primary/90"
+                    >
+                      Criar conta
+                    </Link>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Compra como convidada é possível e rápida. Seus dados serão usados apenas para o pedido.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Endereço de Entrega */}
             <div className="bg-white rounded-2xl shadow-md p-6">
               <h2 className="font-display font-bold text-xl mb-6 flex items-center gap-2">
@@ -361,33 +469,52 @@ function CheckoutContent() {
 
                 <div>
                   <label className="block text-sm font-semibold mb-2">CEP *</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      required
-                      maxLength={9}
-                      value={shippingAddress.zipCode}
-                      onChange={(e) => {
-                        const cep = e.target.value.replace(/\D/g, '')
-                        setShippingAddress({ ...shippingAddress, zipCode: cep })
-                        if (cep.length === 8) calculateShipping(cep)
-                      }}
-                      className={`flex-1 px-4 py-3 border ${errors.zipCode ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
-                      placeholder="00000-000"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (shippingAddress.zipCode.length === 8) {
-                          calculateShipping(shippingAddress.zipCode)
-                        }
-                      }}
-                      disabled={calculatingShipping}
-                      className="px-4 py-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-                    >
-                      {calculatingShipping ? '...' : 'OK'}
-                    </button>
-                  </div>
+                  {shippingAddress.zipCode.length === 8 && !showCepField ? (
+                    <div className="flex items-center justify-between px-4 py-3 border border-pink-200 rounded-lg bg-pink-50">
+                      <span className="text-sm font-semibold">{formattedZip}</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowCepField(true)}
+                        className="text-xs font-semibold text-primary"
+                      >
+                        Alterar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        required
+                        maxLength={8}
+                        value={shippingAddress.zipCode}
+                        onChange={(e) => {
+                          const cep = e.target.value.replace(/\D/g, '')
+                          setShippingAddress({ ...shippingAddress, zipCode: cep })
+                          if (cep.length === 8) {
+                            calculateShipping(cep)
+                            setShowShippingOptions(true)
+                            setShowCepField(false)
+                          }
+                        }}
+                        className={`flex-1 px-4 py-3 border ${errors.zipCode ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
+                        placeholder="00000000"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (shippingAddress.zipCode.length === 8) {
+                            calculateShipping(shippingAddress.zipCode)
+                            setShowShippingOptions(true)
+                            setShowCepField(false)
+                          }
+                        }}
+                        disabled={calculatingShipping}
+                        className="px-4 py-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      >
+                        {calculatingShipping ? '...' : 'OK'}
+                      </button>
+                    </div>
+                  )}
                   {errors.zipCode && <p className="text-red-500 text-xs mt-1">{errors.zipCode}</p>}
                 </div>
 
@@ -479,14 +606,38 @@ function CheckoutContent() {
             </div>
 
             {/* Opções de Frete */}
-            {shippingOptions.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-md p-6">
-                <h2 className="font-display font-bold text-xl mb-6 flex items-center gap-2">
-                  <Truck className="w-6 h-6 text-primary" />
-                  Opções de Frete
-                </h2>
+            <div className="bg-white rounded-2xl shadow-md p-6">
+              <h2 className="font-display font-bold text-xl mb-6 flex items-center gap-2">
+                <Truck className="w-6 h-6 text-primary" />
+                Opções de Frete
+              </h2>
 
+              {selectedShipping && !shouldShowShippingOptions ? (
+                <div className="flex items-center justify-between p-4 border-2 rounded-lg border-pink-200 bg-pink-50">
+                  <div>
+                    <p className="font-semibold">{selectedShipping.name}</p>
+                    <p className="text-sm text-muted-foreground">{selectedShipping.estimatedDelivery}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-lg">
+                      R$ {selectedShipping.price.toFixed(2).replace('.', ',')}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowShippingOptions(true)}
+                      className="text-xs font-semibold text-primary mt-1"
+                    >
+                      Alterar frete
+                    </button>
+                  </div>
+                </div>
+              ) : (
                 <div className="space-y-3">
+                  {shippingOptions.length === 0 && !calculatingShipping && (
+                    <p className="text-sm text-muted-foreground">
+                      Informe um CEP para ver as opções de frete.
+                    </p>
+                  )}
                   {shippingOptions.map((option, index) => (
                     <label
                       key={index}
@@ -501,7 +652,16 @@ function CheckoutContent() {
                           type="radio"
                           name="shipping"
                           checked={selectedShipping?.code === option.code}
-                          onChange={() => setSelectedShipping(option)}
+                          onChange={() => {
+                            setSelectedShipping(option)
+                            setShowShippingOptions(false)
+                            if (typeof window !== 'undefined') {
+                              localStorage.setItem(
+                                'checkout_shipping',
+                                JSON.stringify({ zipCode: shippingAddress.zipCode, option })
+                              )
+                            }
+                          }}
                           className="text-primary"
                         />
                         <div>
@@ -515,9 +675,9 @@ function CheckoutContent() {
                     </label>
                   ))}
                 </div>
-                {errors.shipping && <p className="text-red-500 text-sm mt-2">{errors.shipping}</p>}
-              </div>
-            )}
+              )}
+              {errors.shipping && <p className="text-red-500 text-sm mt-2">{errors.shipping}</p>}
+            </div>
 
             {/* Pagamento */}
             <div className="bg-white rounded-2xl shadow-md p-6">
@@ -685,29 +845,64 @@ function CheckoutContent() {
               {/* Cupom */}
               <div className="mb-6">
                 <label className="text-sm font-semibold mb-2">Cupom de Desconto</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                    onKeyPress={(e) => e.key === 'Enter' && validateCoupon()}
-                    className="flex-1 px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400 uppercase"
-                    placeholder="Digite o código"
-                  />
-                  <button
-                    onClick={validateCoupon}
-                    disabled={validatingCoupon}
-                    className="px-6 py-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 font-semibold"
-                  >
-                    {validatingCoupon ? '...' : 'Aplicar'}
-                  </button>
-                </div>
-                {errors.coupon && <p className="text-red-500 text-xs mt-1">{errors.coupon}</p>}
-                {coupon && (
-                  <p className="text-green-600 text-xs mt-1">
-                    ✓ Cupom aplicado: {coupon.value}% de desconto
-                  </p>
+                {coupon ? (
+                  <div className="flex items-center justify-between p-3 border border-pink-200 rounded-lg bg-pink-50">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">
+                        Cupom aplicado: {coupon.code}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Desconto de {coupon.type === 'PERCENTAGE' ? `${coupon.value}%` : `R$ ${coupon.value}`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCoupon(null)
+                        setCouponCode('')
+                        setShowCouponForm(false)
+                        if (typeof window !== 'undefined') {
+                          localStorage.removeItem('checkout_coupon')
+                        }
+                      }}
+                      className="text-xs font-semibold text-red-600"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Nenhum cupom aplicado.</p>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowCouponForm((prev) => !prev)}
+                  className="text-xs font-semibold text-primary mt-2"
+                >
+                  {coupon ? 'Trocar cupom' : 'Adicionar cupom'}
+                </button>
+
+                {showCouponForm && (
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                      onKeyPress={(e) => e.key === 'Enter' && validateCoupon()}
+                      className="flex-1 px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400 uppercase"
+                      placeholder="Digite o código"
+                    />
+                    <button
+                      onClick={() => validateCoupon()}
+                      disabled={validatingCoupon}
+                      className="px-6 py-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 font-semibold"
+                    >
+                      {validatingCoupon ? '...' : 'Aplicar'}
+                    </button>
+                  </div>
+                )}
+
+                {errors.coupon && <p className="text-red-500 text-xs mt-1">{errors.coupon}</p>}
               </div>
 
               {/* Totais */}

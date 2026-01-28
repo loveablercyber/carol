@@ -57,6 +57,9 @@ export default function CartPage() {
   const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null)
   const [loadingShipping, setLoadingShipping] = useState(false)
   const [shippingError, setShippingError] = useState('')
+  const [autoApplyCoupon, setAutoApplyCoupon] = useState(false)
+  const [autoCalcShipping, setAutoCalcShipping] = useState(false)
+  const [prefillShippingCode, setPrefillShippingCode] = useState<string | null>(null)
 
   const subtotal = cart?.items.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
@@ -117,6 +120,51 @@ export default function CartPage() {
     fetchCart()
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const storedCoupon = localStorage.getItem('checkout_coupon')
+      if (storedCoupon) {
+        const parsed = JSON.parse(storedCoupon)
+        if (parsed?.code) {
+          setCouponCode(parsed.code)
+          setAutoApplyCoupon(true)
+        }
+      }
+    } catch (error) {
+      console.warn('Erro ao ler cupom salvo:', error)
+    }
+
+    try {
+      const storedShipping = localStorage.getItem('checkout_shipping')
+      if (storedShipping) {
+        const parsed = JSON.parse(storedShipping)
+        if (parsed?.zipCode) {
+          setCep(parsed.zipCode.replace(/^(\d{5})(\d)/, '$1-$2'))
+          setPrefillShippingCode(parsed?.option?.code || null)
+          setAutoCalcShipping(true)
+        }
+      }
+    } catch (error) {
+      console.warn('Erro ao ler frete salvo:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (autoApplyCoupon && couponCode && cart) {
+      applyCoupon()
+      setAutoApplyCoupon(false)
+    }
+  }, [autoApplyCoupon, couponCode, cart])
+
+  useEffect(() => {
+    const cleanCep = cep.replace(/\D/g, '')
+    if (autoCalcShipping && cleanCep.length === 8) {
+      calculateShipping(prefillShippingCode || undefined)
+      setAutoCalcShipping(false)
+    }
+  }, [autoCalcShipping, cep, prefillShippingCode])
+
   // Atualizar quantidade
   const updateQuantity = async (itemId: string, newQuantity: number) => {
     if (newQuantity < 1) return
@@ -168,6 +216,9 @@ export default function CartPage() {
 
       if (response.ok) {
         setAppliedCoupon(data.coupon)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('checkout_coupon', JSON.stringify({ code: data.coupon.code }))
+        }
         // Se for frete grátis, zera o frete selecionado se houver (mas a lógica de frete correios é separada)
       } else {
         setCouponError(data.error || 'Cupom inválido')
@@ -180,7 +231,7 @@ export default function CartPage() {
   }
 
   // Calcular Frete
-  const calculateShipping = async () => {
+  const calculateShipping = async (preferredCode?: string) => {
     const cleanCep = cep.replace(/\D/g, '')
     if (cleanCep.length !== 8) {
       setShippingError('CEP inválido')
@@ -203,7 +254,17 @@ export default function CartPage() {
       if (response.ok) {
         setShippingOptions(data.shippingOptions)
         if (data.shippingOptions.length > 0) {
-          setSelectedShipping(data.shippingOptions[0])
+          const preferred = preferredCode
+            ? data.shippingOptions.find((option: ShippingOption) => option.code === preferredCode)
+            : null
+          const nextSelection = preferred || data.shippingOptions[0]
+          setSelectedShipping(nextSelection)
+          if (typeof window !== 'undefined' && nextSelection) {
+            localStorage.setItem(
+              'checkout_shipping',
+              JSON.stringify({ zipCode: cleanCep, option: nextSelection })
+            )
+          }
         }
       } else {
         setShippingError(data.error || 'Erro ao calcular frete')
@@ -392,6 +453,9 @@ export default function CartPage() {
                       onClick={() => {
                         setAppliedCoupon(null)
                         setCouponCode('')
+                        if (typeof window !== 'undefined') {
+                          localStorage.removeItem('checkout_coupon')
+                        }
                       }}
                       className="px-4 py-2 bg-red-100 text-red-600 rounded-lg font-semibold hover:bg-red-200 transition-colors"
                     >
@@ -449,7 +513,16 @@ export default function CartPage() {
                     {shippingOptions.map((option) => (
                       <div
                         key={option.code}
-                        onClick={() => setSelectedShipping(option)}
+                        onClick={() => {
+                          setSelectedShipping(option)
+                          const cleanCep = cep.replace(/\D/g, '')
+                          if (cleanCep.length === 8 && typeof window !== 'undefined') {
+                            localStorage.setItem(
+                              'checkout_shipping',
+                              JSON.stringify({ zipCode: cleanCep, option })
+                            )
+                          }
+                        }}
                         className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${
                           selectedShipping?.code === option.code
                             ? 'border-primary bg-pink-50'
@@ -509,6 +582,17 @@ export default function CartPage() {
                 <CreditCard className="w-5 h-5" />
                 Finalizar Compra
               </Link>
+
+              <div className="mt-4 text-center text-sm text-muted-foreground">
+                <span>Já tem conta?</span>{' '}
+                <Link href="/login" className="text-primary font-semibold hover:underline">
+                  Entrar
+                </Link>
+                <span className="mx-2">•</span>
+                <Link href="/register" className="text-primary font-semibold hover:underline">
+                  Criar conta
+                </Link>
+              </div>
 
               {/* Informações Adicionais */}
               <div className="mt-6 space-y-2 text-xs text-muted-foreground">
