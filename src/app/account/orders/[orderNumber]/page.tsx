@@ -1,69 +1,159 @@
-import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options'
-import { db } from '@/lib/db'
+'use client'
 
-export default async function OrderDetailPage({
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useSession } from 'next-auth/react'
+
+interface OrderItem {
+  id: string
+  productName: string
+  productImage?: string | null
+  quantity: number
+  price: number
+}
+
+interface Order {
+  id: string
+  orderNumber: string
+  status: string
+  paymentStatus: string
+  total: number
+  trackingCode?: string | null
+  shippingAddress: any
+  items: OrderItem[]
+}
+
+export default function OrderDetailPage({
   params,
 }: {
   params: { orderNumber: string }
 }) {
-  const rawParam = params?.orderNumber
-  if (!rawParam) {
-    notFound()
-  }
-  const orderNumber = decodeURIComponent(rawParam).trim()
-  if (!orderNumber) {
-    notFound()
+  const { data: session, status } = useSession()
+  const [order, setOrder] = useState<Order | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const orderNumber = useMemo(() => {
+    const raw = params?.orderNumber || ''
+    return decodeURIComponent(raw).trim()
+  }, [params])
+
+  useEffect(() => {
+    const fetchOrder = async () => {
+      if (!orderNumber) {
+        setError('Pedido inválido.')
+        setLoading(false)
+        return
+      }
+      if (!session?.user) return
+      setLoading(true)
+      setError('')
+      try {
+        const response = await fetch(`/api/shop/orders?orderNumber=${encodeURIComponent(orderNumber)}`)
+        const data = await response.json()
+        if (!response.ok) {
+          setError(data.error || 'Erro ao carregar pedido.')
+          setOrder(null)
+          return
+        }
+        const found = data.orders?.[0] || null
+        if (!found) {
+          setError('Pedido não encontrado.')
+          setOrder(null)
+          return
+        }
+        setOrder(found)
+      } catch (err) {
+        setError('Erro ao carregar pedido.')
+        setOrder(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (status === 'authenticated') {
+      fetchOrder()
+    } else if (status === 'unauthenticated') {
+      setLoading(false)
+    }
+  }, [orderNumber, session, status])
+
+  const shipping = useMemo(() => {
+    if (!order?.shippingAddress) return {}
+    if (typeof order.shippingAddress === 'string') {
+      try {
+        return JSON.parse(order.shippingAddress)
+      } catch (error) {
+        return {}
+      }
+    }
+    return order.shippingAddress
+  }, [order])
+
+  if (status === 'loading' || loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-pink-300 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-foreground">Carregando pedido...</p>
+        </div>
+      </div>
+    )
   }
 
-  const session = await getServerSession(authOptions)
   if (!session) {
-    redirect('/login')
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 text-center">
+          <h1 className="font-display font-bold text-2xl text-foreground mb-2">
+            Faça login para ver o pedido
+          </h1>
+          <p className="text-muted-foreground mb-6">
+            Você precisa estar logado para acessar seus pedidos.
+          </p>
+          <Link
+            href="/login"
+            className="block w-full py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors"
+          >
+            Fazer Login
+          </Link>
+        </div>
+      </div>
+    )
   }
-
-  const order =
-    (await db.order.findUnique({
-      where: { orderNumber },
-      include: { items: true },
-    })) ||
-    (rawParam.startsWith('cm')
-      ? await db.order.findUnique({
-          where: { id: rawParam },
-          include: { items: true },
-        })
-      : null)
 
   if (!order) {
-    notFound()
-  }
-
-  const isAdmin = session.user?.role === 'admin'
-  if (!isAdmin && order.userId !== session.user.id) {
-    redirect('/account')
-  }
-
-  let shipping: {
-    recipient?: string
-    phone?: string
-    zipCode?: string
-    street?: string
-    number?: string
-    complement?: string
-    neighborhood?: string
-    city?: string
-    state?: string
-  } = {}
-
-  try {
-    if (typeof order.shippingAddress === 'string') {
-      shipping = JSON.parse(order.shippingAddress)
-    } else if (order.shippingAddress && typeof order.shippingAddress === 'object') {
-      shipping = order.shippingAddress as typeof shipping
-    }
-  } catch (error) {
-    shipping = {}
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-20">
+        <header className="border-b bg-white/80 backdrop-blur-sm">
+          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <Link href="/account" className="text-sm font-semibold text-foreground">
+              Voltar para minha conta
+            </Link>
+            <h1 className="font-display font-bold text-xl text-foreground">
+              Pedido
+            </h1>
+            <div className="w-8" />
+          </div>
+        </header>
+        <main className="max-w-3xl mx-auto px-4 py-12">
+          <div className="bg-white rounded-2xl shadow-md p-8 text-center">
+            <h2 className="font-display font-bold text-2xl text-foreground mb-2">
+              {error || 'Pedido não encontrado'}
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Verifique se o número do pedido está correto ou volte para sua conta.
+            </p>
+            <Link
+              href="/account"
+              className="inline-flex items-center px-6 py-3 bg-primary text-white rounded-xl font-semibold"
+            >
+              Voltar para minha conta
+            </Link>
+          </div>
+        </main>
+      </div>
+    )
   }
 
   return (

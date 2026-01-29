@@ -266,6 +266,7 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20')
     const status = searchParams.get('status')
     const userIdParam = searchParams.get('userId')
+    const orderNumberParam = searchParams.get('orderNumber')
 
     const where: any = {}
     const isAdmin = session.user?.role === 'admin'
@@ -281,12 +282,20 @@ export async function GET(request: NextRequest) {
       where.status = status
     }
 
+    if (orderNumberParam) {
+      where.orderNumber = orderNumberParam
+    }
+
     const [orders, total] = await Promise.all([
       db.order.findMany({
         where,
         orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
+        ...(orderNumberParam
+          ? {}
+          : {
+              skip: (page - 1) * limit,
+              take: limit,
+            }),
         include: {
           items: true,
         },
