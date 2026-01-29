@@ -458,8 +458,8 @@ function CheckoutContent() {
       }
 
       try {
-        const { loadMercadoPago } = await import('@mercadopago/sdk-js')
-        const mp = await loadMercadoPago(publicKey)
+        const mpModule = (await import('@mercadopago/sdk-js')) as { loadMercadoPago: (key: string) => Promise<any> }
+        const mp = await mpModule.loadMercadoPago(publicKey)
         if (!isMounted) return
 
         if (cardFormRef.current?.unmount) {
