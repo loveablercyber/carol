@@ -101,6 +101,31 @@ export default function AdminOrders() {
     }
   }
 
+  const deleteOrder = async (orderId: string) => {
+    if (!confirm('Deseja remover este pedido?')) return
+    try {
+      const response = await fetch('/api/shop/orders', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: orderId }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Erro ao remover pedido')
+      }
+
+      toast({ title: 'Pedido removido' })
+      setOrders((prev) => prev.filter((order) => order.id !== orderId))
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao remover pedido',
+        description: error?.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    }
+  }
+
   const getUpdateValue = (
     orderId: string,
     field: 'status' | 'paymentStatus' | 'trackingCode',
@@ -220,16 +245,24 @@ export default function AdminOrders() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm text-muted-foreground">
                 <span>
                   {new Date(order.createdAt).toLocaleDateString('pt-BR')}
                 </span>
-                <button
-                  onClick={() => updateOrder(order)}
-                  className="px-4 py-2 bg-primary text-white rounded-lg font-semibold"
-                >
-                  Atualizar pedido
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => updateOrder(order)}
+                    className="px-4 py-2 bg-primary text-white rounded-lg font-semibold"
+                  >
+                    Salvar alterações
+                  </button>
+                  <button
+                    onClick={() => deleteOrder(order.id)}
+                    className="px-4 py-2 border border-red-200 text-red-600 rounded-lg font-semibold hover:border-red-400"
+                  >
+                    Remover pedido
+                  </button>
+                </div>
               </div>
 
               {order.items?.length > 0 && (

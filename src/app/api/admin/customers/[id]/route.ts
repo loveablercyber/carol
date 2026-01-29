@@ -85,6 +85,29 @@ export async function DELETE(
       )
     }
 
+    const existing = await db.user.findUnique({ where: { id: userId } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 })
+    }
+
+    if (existing.role === 'admin') {
+      const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase().trim()
+      if (superAdminEmail && existing.email.toLowerCase() === superAdminEmail) {
+        return NextResponse.json(
+          { error: 'Não é possível remover o superadmin' },
+          { status: 400 }
+        )
+      }
+
+      const adminCount = await db.user.count({ where: { role: 'admin' } })
+      if (adminCount <= 1) {
+        return NextResponse.json(
+          { error: 'Você não pode remover o último administrador' },
+          { status: 400 }
+        )
+      }
+    }
+
     await db.user.delete({ where: { id: userId } })
 
     return NextResponse.json({ success: true })

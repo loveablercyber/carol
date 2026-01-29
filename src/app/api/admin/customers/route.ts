@@ -48,11 +48,14 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.toLowerCase().trim()
+
     return NextResponse.json({
       customers: customers.map((customer) => ({
         ...customer,
         ordersCount: customer._count.orders,
         addressesCount: customer._count.addresses,
+        isSuperAdmin: Boolean(superAdminEmail && customer.email.toLowerCase() === superAdminEmail),
       })),
     })
   } catch (error) {

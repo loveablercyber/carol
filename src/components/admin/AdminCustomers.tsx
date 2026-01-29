@@ -13,6 +13,7 @@ interface Customer {
   createdAt: string
   ordersCount: number
   addressesCount: number
+  isSuperAdmin?: boolean
 }
 
 const initialForm = {
@@ -288,6 +289,11 @@ export default function AdminCustomers() {
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {customer.email} • {customer.role === 'admin' ? 'Administrador' : 'Cliente'}
+                    {customer.isSuperAdmin && (
+                      <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                        Superadmin
+                      </span>
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Pedidos: {customer.ordersCount} • Endereços: {customer.addressesCount}
@@ -300,12 +306,22 @@ export default function AdminCustomers() {
                   >
                     Editar
                   </button>
-                  <button
-                    onClick={() => handleDelete(customer.id)}
-                    className="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:border-red-400"
-                  >
-                    Remover
-                  </button>
+                  {customer.isSuperAdmin ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-400 cursor-not-allowed"
+                    >
+                      Remover
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleDelete(customer.id)}
+                      className="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:border-red-400"
+                    >
+                      Remover
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

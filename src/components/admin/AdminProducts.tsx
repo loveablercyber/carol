@@ -52,19 +52,31 @@ export default function AdminProducts() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(initialForm)
   const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active')
 
   const filteredProducts = useMemo(() => {
     if (!search) return products
     return products.filter((product) =>
-      product.name.toLowerCase().includes(search.toLowerCase())
+      product.name.toLowerCase().includes(search.toLowerCase()) ||
+      product.slug.toLowerCase().includes(search.toLowerCase())
     )
   }, [products, search])
+
+  const activeProducts = useMemo(
+    () => filteredProducts.filter((product) => product.isActive),
+    [filteredProducts]
+  )
+
+  const inactiveProducts = useMemo(
+    () => filteredProducts.filter((product) => !product.isActive),
+    [filteredProducts]
+  )
 
   const fetchData = async () => {
     setLoading(true)
     try {
       const [productsRes, categoriesRes] = await Promise.all([
-        fetch('/api/shop/products?limit=200'),
+        fetch('/api/shop/products?all=true&limit=200'),
         fetch('/api/shop/categories?all=true'),
       ])
 
@@ -180,6 +192,33 @@ export default function AdminProducts() {
     } catch (error: any) {
       toast({
         title: 'Erro ao remover produto',
+        description: error?.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const handleActivate = async (product: Product) => {
+    try {
+      const response = await fetch(`/api/shop/products/${product.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          isActive: true,
+          inStock: product.stock > 0,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Erro ao ativar produto')
+      }
+
+      toast({ title: 'Produto ativado' })
+      fetchData()
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao ativar produto',
         description: error?.message || 'Tente novamente.',
         variant: 'destructive',
       })
@@ -355,13 +394,38 @@ export default function AdminProducts() {
           />
         </div>
 
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold border ${
+              activeTab === 'active'
+                ? 'bg-primary text-white border-primary'
+                : 'border-pink-200 text-muted-foreground hover:border-pink-300'
+            }`}
+          >
+            Ativos ({activeProducts.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('inactive')}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold border ${
+              activeTab === 'inactive'
+                ? 'bg-primary text-white border-primary'
+                : 'border-pink-200 text-muted-foreground hover:border-pink-300'
+            }`}
+          >
+            Desativados ({inactiveProducts.length})
+          </button>
+        </div>
+
         {loading ? (
           <p className="text-muted-foreground">Carregando produtos...</p>
-        ) : filteredProducts.length === 0 ? (
-          <p className="text-muted-foreground">Nenhum produto encontrado.</p>
+        ) : activeTab === 'active' && activeProducts.length === 0 ? (
+          <p className="text-muted-foreground">Nenhum produto ativo encontrado.</p>
+        ) : activeTab === 'inactive' && inactiveProducts.length === 0 ? (
+          <p className="text-muted-foreground">Nenhum produto desativado encontrado.</p>
         ) : (
           <div className="space-y-3">
-            {filteredProducts.map((product) => (
+            {(activeTab === 'active' ? activeProducts : inactiveProducts).map((product) => (
               <div
                 key={product.id}
                 className="border border-gray-100 rounded-xl p-4 flex flex-col md:flex-row md:items-center gap-4"
@@ -382,6 +446,14 @@ export default function AdminProducts() {
                   >
                     Editar
                   </button>
+                  {activeTab === 'inactive' && (
+                    <button
+                      onClick={() => handleActivate(product)}
+                      className="px-4 py-2 text-sm rounded-lg border border-green-200 text-green-700 hover:border-green-400"
+                    >
+                      Ativar
+                    </button>
+                  )}
                   <button
                     onClick={() => handleDelete(product.id)}
                     className="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:border-red-400"
