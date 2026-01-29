@@ -458,8 +458,14 @@ function CheckoutContent() {
       }
 
       try {
-        const mpModule = (await import('@mercadopago/sdk-js')) as { loadMercadoPago: (key: string) => Promise<any> }
-        const mp = await mpModule.loadMercadoPago(publicKey)
+        const mpModule = (await import('@mercadopago/sdk-js')) as { loadMercadoPago: () => Promise<void> }
+        await mpModule.loadMercadoPago()
+        const MercadoPagoCtor = (window as any)?.MercadoPago
+        if (!MercadoPagoCtor) {
+          setCardFormError('Mercado Pago SDK não disponível.')
+          return
+        }
+        const mp = new MercadoPagoCtor(publicKey, { locale: 'pt-BR' })
         if (!isMounted) return
 
         if (cardFormRef.current?.unmount) {
