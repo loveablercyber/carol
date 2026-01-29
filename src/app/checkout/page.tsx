@@ -68,6 +68,8 @@ function CheckoutContent() {
   const [cart, setCart] = useState<{ items: CartItem[] } | null>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
+  const [paymentError, setPaymentError] = useState('')
+  const [createdOrder, setCreatedOrder] = useState<{ id: string; orderNumber: string; total: number } | null>(null)
 
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     recipient: '',
@@ -510,6 +512,45 @@ function CheckoutContent() {
   }
 
   // Criar pedido
+  const requestPixPayment = async (orderInfo: { id: string; orderNumber: string; total: number }) => {
+    setPaymentError('')
+    setPixCode('')
+    setPixQrImage('')
+    try {
+      const paymentResponse = await fetch('/api/payments/mercadopago', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: orderInfo.id,
+          amount: orderInfo.total,
+          description: `Pedido ${orderInfo.orderNumber}`,
+          payerEmail:
+            session?.user?.email ||
+            shippingAddress.recipient.toLowerCase().replace(/\\s/g, '.') + '@email.com',
+        }),
+      })
+
+      const paymentData = await paymentResponse.json()
+      if (!paymentResponse.ok) {
+        setPaymentError(paymentData?.error || 'Erro ao gerar pagamento')
+        return
+      }
+
+      if (paymentData.qrCode) {
+        setPixCode(paymentData.qrCode)
+      }
+      if (paymentData.qrCodeBase64) {
+        setPixQrImage(`data:image/png;base64,${paymentData.qrCodeBase64}`)
+      }
+
+      if (!paymentData.qrCode && !paymentData.qrCodeBase64) {
+        setPaymentError('Não foi possível gerar o QR Code do Pix.')
+      }
+    } catch (error) {
+      setPaymentError('Erro ao gerar pagamento.')
+    }
+  }
+
   const createOrder = async () => {
     // Validações
     const newErrors: Record<string, string> = {}
@@ -555,41 +596,19 @@ function CheckoutContent() {
 
       if (response.ok) {
         setOrderCreated(true)
+        setCreatedOrder({
+          id: data.order.id,
+          orderNumber: data.order.orderNumber,
+          total: data.order.total,
+        })
         if (paymentMethod !== 'PIX') {
           setPaymentMethod('PIX')
         }
-        try {
-          const paymentResponse = await fetch('/api/payments/mercadopago', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              orderId: data.order.id,
-              amount: data.order.total,
-              description: `Pedido ${data.order.orderNumber}`,
-              payerEmail:
-                session?.user?.email ||
-                shippingAddress.recipient.toLowerCase().replace(/\\s/g, '.') + '@email.com',
-            }),
-          })
-
-          if (paymentResponse.ok) {
-            const paymentData = await paymentResponse.json()
-            if (paymentData.qrCode) {
-              setPixCode(paymentData.qrCode)
-            }
-            if (paymentData.qrCodeBase64) {
-              setPixQrImage(`data:image/png;base64,${paymentData.qrCodeBase64}`)
-            }
-          } else {
-            setPixCode(
-              `00020126360014BR.GOV.BCB.PIX0114+${data.order.orderNumber}52040000530398654049`
-            )
-          }
-        } catch (error) {
-          setPixCode(
-            `00020126360014BR.GOV.BCB.PIX0114+${data.order.orderNumber}52040000530398654049`
-          )
-        }
+        await requestPixPayment({
+          id: data.order.id,
+          orderNumber: data.order.orderNumber,
+          total: data.order.total,
+        })
       } else {
         setErrors({ submit: data.error || 'Erro ao criar pedido' })
       }
@@ -882,17 +901,32 @@ function CheckoutContent() {
           <div className="bg-gray-100 p-4 rounded-xl mb-6">
             {pixQrImage ? (
               <img src={pixQrImage} alt="QR Code Pix" className="w-48 h-48 mx-auto" />
+            ) : paymentError ? (
+              <div className="text-sm text-red-500">{paymentError}</div>
             ) : (
               <QrCode className="w-48 h-48 mx-auto text-foreground" />
             )}
           </div>
 
-          <p className="text-sm text-muted-foreground mb-2">
-            Ou copie o código Pix:
-          </p>
-          <code className="block bg-gray-100 p-3 rounded-lg text-xs mb-6 break-all">
-            {pixCode}
-          </code>
+          {pixCode && (
+            <>
+              <p className="text-sm text-muted-foreground mb-2">
+                Ou copie o código Pix:
+              </p>
+              <code className="block bg-gray-100 p-3 rounded-lg text-xs mb-6 break-all">
+                {pixCode}
+              </code>
+            </>
+          )}
+
+          {paymentError && createdOrder && (
+            <button
+              onClick={() => requestPixPayment(createdOrder)}
+              className="w-full py-3 mb-4 border border-pink-200 rounded-xl font-semibold text-primary hover:border-pink-400"
+            >
+              Tentar gerar Pix novamente
+            </button>
+          )}
 
           <button
             onClick={() => router.push('/account')}
