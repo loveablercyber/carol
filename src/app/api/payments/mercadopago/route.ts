@@ -34,11 +34,13 @@ export async function POST(request: NextRequest) {
 
     const finalAmount = Number(order.total)
 
+    const idempotencyKey = orderId ? `order-${orderId}` : crypto.randomUUID()
     const response = await fetch(MERCADO_PAGO_URL, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
+        'X-Idempotency-Key': idempotencyKey,
       },
       body: JSON.stringify({
         transaction_amount: finalAmount,
