@@ -428,6 +428,17 @@ function CheckoutContent() {
     }
   }, [cart, shippingAddress.zipCode])
 
+  // Calcular totais
+  const subtotal = cart?.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) || 0
+  const discount = coupon ? (coupon.type === 'PERCENTAGE' ? subtotal * (coupon.value / 100) : coupon.value) : 0
+  const isFreeShipping = subtotal >= 300 || coupon?.type === 'FREE_SHIPPING'
+  const shippingCost = selectedShipping ? (isFreeShipping ? 0 : selectedShipping.price) : 0
+  const total = Math.max(0, subtotal - discount + shippingCost)
+  const formattedZip = shippingAddress.zipCode
+    ? shippingAddress.zipCode.replace(/^(\d{5})(\d)/, '$1-$2')
+    : ''
+  const shouldShowShippingOptions = showShippingOptions || !selectedShipping
+
   useEffect(() => {
     if (paymentMethod !== 'CREDIT_CARD') {
       setCardFormReady(false)
@@ -528,17 +539,6 @@ function CheckoutContent() {
       }
     }
   }, [paymentMethod, total])
-
-  // Calcular totais
-  const subtotal = cart?.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) || 0
-  const discount = coupon ? (coupon.type === 'PERCENTAGE' ? subtotal * (coupon.value / 100) : coupon.value) : 0
-  const isFreeShipping = subtotal >= 300 || coupon?.type === 'FREE_SHIPPING'
-  const shippingCost = selectedShipping ? (isFreeShipping ? 0 : selectedShipping.price) : 0
-  const total = Math.max(0, subtotal - discount + shippingCost)
-  const formattedZip = shippingAddress.zipCode
-    ? shippingAddress.zipCode.replace(/^(\d{5})(\d)/, '$1-$2')
-    : ''
-  const shouldShowShippingOptions = showShippingOptions || !selectedShipping
 
   // Buscar frete
   const calculateShipping = async (cep: string) => {
