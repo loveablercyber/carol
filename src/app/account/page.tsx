@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { User, ShoppingBag, LogOut, MapPin, CreditCard, Clock, Package, CheckCircle, XCircle } from 'lucide-react'
+import { User, ShoppingBag, LogOut, MapPin, CreditCard, Clock, Package, CheckCircle, XCircle, LayoutDashboard } from 'lucide-react'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 
 interface Order {
@@ -383,6 +383,15 @@ function AccountContent() {
                   <MapPin className="w-5 h-5" />
                   Enderecos
                 </button>
+                {session.user?.role === 'admin' && (
+                  <Link
+                    href="/admin"
+                    className="w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all hover:bg-gray-100"
+                  >
+                    <LayoutDashboard className="w-5 h-5" />
+                    Painel Admin
+                  </Link>
+                )}
               </nav>
             </div>
           </div>
