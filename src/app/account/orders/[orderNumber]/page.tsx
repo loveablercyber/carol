@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 
@@ -24,36 +25,31 @@ interface Order {
   items: OrderItem[]
 }
 
-export default function OrderDetailPage({
-  params,
-}: {
-  params: { orderNumber: string }
-}) {
+export default function OrderDetailPage() {
   return (
     <AuthProvider>
-      <OrderDetailContent params={params} />
+      <OrderDetailContent />
     </AuthProvider>
   )
 }
 
-function OrderDetailContent({ params }: { params: { orderNumber: string } }) {
+function OrderDetailContent() {
+  const params = useParams()
   const { data: session, status } = useSession()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const orderNumber = useMemo(() => {
-    const raw = params?.orderNumber || ''
-    return decodeURIComponent(raw).trim()
+    const raw = params?.orderNumber
+    if (!raw) return ''
+    const value = Array.isArray(raw) ? raw[0] : raw
+    return decodeURIComponent(value).trim()
   }, [params])
 
   useEffect(() => {
     const fetchOrder = async () => {
-      if (!orderNumber) {
-        setError('Pedido inválido.')
-        setLoading(false)
-        return
-      }
+      if (!orderNumber) return
       if (!session?.user) return
       setLoading(true)
       setError('')
@@ -81,6 +77,11 @@ function OrderDetailContent({ params }: { params: { orderNumber: string } }) {
     }
 
     if (status === 'authenticated') {
+      if (!orderNumber) {
+        setError('Pedido inválido.')
+        setLoading(false)
+        return
+      }
       fetchOrder()
     } else if (status === 'unauthenticated') {
       setLoading(false)
