@@ -66,36 +66,46 @@ export async function DELETE(
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
-    if (session.user?.id === params.id) {
+    const userId = params?.id?.trim()
+    if (!userId) {
+      return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+    }
+
+    if (session.user?.id === userId) {
       return NextResponse.json(
         { error: 'Você não pode remover sua própria conta' },
         { status: 400 }
       )
     }
 
+    const existing = await db.user.findUnique({ where: { id: userId } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 })
+    }
+
     await db.$transaction([
       db.order.updateMany({
-        where: { userId: params.id },
+        where: { userId },
         data: { userId: null },
       }),
       db.cart.updateMany({
-        where: { userId: params.id },
+        where: { userId },
         data: { userId: null },
       }),
       db.review.updateMany({
-        where: { userId: params.id },
+        where: { userId },
         data: { userId: null },
       }),
       db.address.deleteMany({
-        where: { userId: params.id },
+        where: { userId },
       }),
       db.session.deleteMany({
-        where: { userId: params.id },
+        where: { userId },
       }),
       db.account.deleteMany({
-        where: { userId: params.id },
+        where: { userId },
       }),
-      db.user.delete({ where: { id: params.id } }),
+      db.user.delete({ where: { id: userId } }),
     ])
 
     return NextResponse.json({ success: true })
