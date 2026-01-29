@@ -466,6 +466,12 @@ function CheckoutContent() {
           cardFormRef.current.unmount()
         }
 
+        const rootForm = document.getElementById('mp-card-form')
+        if (!rootForm) {
+          setCardFormError('Formulário do cartão não encontrado na página.')
+          return
+        }
+
         cardFormRef.current = mp.cardForm({
           amount: total.toFixed(2),
           iframe: true,
@@ -525,7 +531,12 @@ function CheckoutContent() {
         })
       } catch (error) {
         if (isMounted) {
-          setCardFormError('Erro ao iniciar formulário do cartão.')
+          const message =
+            error instanceof Error
+              ? error.message
+              : 'Erro ao iniciar formulário do cartão.'
+          console.error('Erro ao iniciar cardForm Mercado Pago:', error)
+          setCardFormError(message)
         }
       }
     }
