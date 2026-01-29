@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession, signIn } from 'next-auth/react'
 import Link from 'next/link'
 import { ShoppingBag, MapPin, CreditCard, QrCode, ArrowLeft, Truck, Lock, CheckCircle } from 'lucide-react'
 import { AuthProvider } from '@/components/providers/AuthProvider'
+import { loadMercadoPago } from '@mercadopago/sdk-js'
 
 interface ShippingAddress {
   recipient: string
@@ -101,11 +102,9 @@ function CheckoutContent() {
   const [prefillCoupon, setPrefillCoupon] = useState(false)
 
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD'>('PIX')
-  const [cardNumber, setCardNumber] = useState('')
-  const [cardExpiry, setCardExpiry] = useState('')
-  const [cardCvv, setCardCvv] = useState('')
-  const [cardHolderName, setCardHolderName] = useState('')
-  const [cardInstallments, setCardInstallments] = useState(1)
+  const cardFormRef = useRef<any>(null)
+  const [cardFormReady, setCardFormReady] = useState(false)
+  const [cardFormError, setCardFormError] = useState('')
 
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [orderCreated, setOrderCreated] = useState(false)
@@ -430,6 +429,105 @@ function CheckoutContent() {
     }
   }, [cart, shippingAddress.zipCode])
 
+  useEffect(() => {
+    if (paymentMethod !== 'CREDIT_CARD') {
+      setCardFormReady(false)
+      return
+    }
+
+    let isMounted = true
+
+    const initCardForm = async () => {
+      setCardFormError('')
+      setCardFormReady(false)
+      const publicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
+      if (!publicKey) {
+        setCardFormError('Chave pública do Mercado Pago não configurada.')
+        return
+      }
+
+      try {
+        const mp = await loadMercadoPago(publicKey)
+        if (!isMounted) return
+
+        if (cardFormRef.current?.unmount) {
+          cardFormRef.current.unmount()
+        }
+
+        cardFormRef.current = mp.cardForm({
+          amount: total.toFixed(2),
+          iframe: true,
+          form: {
+            id: 'mp-card-form',
+            cardholderName: {
+              id: 'form-checkout__cardholderName',
+              placeholder: 'Nome no cartão',
+            },
+            cardholderEmail: {
+              id: 'form-checkout__cardholderEmail',
+              placeholder: 'Email',
+            },
+            cardNumber: {
+              id: 'form-checkout__cardNumber',
+              placeholder: 'Número do cartão',
+            },
+            expirationDate: {
+              id: 'form-checkout__expirationDate',
+              placeholder: 'MM/AA',
+            },
+            securityCode: {
+              id: 'form-checkout__securityCode',
+              placeholder: 'CVV',
+            },
+            installments: {
+              id: 'form-checkout__installments',
+              placeholder: 'Parcelas',
+            },
+            issuer: {
+              id: 'form-checkout__issuer',
+              placeholder: 'Banco emissor',
+            },
+            identificationType: {
+              id: 'form-checkout__identificationType',
+              placeholder: 'Tipo',
+            },
+            identificationNumber: {
+              id: 'form-checkout__identificationNumber',
+              placeholder: 'CPF',
+            },
+          },
+          callbacks: {
+            onFormMounted: (error: any) => {
+              if (error) {
+                console.warn('Erro ao montar cardForm:', error)
+                setCardFormError('Erro ao carregar formulário do cartão.')
+                return
+              }
+              setCardFormReady(true)
+            },
+            onFetching: () => {
+              setCardFormReady(false)
+              return () => setCardFormReady(true)
+            },
+          },
+        })
+      } catch (error) {
+        if (isMounted) {
+          setCardFormError('Erro ao iniciar formulário do cartão.')
+        }
+      }
+    }
+
+    initCardForm()
+
+    return () => {
+      isMounted = false
+      if (cardFormRef.current?.unmount) {
+        cardFormRef.current.unmount()
+      }
+    }
+  }, [paymentMethod, total])
+
   // Calcular totais
   const subtotal = cart?.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) || 0
   const discount = coupon ? (coupon.type === 'PERCENTAGE' ? subtotal * (coupon.value / 100) : coupon.value) : 0
@@ -551,6 +649,67 @@ function CheckoutContent() {
     }
   }
 
+  const requestCardPayment = async (orderInfo: { id: string; orderNumber: string; total: number }) => {
+    setPaymentError('')
+    const cardForm = cardFormRef.current
+    if (!cardForm || typeof cardForm.getCardFormData !== 'function') {
+      setPaymentError('Formulário do cartão não carregado.')
+      return false
+    }
+
+    const formData = cardForm.getCardFormData()
+    const token = formData?.token
+    const paymentMethodId = formData?.paymentMethodId
+    const issuerId = formData?.issuerId
+    const installments = formData?.installments
+    const identificationType = formData?.identificationType || 'CPF'
+    const identificationNumber = formData?.identificationNumber || customerCpf
+    const payerEmail =
+      formData?.cardholderEmail ||
+      session?.user?.email ||
+      shippingAddress.recipient.toLowerCase().replace(/\\s/g, '.') + '@email.com'
+
+    if (!token || !paymentMethodId) {
+      setPaymentError('Preencha os dados do cartão para continuar.')
+      return false
+    }
+
+    if (!identificationNumber) {
+      setPaymentError('CPF obrigatório para pagamento com cartão.')
+      return false
+    }
+
+    try {
+      const response = await fetch('/api/payments/mercadopago', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: orderInfo.id,
+          amount: orderInfo.total,
+          description: `Pedido ${orderInfo.orderNumber}`,
+          payerEmail,
+          token,
+          paymentMethodId,
+          issuerId,
+          installments,
+          identificationType,
+          identificationNumber,
+        }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        setPaymentError(data?.error || 'Erro ao processar pagamento.')
+        return false
+      }
+
+      return true
+    } catch (error) {
+      setPaymentError('Erro ao processar pagamento.')
+      return false
+    }
+  }
+
   const createOrder = async () => {
     // Validações
     const newErrors: Record<string, string> = {}
@@ -567,6 +726,11 @@ function CheckoutContent() {
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
+      return
+    }
+
+    if (paymentMethod === 'CREDIT_CARD' && !cardFormReady) {
+      setPaymentError('Aguarde o carregamento do formulário do cartão.')
       return
     }
 
@@ -609,7 +773,14 @@ function CheckoutContent() {
           })
         } else {
           setOrderCreated(false)
-          router.push(`/account/orders/${data.order.orderNumber}`)
+          const paid = await requestCardPayment({
+            id: data.order.id,
+            orderNumber: data.order.orderNumber,
+            total: data.order.total,
+          })
+          if (paid) {
+            router.push(`/account/orders/${data.order.orderNumber}`)
+          }
         }
       } else {
         setErrors({ submit: data.error || 'Erro ao criar pedido' })
@@ -1326,46 +1497,34 @@ function CheckoutContent() {
               </div>
 
               {paymentMethod === 'CREDIT_CARD' && (
-                <div className="space-y-4">
+                <form id="mp-card-form" className="space-y-4" onSubmit={(event) => event.preventDefault()}>
+                  {cardFormError && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+                      {cardFormError}
+                    </div>
+                  )}
+
                   <div>
                     <label className="block text-sm font-semibold mb-2">Número do Cartão *</label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={19}
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim())}
-                      placeholder="0000 0000 0000 0000"
-                      className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                    <div
+                      id="form-checkout__cardNumber"
+                      className="w-full px-4 py-3 border border-pink-200 rounded-lg bg-white"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-semibold mb-2">Validade *</label>
-                      <input
-                        type="text"
-                        required
-                        maxLength={5}
-                        value={cardExpiry}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/\D/g, '').replace(/(.{2})/, '$1/')
-                          setCardExpiry(value)
-                        }}
-                        placeholder="MM/AA"
-                        className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                      <div
+                        id="form-checkout__expirationDate"
+                        className="w-full px-4 py-3 border border-pink-200 rounded-lg bg-white"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold mb-2">CVV *</label>
-                      <input
-                        type="text"
-                        required
-                        maxLength={4}
-                        value={cardCvv}
-                        onChange={(e) => setCardCvv(e.target.value.replace(/\D/g, ''))}
-                        placeholder="000"
-                        className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                      <div
+                        id="form-checkout__securityCode"
+                        className="w-full px-4 py-3 border border-pink-200 rounded-lg bg-white"
                       />
                     </div>
                   </div>
@@ -1373,27 +1532,65 @@ function CheckoutContent() {
                   <div>
                     <label className="block text-sm font-semibold mb-2">Nome no Cartão *</label>
                     <input
+                      id="form-checkout__cardholderName"
                       type="text"
-                      required
-                      value={cardHolderName}
-                      onChange={(e) => setCardHolderName(e.target.value.toUpperCase())}
-                      placeholder="NOME COMO ESTÁ NO CARTÃO"
+                      defaultValue={session?.user?.name || ''}
                       className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                     />
                   </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">Email *</label>
+                      <input
+                        id="form-checkout__cardholderEmail"
+                        type="email"
+                        defaultValue={session?.user?.email || ''}
+                        className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">CPF *</label>
+                      <input
+                        id="form-checkout__identificationNumber"
+                        type="text"
+                        defaultValue={customerCpf}
+                        readOnly={Boolean(customerCpf)}
+                        placeholder="000.000.000-00"
+                        className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">Documento</label>
+                      <select
+                        id="form-checkout__identificationType"
+                        defaultValue="CPF"
+                        className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                      >
+                        <option value="CPF">CPF</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">Parcelas</label>
+                      <select
+                        id="form-checkout__installments"
+                        className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                      >
+                        <option value="">Carregando parcelas...</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="block text-sm font-semibold mb-2">Parcelas</label>
+                    <label className="block text-sm font-semibold mb-2">Banco emissor</label>
                     <select
-                      value={cardInstallments}
-                      onChange={(e) => setCardInstallments(parseInt(e.target.value))}
+                      id="form-checkout__issuer"
                       className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                     >
-                      {[1, 2, 3, 6, 12].map((inst) => (
-                        <option key={inst} value={inst}>
-                          {inst}x {inst === 1 ? 'sem juros' : 'com juros'}
-                        </option>
-                      ))}
+                      <option value="">Carregando banco emissor...</option>
                     </select>
                   </div>
 
@@ -1401,7 +1598,7 @@ function CheckoutContent() {
                     <Lock className="w-4 h-4" />
                     <span>Pagamento 100% seguro via Mercado Pago</span>
                   </div>
-                </div>
+                </form>
               )}
 
               {paymentMethod === 'PIX' && (
@@ -1421,6 +1618,9 @@ function CheckoutContent() {
                 {processing ? 'Processando...' : 'Confirmar Pedido'}
               </button>
               {errors.submit && <p className="text-red-500 text-sm mt-2 text-center">{errors.submit}</p>}
+              {paymentError && !orderCreated && (
+                <p className="text-red-500 text-sm mt-2 text-center">{paymentError}</p>
+              )}
             </div>
           </div>
 

@@ -14,7 +14,18 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { orderId, amount, description, payerEmail } = body
+    const {
+      orderId,
+      amount,
+      description,
+      payerEmail,
+      token: cardToken,
+      paymentMethodId,
+      issuerId,
+      installments,
+      identificationType,
+      identificationNumber,
+    } = body
 
     if (!orderId || !amount || !payerEmail) {
       return NextResponse.json(
@@ -33,6 +44,16 @@ export async function POST(request: NextRequest) {
     }
 
     const finalAmount = Number(order.total)
+    const isCardPayment = Boolean(cardToken && paymentMethodId)
+
+    if (isCardPayment) {
+      if (!identificationNumber) {
+        return NextResponse.json(
+          { error: 'CPF obrigatório para pagamento com cartão' },
+          { status: 400 }
+        )
+      }
+    }
 
     const idempotencyKey = orderId ? `order-${orderId}` : crypto.randomUUID()
     const response = await fetch(MERCADO_PAGO_URL, {
@@ -42,14 +63,32 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         'X-Idempotency-Key': idempotencyKey,
       },
-      body: JSON.stringify({
-        transaction_amount: finalAmount,
-        description: description || `Pedido ${order.orderNumber}`,
-        payment_method_id: 'pix',
-        payer: {
-          email: payerEmail,
-        },
-      }),
+      body: JSON.stringify(
+        isCardPayment
+          ? {
+              transaction_amount: finalAmount,
+              token: cardToken,
+              description: description || `Pedido ${order.orderNumber}`,
+              installments: Number(installments || 1),
+              payment_method_id: paymentMethodId,
+              issuer_id: issuerId ? Number(issuerId) : undefined,
+              payer: {
+                email: payerEmail,
+                identification: {
+                  type: identificationType || 'CPF',
+                  number: identificationNumber,
+                },
+              },
+            }
+          : {
+              transaction_amount: finalAmount,
+              description: description || `Pedido ${order.orderNumber}`,
+              payment_method_id: 'pix',
+              payer: {
+                email: payerEmail,
+              },
+            }
+      ),
     })
 
     const data = await response.json()
@@ -61,17 +100,25 @@ export async function POST(request: NextRequest) {
     }
 
     const paymentId = String(data.id)
+    const paymentStatus =
+      data.status === 'approved'
+        ? 'APPROVED'
+        : data.status === 'rejected'
+        ? 'REJECTED'
+        : 'PENDING'
     await db.order.update({
       where: { id: orderId },
       data: {
         paymentId,
-        paymentStatus: data.status === 'approved' ? 'APPROVED' : 'PENDING',
+        paymentStatus,
+        ...(paymentStatus === 'APPROVED' ? { status: 'PAID' } : {}),
       },
     })
 
     return NextResponse.json({
       paymentId,
       status: data.status,
+      paymentType: isCardPayment ? 'CARD' : 'PIX',
       qrCode: data.point_of_interaction?.transaction_data?.qr_code,
       qrCodeBase64: data.point_of_interaction?.transaction_data?.qr_code_base64,
     })
