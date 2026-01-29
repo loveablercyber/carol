@@ -9,7 +9,11 @@ export default async function OrderDetailPage({
 }: {
   params: { orderNumber: string }
 }) {
-  const orderNumber = params?.orderNumber
+  const rawParam = params?.orderNumber
+  if (!rawParam) {
+    notFound()
+  }
+  const orderNumber = decodeURIComponent(rawParam).trim()
   if (!orderNumber) {
     notFound()
   }
@@ -19,10 +23,17 @@ export default async function OrderDetailPage({
     redirect('/login')
   }
 
-  const order = await db.order.findUnique({
-    where: { orderNumber },
-    include: { items: true },
-  })
+  const order =
+    (await db.order.findUnique({
+      where: { orderNumber },
+      include: { items: true },
+    })) ||
+    (rawParam.startsWith('cm')
+      ? await db.order.findUnique({
+          where: { id: rawParam },
+          include: { items: true },
+        })
+      : null)
 
   if (!order) {
     notFound()
