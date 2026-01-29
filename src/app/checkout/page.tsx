@@ -595,20 +595,22 @@ function CheckoutContent() {
       const data = await response.json()
 
       if (response.ok) {
-        setOrderCreated(true)
-        setCreatedOrder({
-          id: data.order.id,
-          orderNumber: data.order.orderNumber,
-          total: data.order.total,
-        })
-        if (paymentMethod !== 'PIX') {
-          setPaymentMethod('PIX')
+        if (paymentMethod === 'PIX') {
+          setOrderCreated(true)
+          setCreatedOrder({
+            id: data.order.id,
+            orderNumber: data.order.orderNumber,
+            total: data.order.total,
+          })
+          await requestPixPayment({
+            id: data.order.id,
+            orderNumber: data.order.orderNumber,
+            total: data.order.total,
+          })
+        } else {
+          setOrderCreated(false)
+          router.push(`/account/orders/${data.order.orderNumber}`)
         }
-        await requestPixPayment({
-          id: data.order.id,
-          orderNumber: data.order.orderNumber,
-          total: data.order.total,
-        })
       } else {
         setErrors({ submit: data.error || 'Erro ao criar pedido' })
       }
