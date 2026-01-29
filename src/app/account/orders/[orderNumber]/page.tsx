@@ -28,7 +28,27 @@ export default async function OrderDetailPage({
     redirect('/account')
   }
 
-  const shipping = JSON.parse(order.shippingAddress)
+  let shipping: {
+    recipient?: string
+    phone?: string
+    zipCode?: string
+    street?: string
+    number?: string
+    complement?: string
+    neighborhood?: string
+    city?: string
+    state?: string
+  } = {}
+
+  try {
+    if (typeof order.shippingAddress === 'string') {
+      shipping = JSON.parse(order.shippingAddress)
+    } else if (order.shippingAddress && typeof order.shippingAddress === 'object') {
+      shipping = order.shippingAddress as typeof shipping
+    }
+  } catch (error) {
+    shipping = {}
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-20">

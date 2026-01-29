@@ -378,7 +378,11 @@ function CheckoutContent() {
         } catch (error) {
           console.error('Erro ao salvar endereço após cadastro:', error)
         }
-        router.refresh()
+        if (typeof window !== 'undefined') {
+          window.location.reload()
+        } else {
+          router.refresh()
+        }
       }
     } catch (error) {
       setRegisterError('Erro ao criar conta. Tente novamente.')
