@@ -357,6 +357,19 @@ function AccountContent() {
               </div>
 
               <nav className="space-y-2">
+                {session.user?.role === 'admin' && (
+                  <button
+                    onClick={() => setActiveTab('admin')}
+                    className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
+                      activeTab === 'admin'
+                        ? 'bg-primary text-white'
+                        : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    <LayoutDashboard className="w-5 h-5" />
+                    Painel Admin
+                  </button>
+                )}
                 <button
                   onClick={() => setActiveTab('orders')}
                   className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
@@ -390,19 +403,6 @@ function AccountContent() {
                   <MapPin className="w-5 h-5" />
                   Enderecos
                 </button>
-                {session.user?.role === 'admin' && (
-                  <button
-                    onClick={() => setActiveTab('admin')}
-                    className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
-                      activeTab === 'admin'
-                        ? 'bg-primary text-white'
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    <LayoutDashboard className="w-5 h-5" />
-                    Painel Admin
-                  </button>
-                )}
               </nav>
             </div>
           </div>
