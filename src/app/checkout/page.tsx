@@ -555,44 +555,40 @@ function CheckoutContent() {
 
       if (response.ok) {
         setOrderCreated(true)
-        if (paymentMethod === 'PIX') {
-          try {
-            const paymentResponse = await fetch('/api/payments/mercadopago', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                orderId: data.order.id,
-                amount: data.order.total,
-                description: `Pedido ${data.order.orderNumber}`,
-                payerEmail:
-                  session?.user?.email ||
-                  shippingAddress.recipient.toLowerCase().replace(/\\s/g, '.') + '@email.com',
-              }),
-            })
+        if (paymentMethod !== 'PIX') {
+          setPaymentMethod('PIX')
+        }
+        try {
+          const paymentResponse = await fetch('/api/payments/mercadopago', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: data.order.id,
+              amount: data.order.total,
+              description: `Pedido ${data.order.orderNumber}`,
+              payerEmail:
+                session?.user?.email ||
+                shippingAddress.recipient.toLowerCase().replace(/\\s/g, '.') + '@email.com',
+            }),
+          })
 
-            if (paymentResponse.ok) {
-              const paymentData = await paymentResponse.json()
-              if (paymentData.qrCode) {
-                setPixCode(paymentData.qrCode)
-              }
-              if (paymentData.qrCodeBase64) {
-                setPixQrImage(`data:image/png;base64,${paymentData.qrCodeBase64}`)
-              }
-            } else {
-              setPixCode(
-                `00020126360014BR.GOV.BCB.PIX0114+${data.order.orderNumber}52040000530398654049`
-              )
+          if (paymentResponse.ok) {
+            const paymentData = await paymentResponse.json()
+            if (paymentData.qrCode) {
+              setPixCode(paymentData.qrCode)
             }
-          } catch (error) {
+            if (paymentData.qrCodeBase64) {
+              setPixQrImage(`data:image/png;base64,${paymentData.qrCodeBase64}`)
+            }
+          } else {
             setPixCode(
               `00020126360014BR.GOV.BCB.PIX0114+${data.order.orderNumber}52040000530398654049`
             )
           }
-        } else {
-          // Para cartão de crédito, simular aprovação
-          setTimeout(() => {
-            router.push(`/account/orders/${data.order.orderNumber}`)
-          }, 2000)
+        } catch (error) {
+          setPixCode(
+            `00020126360014BR.GOV.BCB.PIX0114+${data.order.orderNumber}52040000530398654049`
+          )
         }
       } else {
         setErrors({ submit: data.error || 'Erro ao criar pedido' })
