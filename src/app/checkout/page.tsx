@@ -83,6 +83,7 @@ function CheckoutContent() {
 
   const [addresses, setAddresses] = useState<any[]>([])
   const [selectedAddress, setSelectedAddress] = useState<any>(null)
+  const [isEditingAddress, setIsEditingAddress] = useState(false)
   const [customerCpf, setCustomerCpf] = useState('')
 
   const [shippingOptions, setShippingOptions] = useState<any[]>([])
@@ -160,6 +161,7 @@ function CheckoutContent() {
             city: defaultAddress.city || '',
             state: defaultAddress.state || '',
           })
+          setIsEditingAddress(false)
         }
       } catch (error) {
         console.error('Erro ao buscar enderecos:', error)
@@ -169,6 +171,34 @@ function CheckoutContent() {
     fetchProfile()
     fetchAddresses()
   }, [session])
+
+  useEffect(() => {
+    if (!session?.user) return
+    if (selectedAddress) return
+    if (shippingAddress.street) return
+
+    try {
+      const stored = localStorage.getItem('checkout_register_address')
+      if (!stored) return
+      const parsed = JSON.parse(stored)
+      if (parsed?.zipCode) {
+        setShippingAddress((prev) => ({
+          ...prev,
+          recipient: parsed.recipient || prev.recipient,
+          phone: parsed.phone || prev.phone,
+          zipCode: parsed.zipCode || prev.zipCode,
+          street: parsed.street || prev.street,
+          number: parsed.number || prev.number,
+          complement: parsed.complement || prev.complement,
+          neighborhood: parsed.neighborhood || prev.neighborhood,
+          city: parsed.city || prev.city,
+          state: parsed.state || prev.state,
+        }))
+      }
+    } catch (error) {
+      console.error('Erro ao ler endereço salvo:', error)
+    }
+  }, [session, selectedAddress, shippingAddress.street])
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -191,6 +221,71 @@ function CheckoutContent() {
       setLoginError('Erro ao fazer login. Tente novamente.')
     } finally {
       setLoginLoading(false)
+    }
+  }
+
+  const handleSaveAddress = async () => {
+    const newErrors: Record<string, string> = {}
+    if (!shippingAddress.recipient) newErrors.recipient = 'Nome é obrigatório'
+    if (!shippingAddress.phone) newErrors.phone = 'Telefone é obrigatório'
+    if (!shippingAddress.zipCode) newErrors.zipCode = 'CEP é obrigatório'
+    if (!shippingAddress.street) newErrors.street = 'Rua é obrigatória'
+    if (!shippingAddress.number) newErrors.number = 'Número é obrigatório'
+    if (!shippingAddress.neighborhood) newErrors.neighborhood = 'Bairro é obrigatório'
+    if (!shippingAddress.city) newErrors.city = 'Cidade é obrigatória'
+    if (!shippingAddress.state) newErrors.state = 'Estado é obrigatório'
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors((prev) => ({ ...prev, ...newErrors }))
+      return
+    }
+
+    try {
+      const payload = {
+        recipient: shippingAddress.recipient,
+        phone: shippingAddress.phone,
+        zipCode: shippingAddress.zipCode,
+        street: shippingAddress.street,
+        number: shippingAddress.number,
+        complement: shippingAddress.complement,
+        neighborhood: shippingAddress.neighborhood,
+        city: shippingAddress.city,
+        state: shippingAddress.state,
+        isDefault: true,
+      }
+
+      const response = await fetch(
+        selectedAddress ? `/api/account/addresses/${selectedAddress.id}` : '/api/account/addresses',
+        {
+          method: selectedAddress ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      )
+
+      if (!response.ok) {
+        const data = await response.json()
+        setErrors((prev) => ({ ...prev, address: data.error || 'Erro ao salvar endereço' }))
+        return
+      }
+
+      const data = await response.json()
+      const savedAddress = data.address
+      setSelectedAddress(savedAddress)
+      setAddresses((prev) => {
+        if (selectedAddress) {
+          return prev.map((address) => (address.id === savedAddress.id ? savedAddress : address))
+        }
+        return [savedAddress, ...prev]
+      })
+      setIsEditingAddress(false)
+      localStorage.removeItem('checkout_register_address')
+      if (shippingAddress.zipCode.length === 8) {
+        calculateShipping(shippingAddress.zipCode)
+      }
+    } catch (error) {
+      console.error('Erro ao salvar endereço:', error)
+      setErrors((prev) => ({ ...prev, address: 'Erro ao salvar endereço' }))
     }
   }
 
@@ -223,6 +318,21 @@ function CheckoutContent() {
     setRegisterError('')
 
     try {
+      localStorage.setItem(
+        'checkout_register_address',
+        JSON.stringify({
+          recipient: registerForm.name,
+          phone: registerForm.phone,
+          zipCode: registerForm.zipCode,
+          street: registerForm.street,
+          number: registerForm.number,
+          complement: registerForm.complement,
+          neighborhood: registerForm.neighborhood,
+          city: registerForm.city,
+          state: registerForm.state,
+        })
+      )
+
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -269,6 +379,30 @@ function CheckoutContent() {
       if (loginResult?.error) {
         setRegisterError('Conta criada. Faça login para continuar.')
       } else {
+        try {
+          const addressResponse = await fetch('/api/account/addresses')
+          const addressData = addressResponse.ok ? await addressResponse.json() : null
+          if (!addressData?.addresses || addressData.addresses.length === 0) {
+            await fetch('/api/account/addresses', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                recipient: registerForm.name,
+                phone: registerForm.phone,
+                zipCode: registerForm.zipCode,
+                street: registerForm.street,
+                number: registerForm.number,
+                complement: registerForm.complement,
+                neighborhood: registerForm.neighborhood,
+                city: registerForm.city,
+                state: registerForm.state,
+                isDefault: true,
+              }),
+            })
+          }
+        } catch (error) {
+          console.error('Erro ao salvar endereço após cadastro:', error)
+        }
         router.refresh()
       }
     } catch (error) {
@@ -828,7 +962,7 @@ function CheckoutContent() {
                 Endereço de Entrega
               </h2>
 
-              {selectedAddress ? (
+              {!isEditingAddress && (selectedAddress || shippingAddress.street) ? (
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-semibold text-foreground">
@@ -839,20 +973,176 @@ function CheckoutContent() {
                       {shippingAddress.complement ? `, ${shippingAddress.complement}` : ''}, {shippingAddress.neighborhood},{' '}
                       {shippingAddress.city}, {shippingAddress.state}, {formattedZip}
                     </p>
-                    {errors.phone && (
-                      <p className="text-xs text-red-500 mt-2">{errors.phone}</p>
-                    )}
                   </div>
-                  <Link href="/account" className="text-sm font-semibold text-primary">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingAddress(true)}
+                    className="text-sm font-semibold text-primary"
+                  >
                     Editar
-                  </Link>
+                  </button>
                 </div>
               ) : (
-                <div className="text-sm text-muted-foreground">
-                  Nenhum endereço cadastrado.{' '}
-                  <Link href="/account" className="text-primary font-semibold hover:underline">
-                    Adicionar endereço
-                  </Link>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold mb-2">Nome Completo *</label>
+                    <input
+                      type="text"
+                      required
+                      value={shippingAddress.recipient}
+                      onChange={(e) => setShippingAddress({ ...shippingAddress, recipient: e.target.value })}
+                      className={`w-full px-4 py-3 border ${errors.recipient ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
+                      placeholder="Seu nome completo"
+                    />
+                    {errors.recipient && <p className="text-red-500 text-xs mt-1">{errors.recipient}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Telefone</label>
+                    <input
+                      type="text"
+                      value={shippingAddress.phone || ''}
+                      onChange={(e) => setShippingAddress({ ...shippingAddress, phone: e.target.value })}
+                      className={`w-full px-4 py-3 border ${errors.phone ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
+                      placeholder="(DDD) 00000-0000"
+                    />
+                    {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">CEP *</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        required
+                        maxLength={8}
+                        value={shippingAddress.zipCode}
+                        onChange={(e) => {
+                          const cep = e.target.value.replace(/\D/g, '')
+                          setShippingAddress({ ...shippingAddress, zipCode: cep })
+                          if (cep.length === 8) {
+                            calculateShipping(cep)
+                            setShowShippingOptions(true)
+                          }
+                        }}
+                        className={`flex-1 px-4 py-3 border ${errors.zipCode ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
+                        placeholder="00000000"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (shippingAddress.zipCode.length === 8) {
+                            calculateShipping(shippingAddress.zipCode)
+                            setShowShippingOptions(true)
+                          }
+                        }}
+                        disabled={calculatingShipping}
+                        className="px-4 py-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                      >
+                        {calculatingShipping ? '...' : 'OK'}
+                      </button>
+                    </div>
+                    {errors.zipCode && <p className="text-red-500 text-xs mt-1">{errors.zipCode}</p>}
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold mb-2">Rua *</label>
+                    <input
+                      type="text"
+                      required
+                      value={shippingAddress.street}
+                      onChange={(e) => setShippingAddress({ ...shippingAddress, street: e.target.value })}
+                      className={`w-full px-4 py-3 border ${errors.street ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
+                      placeholder="Nome da rua"
+                    />
+                    {errors.street && <p className="text-red-500 text-xs mt-1">{errors.street}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Número *</label>
+                    <input
+                      type="text"
+                      required
+                      value={shippingAddress.number}
+                      onChange={(e) => setShippingAddress({ ...shippingAddress, number: e.target.value })}
+                      className={`w-full px-4 py-3 border ${errors.number ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
+                      placeholder="123"
+                    />
+                    {errors.number && <p className="text-red-500 text-xs mt-1">{errors.number}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Complemento</label>
+                    <input
+                      type="text"
+                      value={shippingAddress.complement || ''}
+                      onChange={(e) => setShippingAddress({ ...shippingAddress, complement: e.target.value })}
+                      className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                      placeholder="Apto, Bloco..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Bairro *</label>
+                    <input
+                      type="text"
+                      required
+                      value={shippingAddress.neighborhood}
+                      onChange={(e) => setShippingAddress({ ...shippingAddress, neighborhood: e.target.value })}
+                      className={`w-full px-4 py-3 border ${errors.neighborhood ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
+                      placeholder="Bairro"
+                    />
+                    {errors.neighborhood && <p className="text-red-500 text-xs mt-1">{errors.neighborhood}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Cidade *</label>
+                    <input
+                      type="text"
+                      required
+                      value={shippingAddress.city}
+                      onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
+                      className={`w-full px-4 py-3 border ${errors.city ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
+                      placeholder="Cidade"
+                    />
+                    {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Estado *</label>
+                    <input
+                      type="text"
+                      required
+                      value={shippingAddress.state}
+                      onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })}
+                      className={`w-full px-4 py-3 border ${errors.state ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
+                      placeholder="UF"
+                    />
+                    {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
+                  </div>
+
+                  {errors.address && (
+                    <p className="md:col-span-2 text-sm text-red-500">{errors.address}</p>
+                  )}
+
+                  <div className="md:col-span-2 flex items-center justify-end gap-2">
+                    {selectedAddress && (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditingAddress(false)}
+                        className="px-4 py-2 text-sm rounded-lg border border-pink-200 text-muted-foreground"
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSaveAddress}
+                      className="px-4 py-2 text-sm rounded-lg bg-primary text-white font-semibold"
+                    >
+                      Salvar endereço
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
