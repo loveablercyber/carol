@@ -50,7 +50,7 @@ export default function AccountPage() {
 function AccountContent() {
   const { data: session } = useSession()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'addresses'>('orders')
+  const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'addresses' | 'admin'>('orders')
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [addresses, setAddresses] = useState<Address[]>([])
@@ -384,13 +384,17 @@ function AccountContent() {
                   Enderecos
                 </button>
                 {session.user?.role === 'admin' && (
-                  <Link
-                    href="/admin"
-                    className="w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all hover:bg-gray-100"
+                  <button
+                    onClick={() => setActiveTab('admin')}
+                    className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
+                      activeTab === 'admin'
+                        ? 'bg-primary text-white'
+                        : 'hover:bg-gray-100'
+                    }`}
                   >
                     <LayoutDashboard className="w-5 h-5" />
                     Painel Admin
-                  </Link>
+                  </button>
                 )}
               </nav>
             </div>
@@ -754,6 +758,51 @@ function AccountContent() {
                       Salvar endereco
                     </button>
                   </form>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'admin' && session.user?.role === 'admin' && (
+              <div className="space-y-6">
+                <div className="bg-white rounded-2xl shadow-md p-6">
+                  <h2 className="font-display font-bold text-2xl text-foreground mb-6">
+                    Painel Administrativo
+                  </h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {[
+                      {
+                        title: 'Produtos',
+                        description: 'Gerencie catálogo, estoque e destaque.',
+                        href: '/admin/products',
+                      },
+                      {
+                        title: 'Categorias',
+                        description: 'Organize categorias e ordem de exibição.',
+                        href: '/admin/categories',
+                      },
+                      {
+                        title: 'Pedidos',
+                        description: 'Atualize status, pagamentos e rastreio.',
+                        href: '/admin/orders',
+                      },
+                      {
+                        title: 'Clientes',
+                        description: 'Gerencie contas, cadastros e acesso.',
+                        href: '/admin/customers',
+                      },
+                    ].map((card) => (
+                      <Link
+                        key={card.href}
+                        href={card.href}
+                        className="bg-white rounded-2xl shadow-md p-6 border border-pink-100 hover:border-pink-300 hover:shadow-lg transition-all"
+                      >
+                        <h3 className="font-display font-bold text-lg text-foreground mb-2">
+                          {card.title}
+                        </h3>
+                        <p className="text-muted-foreground">{card.description}</p>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
