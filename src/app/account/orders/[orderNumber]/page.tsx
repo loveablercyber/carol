@@ -9,13 +9,18 @@ export default async function OrderDetailPage({
 }: {
   params: { orderNumber: string }
 }) {
+  const orderNumber = params?.orderNumber
+  if (!orderNumber) {
+    notFound()
+  }
+
   const session = await getServerSession(authOptions)
   if (!session) {
     redirect('/login')
   }
 
   const order = await db.order.findUnique({
-    where: { orderNumber: params.orderNumber },
+    where: { orderNumber },
     include: { items: true },
   })
 
