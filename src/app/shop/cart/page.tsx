@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ShoppingBag, Trash2, Plus, Minus, ChevronRight, CreditCard, Truck, Check, X } from 'lucide-react'
+import { ShoppingBag, Trash2, Plus, Minus, ChevronRight, CreditCard, Check, X } from 'lucide-react'
+import { useSession, signIn } from 'next-auth/react'
+import { AuthProvider } from '@/components/providers/AuthProvider'
 
 interface CartItem {
   id: string
@@ -33,18 +35,22 @@ interface Coupon {
   maxDiscount?: number | null
 }
 
-interface ShippingOption {
-  code: string
-  name: string
-  price: number
-  deliveryDays: number
-  estimatedDelivery: string
+export default function CartPage() {
+  return (
+    <AuthProvider>
+      <CartContent />
+    </AuthProvider>
+  )
 }
 
-export default function CartPage() {
+function CartContent() {
+  const { data: session, status } = useSession()
   const [cart, setCart] = useState<Cart | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [loginError, setLoginError] = useState('')
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' })
 
   // Estados para Cupom e Frete
   const [couponCode, setCouponCode] = useState('')
@@ -52,14 +58,7 @@ export default function CartPage() {
   const [couponError, setCouponError] = useState('')
   const [loadingCoupon, setLoadingCoupon] = useState(false)
 
-  const [cep, setCep] = useState('')
-  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([])
-  const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null)
-  const [loadingShipping, setLoadingShipping] = useState(false)
-  const [shippingError, setShippingError] = useState('')
   const [autoApplyCoupon, setAutoApplyCoupon] = useState(false)
-  const [autoCalcShipping, setAutoCalcShipping] = useState(false)
-  const [prefillShippingCode, setPrefillShippingCode] = useState<string | null>(null)
 
   const subtotal = cart?.items.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
@@ -71,12 +70,8 @@ export default function CartPage() {
   // Cálculo do Desconto
   const discount = appliedCoupon ? calculateDiscount(subtotal, appliedCoupon) : 0
 
-  // Regra de Frete Grátis
-  const isFreeShipping = subtotal >= 300
-
   // Total Final
-  const shippingCost = selectedShipping ? (isFreeShipping ? 0 : selectedShipping.price) : 0
-  const total = Math.max(0, subtotal - discount + shippingCost)
+  const total = Math.max(0, subtotal - discount)
 
   function calculateDiscount(subtotal: number, coupon: Coupon): number {
     if (subtotal < coupon.minPurchase) return 0
@@ -116,6 +111,30 @@ export default function CartPage() {
     }
   }
 
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setLoginLoading(true)
+    setLoginError('')
+
+    try {
+      const result = await signIn('credentials', {
+        redirect: false,
+        email: loginForm.email,
+        password: loginForm.password,
+      })
+
+      if (result?.error) {
+        setLoginError('Email ou senha incorretos')
+      } else {
+        await fetchCart()
+      }
+    } catch (error) {
+      setLoginError('Erro ao fazer login. Tente novamente.')
+    } finally {
+      setLoginLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchCart()
   }, [])
@@ -134,20 +153,6 @@ export default function CartPage() {
     } catch (error) {
       console.warn('Erro ao ler cupom salvo:', error)
     }
-
-    try {
-      const storedShipping = localStorage.getItem('checkout_shipping')
-      if (storedShipping) {
-        const parsed = JSON.parse(storedShipping)
-        if (parsed?.zipCode) {
-          setCep(parsed.zipCode.replace(/^(\d{5})(\d)/, '$1-$2'))
-          setPrefillShippingCode(parsed?.option?.code || null)
-          setAutoCalcShipping(true)
-        }
-      }
-    } catch (error) {
-      console.warn('Erro ao ler frete salvo:', error)
-    }
   }, [])
 
   useEffect(() => {
@@ -157,13 +162,7 @@ export default function CartPage() {
     }
   }, [autoApplyCoupon, couponCode, cart])
 
-  useEffect(() => {
-    const cleanCep = cep.replace(/\D/g, '')
-    if (autoCalcShipping && cleanCep.length === 8) {
-      calculateShipping(prefillShippingCode || undefined)
-      setAutoCalcShipping(false)
-    }
-  }, [autoCalcShipping, cep, prefillShippingCode])
+  
 
   // Atualizar quantidade
   const updateQuantity = async (itemId: string, newQuantity: number) => {
@@ -230,50 +229,78 @@ export default function CartPage() {
     }
   }
 
-  // Calcular Frete
-  const calculateShipping = async (preferredCode?: string) => {
-    const cleanCep = cep.replace(/\D/g, '')
-    if (cleanCep.length !== 8) {
-      setShippingError('CEP inválido')
-      return
-    }
 
-    setLoadingShipping(true)
-    setShippingError('')
-    setShippingOptions([])
-    setSelectedShipping(null)
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-pink-300 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-foreground">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
 
-    try {
-      const response = await fetch('/api/shop/shipping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zipCode: cleanCep }),
-      })
-      const data = await response.json()
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
+          <h1 className="font-display font-bold text-2xl text-foreground mb-2 text-center">
+            Faça login para ver seu carrinho
+          </h1>
+          <p className="text-muted-foreground text-center mb-6">
+            Entre com sua conta para continuar a compra.
+          </p>
 
-      if (response.ok) {
-        setShippingOptions(data.shippingOptions)
-        if (data.shippingOptions.length > 0) {
-          const preferred = preferredCode
-            ? data.shippingOptions.find((option: ShippingOption) => option.code === preferredCode)
-            : null
-          const nextSelection = preferred || data.shippingOptions[0]
-          setSelectedShipping(nextSelection)
-          if (typeof window !== 'undefined' && nextSelection) {
-            localStorage.setItem(
-              'checkout_shipping',
-              JSON.stringify({ zipCode: cleanCep, option: nextSelection })
-            )
-          }
-        }
-      } else {
-        setShippingError(data.error || 'Erro ao calcular frete')
-      }
-    } catch (error) {
-      setShippingError('Erro ao calcular frete')
-    } finally {
-      setLoadingShipping(false)
-    }
+          {loginError && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-6">
+              {loginError}
+            </div>
+          )}
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold mb-2">Email</label>
+              <input
+                type="email"
+                required
+                value={loginForm.email}
+                onChange={(event) =>
+                  setLoginForm((prev) => ({ ...prev, email: event.target.value }))
+                }
+                className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold mb-2">Senha</label>
+              <input
+                type="password"
+                required
+                value={loginForm.password}
+                onChange={(event) =>
+                  setLoginForm((prev) => ({ ...prev, password: event.target.value }))
+                }
+                className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loginLoading}
+              className="w-full py-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50"
+            >
+              {loginLoading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+
+          <div className="text-center mt-4 text-sm text-muted-foreground">
+            Não tem conta?{' '}
+            <Link href="/register" className="text-primary font-semibold hover:underline">
+              Criar conta
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
@@ -480,67 +507,6 @@ export default function CartPage() {
                 )}
               </div>
 
-              {/* Cálculo de Frete */}
-              <div className="mb-6">
-                <label className="text-sm font-semibold mb-2 flex items-center gap-2">
-                  <Truck className="w-4 h-4" />
-                  Calcular Frete
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="CEP"
-                    maxLength={9}
-                    value={cep}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, '')
-                      if (val.length <= 8) setCep(val.replace(/^(\d{5})(\d)/, '$1-$2'))
-                    }}
-                    className="flex-1 px-4 py-2 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
-                  />
-                  <button
-                    onClick={calculateShipping}
-                    disabled={loadingShipping || cep.replace(/\D/g, '').length !== 8}
-                    className="px-4 py-2 bg-gray-100 text-foreground rounded-lg font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50"
-                  >
-                    {loadingShipping ? <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" /> : 'OK'}
-                  </button>
-                </div>
-                {shippingError && <p className="text-red-500 text-sm mt-1">{shippingError}</p>}
-                
-                {shippingOptions.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {shippingOptions.map((option) => (
-                      <div
-                        key={option.code}
-                        onClick={() => {
-                          setSelectedShipping(option)
-                          const cleanCep = cep.replace(/\D/g, '')
-                          if (cleanCep.length === 8 && typeof window !== 'undefined') {
-                            localStorage.setItem(
-                              'checkout_shipping',
-                              JSON.stringify({ zipCode: cleanCep, option })
-                            )
-                          }
-                        }}
-                        className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-all ${
-                          selectedShipping?.code === option.code
-                            ? 'border-primary bg-pink-50'
-                            : 'border-gray-200 hover:border-pink-200'
-                        }`}
-                      >
-                        <div>
-                          <p className="font-semibold text-sm">{option.name}</p>
-                          <p className="text-xs text-muted-foreground">{option.estimatedDelivery}</p>
-                        </div>
-                        <p className="font-bold text-sm">
-                          {option.price === 0 || isFreeShipping || (appliedCoupon?.type === 'FREE_SHIPPING') ? 'Grátis' : `R$ ${option.price.toFixed(2).replace('.', ',')}`}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
 
               {/* Resumo de Valores */}
               <div className="border-t border-gray-100 pt-4 space-y-3">
@@ -557,18 +523,14 @@ export default function CartPage() {
                 <div className="flex justify-between text-sm">
                   <span>Frete</span>
                   <span>
-                    {isFreeShipping || appliedCoupon?.type === 'FREE_SHIPPING' 
-                      ? <span className="text-green-600">Grátis</span>
-                      : selectedShipping 
-                        ? `R$ ${selectedShipping.price.toFixed(2).replace('.', ',')}`
-                        : 'Calculado no checkout'}
+                    Calculado no checkout
                   </span>
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
                     <span className="text-primary">
-                      R$ {(isFreeShipping || appliedCoupon?.type === 'FREE_SHIPPING' ? Math.max(0, subtotal - discount) : total).toFixed(2).replace('.', ',')}
+                      R$ {total.toFixed(2).replace('.', ',')}
                     </span>
                   </div>
                 </div>
@@ -583,16 +545,6 @@ export default function CartPage() {
                 Finalizar Compra
               </Link>
 
-              <div className="mt-4 text-center text-sm text-muted-foreground">
-                <span>Já tem conta?</span>{' '}
-                <Link href="/login" className="text-primary font-semibold hover:underline">
-                  Entrar
-                </Link>
-                <span className="mx-2">•</span>
-                <Link href="/register" className="text-primary font-semibold hover:underline">
-                  Criar conta
-                </Link>
-              </div>
 
               {/* Informações Adicionais */}
               <div className="mt-6 space-y-2 text-xs text-muted-foreground">

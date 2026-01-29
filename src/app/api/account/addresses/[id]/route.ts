@@ -36,6 +36,7 @@ export async function PUT(
       where: { id },
       data: {
         ...(body.recipient && { recipient: body.recipient }),
+        ...(body.phone !== undefined && { phone: body.phone || null }),
         ...(body.zipCode && { zipCode: body.zipCode }),
         ...(body.street && { street: body.street }),
         ...(body.number && { number: body.number }),

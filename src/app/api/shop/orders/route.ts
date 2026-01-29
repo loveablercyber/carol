@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
     if (user && shippingAddress) {
       const addressPayload = {
         recipient: shippingAddress.recipient,
+        phone: shippingAddress.phone,
         zipCode: shippingAddress.zipCode,
         street: shippingAddress.street,
         number: shippingAddress.number,
@@ -93,6 +94,7 @@ export async function POST(request: NextRequest) {
 
       const hasRequiredFields = Boolean(
         addressPayload.recipient &&
+          addressPayload.phone &&
           addressPayload.zipCode &&
           addressPayload.street &&
           addressPayload.number &&

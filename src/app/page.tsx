@@ -65,7 +65,8 @@ const cardData = [
     title: 'Ver Resultados Reais',
     subtitle: '📸',
     description: 'Transformações incríveis de nossas clientes',
-    image: '/assets/transformation.png',
+    image: '/assets/transformat.png',
+    href: '/depoimentos',
     buttonText: 'Ver Depoimentos',
     color: 'bg-white',
     textColor: 'text-foreground'
@@ -181,7 +182,7 @@ const ActionCard = ({ data, index, onClick }: { data: typeof cardData[0], index:
 
         {/* Image if present */}
         {data.image && (
-          <div className="w-full h-48 md:h-56 rounded-xl overflow-hidden relative">
+          <div className="w-full h-56 md:h-72 rounded-xl overflow-hidden relative">
             <Image
               src={data.image}
               alt={data.title}

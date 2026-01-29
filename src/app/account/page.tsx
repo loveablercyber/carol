@@ -28,6 +28,7 @@ interface Order {
 interface Address {
   id: string
   recipient: string
+  phone?: string | null
   zipCode: string
   street: string
   number: string
@@ -56,10 +57,12 @@ function AccountContent() {
   const [addressesLoading, setAddressesLoading] = useState(false)
   const [addressError, setAddressError] = useState('')
   const [profileName, setProfileName] = useState('')
+  const [profileCpf, setProfileCpf] = useState('')
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileMessage, setProfileMessage] = useState('')
   const [addressForm, setAddressForm] = useState({
     recipient: '',
+    phone: '',
     zipCode: '',
     street: '',
     number: '',
@@ -104,6 +107,22 @@ function AccountContent() {
   }, [session])
 
   useEffect(() => {
+    const fetchProfile = async () => {
+      if (!session?.user) return
+      try {
+        const response = await fetch('/api/account/profile')
+        if (!response.ok) return
+        const data = await response.json()
+        setProfileCpf(data.user?.cpf || '')
+      } catch (error) {
+        console.error('Erro ao buscar perfil:', error)
+      }
+    }
+
+    fetchProfile()
+  }, [session])
+
+  useEffect(() => {
     if (!session?.user || activeTab !== 'addresses') return
 
     const fetchAddresses = async () => {
@@ -140,7 +159,7 @@ function AccountContent() {
       const response = await fetch('/api/account/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profileName }),
+        body: JSON.stringify({ name: profileName, cpf: profileCpf }),
       })
 
       if (!response.ok) {
@@ -183,6 +202,7 @@ function AccountContent() {
       ])
       setAddressForm({
         recipient: '',
+        phone: '',
         zipCode: '',
         street: '',
         number: '',
@@ -503,6 +523,16 @@ function AccountContent() {
                     </p>
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">CPF</label>
+                    <input
+                      type="text"
+                      value={profileCpf}
+                      onChange={(event) => setProfileCpf(event.target.value)}
+                      className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                    />
+                  </div>
+
                   {profileMessage && (
                     <p className="text-sm text-muted-foreground">{profileMessage}</p>
                   )}
@@ -542,6 +572,11 @@ function AccountContent() {
                               <p className="font-semibold text-foreground">
                                 {address.recipient}
                               </p>
+                              {address.phone && (
+                                <p className="text-sm text-muted-foreground">
+                                  {address.phone}
+                                </p>
+                              )}
                               <p className="text-sm text-muted-foreground">
                                 {address.street}, {address.number}
                                 {address.complement ? ` - ${address.complement}` : ''}
@@ -599,6 +634,16 @@ function AccountContent() {
                           setAddressForm((prev) => ({ ...prev, recipient: event.target.value }))
                         }
                         required
+                        className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">Telefone</label>
+                      <input
+                        value={addressForm.phone}
+                        onChange={(event) =>
+                          setAddressForm((prev) => ({ ...prev, phone: event.target.value }))
+                        }
                         className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                       />
                     </div>

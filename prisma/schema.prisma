@@ -278,6 +278,7 @@ model Address {
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   recipient   String
+  phone       String?
   zipCode     String
   street      String
   number      String

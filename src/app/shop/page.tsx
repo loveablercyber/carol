@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ShoppingBag, Search, SlidersHorizontal, Star, Heart, ChevronDown, X } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
+import { useSession } from 'next-auth/react'
+import { AuthProvider } from '@/components/providers/AuthProvider'
 
 interface Product {
   id: string
@@ -49,7 +51,16 @@ interface Filters {
 }
 
 export default function ShopPage() {
+  return (
+    <AuthProvider>
+      <ShopContent />
+    </AuthProvider>
+  )
+}
+
+function ShopContent() {
   const router = useRouter()
+  const { data: session } = useSession()
 
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
@@ -215,14 +226,30 @@ export default function ShopPage() {
             <span className="font-semibold text-foreground">Voltar</span>
           </Link>
           <h1 className="font-display font-bold text-xl text-foreground">Loja Online</h1>
-          <Link href="/shop/cart" className="relative">
-            <ShoppingBag className="w-6 h-6 text-foreground" />
-            {cartCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {cartCount}
-              </span>
+          <div className="flex items-center gap-4">
+            {session?.user ? (
+              <Link href="/account" className="text-sm font-semibold text-foreground hover:text-primary">
+                {session.user.name || session.user.email}
+              </Link>
+            ) : (
+              <div className="flex items-center gap-3 text-sm">
+                <Link href="/login" className="font-semibold text-foreground hover:text-primary">
+                  Entrar
+                </Link>
+                <Link href="/register" className="font-semibold text-primary hover:underline">
+                  Registrar
+                </Link>
+              </div>
             )}
-          </Link>
+            <Link href="/shop/cart" className="relative">
+              <ShoppingBag className="w-6 h-6 text-foreground" />
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+          </div>
         </div>
       </header>
 

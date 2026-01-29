@@ -17,6 +17,11 @@ export default function AdminPage() {
       description: 'Atualize status, pagamentos e rastreio.',
       href: '/admin/orders',
     },
+    {
+      title: 'Clientes',
+      description: 'Gerencie contas, cadastros e acesso.',
+      href: '/admin/customers',
+    },
   ]
 
   return (
@@ -24,7 +29,7 @@ export default function AdminPage() {
       <h1 className="font-display font-bold text-3xl text-foreground mb-6">
         Painel Administrativo
       </h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {cards.map((card) => (
           <Link
             key={card.href}

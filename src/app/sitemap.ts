@@ -3,10 +3,15 @@ import { db } from '@/lib/db'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-  const products = await db.product.findMany({
-    where: { isActive: true },
-    select: { slug: true, updatedAt: true },
-  })
+  let products: Array<{ slug: string; updatedAt: Date }> = []
+  try {
+    products = await db.product.findMany({
+      where: { isActive: true },
+      select: { slug: true, updatedAt: true },
+    })
+  } catch {
+    products = []
+  }
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${baseUrl}/`, lastModified: new Date() },

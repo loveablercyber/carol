@@ -51,6 +51,9 @@ export default async function AdminLayout({
             <Link className="hover:text-primary" href="/admin/orders">
               Pedidos
             </Link>
+            <Link className="hover:text-primary" href="/admin/customers">
+              Clientes
+            </Link>
           </nav>
         </div>
       </header>

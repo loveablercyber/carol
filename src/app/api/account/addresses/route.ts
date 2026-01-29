@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const {
       recipient,
+      phone,
       zipCode,
       street,
       number,
@@ -65,6 +66,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: session.user.id,
         recipient,
+        phone: phone || null,
         zipCode,
         street,
         number,
