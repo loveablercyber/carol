@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useSession } from 'next-auth/react'
+import { AuthProvider } from '@/components/providers/AuthProvider'
 
 interface OrderItem {
   id: string
@@ -28,6 +29,14 @@ export default function OrderDetailPage({
 }: {
   params: { orderNumber: string }
 }) {
+  return (
+    <AuthProvider>
+      <OrderDetailContent params={params} />
+    </AuthProvider>
+  )
+}
+
+function OrderDetailContent({ params }: { params: { orderNumber: string } }) {
   const { data: session, status } = useSession()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
