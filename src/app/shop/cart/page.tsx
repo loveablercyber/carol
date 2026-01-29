@@ -151,8 +151,8 @@ function CartContent() {
     }
   }
 
-  const handleRegisterCep = async () => {
-    const cleanCep = registerForm.zipCode.replace(/\D/g, '')
+  const handleRegisterCep = async (cepOverride?: string) => {
+    const cleanCep = (cepOverride ?? registerForm.zipCode).replace(/\D/g, '')
     if (cleanCep.length !== 8) return
     try {
       const response = await fetch(`/api/cep?zip=${cleanCep}`)
@@ -448,14 +448,14 @@ function CartContent() {
                     onChange={(event) => {
                       const cep = event.target.value.replace(/\D/g, '')
                       setRegisterForm((prev) => ({ ...prev, zipCode: cep }))
-                      if (cep.length === 8) handleRegisterCep()
+                      if (cep.length === 8) handleRegisterCep(cep)
                     }}
                     className="flex-1 px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                     placeholder="00000000"
                   />
                   <button
                     type="button"
-                    onClick={handleRegisterCep}
+                    onClick={() => handleRegisterCep(registerForm.zipCode)}
                     className="px-4 py-3 bg-gray-100 rounded-lg font-semibold hover:bg-gray-200"
                   >
                     OK
