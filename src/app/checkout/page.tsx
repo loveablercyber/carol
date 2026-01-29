@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSession } from 'next-auth/react'
+import { useSession, signIn } from 'next-auth/react'
 import Link from 'next/link'
 import { ShoppingBag, MapPin, CreditCard, QrCode, ArrowLeft, Truck, Lock, CheckCircle } from 'lucide-react'
 import { AuthProvider } from '@/components/providers/AuthProvider'
@@ -42,7 +42,28 @@ export default function CheckoutPage() {
 
 function CheckoutContent() {
   const router = useRouter()
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
+
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' })
+  const [loginLoading, setLoginLoading] = useState(false)
+  const [loginError, setLoginError] = useState('')
+
+  const [registerForm, setRegisterForm] = useState({
+    name: '',
+    phone: '',
+    zipCode: '',
+    street: '',
+    number: '',
+    complement: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    cpf: '',
+    email: '',
+    password: '',
+  })
+  const [registerLoading, setRegisterLoading] = useState(false)
+  const [registerError, setRegisterError] = useState('')
 
   const [cart, setCart] = useState<{ items: CartItem[] } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -153,6 +174,105 @@ function CheckoutContent() {
     fetchProfile()
     fetchAddresses()
   }, [session])
+
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setLoginLoading(true)
+    setLoginError('')
+
+    try {
+      const result = await signIn('credentials', {
+        redirect: false,
+        email: loginForm.email,
+        password: loginForm.password,
+      })
+
+      if (result?.error) {
+        setLoginError('Email ou senha incorretos')
+      } else {
+        router.refresh()
+      }
+    } catch (error) {
+      setLoginError('Erro ao fazer login. Tente novamente.')
+    } finally {
+      setLoginLoading(false)
+    }
+  }
+
+  const handleRegisterCep = async () => {
+    const cleanCep = registerForm.zipCode.replace(/\D/g, '')
+    if (cleanCep.length !== 8) return
+    try {
+      const response = await fetch(`/api/cep?zip=${cleanCep}`)
+      if (!response.ok) return
+      const data = await response.json()
+      if (data.address) {
+        setRegisterForm((prev) => ({
+          ...prev,
+          zipCode: cleanCep,
+          street: data.address.street || prev.street,
+          neighborhood: data.address.neighborhood || prev.neighborhood,
+          city: data.address.city || prev.city,
+          state: data.address.state || prev.state,
+          complement: data.address.complement || prev.complement,
+        }))
+      }
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error)
+    }
+  }
+
+  const handleRegister = async (event: React.FormEvent) => {
+    event.preventDefault()
+    setRegisterLoading(true)
+    setRegisterError('')
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: registerForm.name,
+          email: registerForm.email,
+          password: registerForm.password,
+          cpf: registerForm.cpf,
+          address: {
+            recipient: registerForm.name,
+            phone: registerForm.phone,
+            zipCode: registerForm.zipCode,
+            street: registerForm.street,
+            number: registerForm.number,
+            complement: registerForm.complement,
+            neighborhood: registerForm.neighborhood,
+            city: registerForm.city,
+            state: registerForm.state,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        setRegisterError(data.error || 'Erro ao criar conta')
+        return
+      }
+
+      const loginResult = await signIn('credentials', {
+        redirect: false,
+        email: registerForm.email,
+        password: registerForm.password,
+      })
+
+      if (loginResult?.error) {
+        setRegisterError('Conta criada. Faça login para continuar.')
+      } else {
+        router.refresh()
+      }
+    } catch (error) {
+      setRegisterError('Erro ao criar conta. Tente novamente.')
+    } finally {
+      setRegisterLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -365,6 +485,262 @@ function CheckoutContent() {
     } finally {
       setProcessing(false)
     }
+  }
+
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-pink-300 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-foreground">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-20">
+        <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+          <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+            <Link href="/shop/cart" className="flex items-center gap-2 text-sm">
+              <ArrowLeft className="w-4 h-4" />
+              <span className="font-semibold text-foreground">Voltar</span>
+            </Link>
+            <h1 className="font-display font-bold text-xl text-foreground">Checkout</h1>
+            <div className="w-8" />
+          </div>
+        </header>
+
+        <div className="max-w-6xl mx-auto px-4 py-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white rounded-2xl shadow-md p-6">
+            <h2 className="font-display font-bold text-2xl text-foreground mb-4">
+              Entrar
+            </h2>
+            {loginError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4">
+                {loginError}
+              </div>
+            )}
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={loginForm.email}
+                  onChange={(event) =>
+                    setLoginForm((prev) => ({ ...prev, email: event.target.value }))
+                  }
+                  className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Senha</label>
+                <input
+                  type="password"
+                  required
+                  value={loginForm.password}
+                  onChange={(event) =>
+                    setLoginForm((prev) => ({ ...prev, password: event.target.value }))
+                  }
+                  className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loginLoading}
+                className="w-full py-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {loginLoading ? 'Entrando...' : 'Entrar'}
+              </button>
+              <Link href="/register" className="text-sm text-primary hover:underline">
+                Não tem conta? Cadastre-se
+              </Link>
+            </form>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-md p-6">
+            <h2 className="font-display font-bold text-2xl text-foreground mb-4">
+              Criar conta
+            </h2>
+            {registerError && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4">
+                {registerError}
+              </div>
+            )}
+            <form onSubmit={handleRegister} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold mb-2">Nome Completo *</label>
+                <input
+                  type="text"
+                  required
+                  value={registerForm.name}
+                  onChange={(event) =>
+                    setRegisterForm((prev) => ({ ...prev, name: event.target.value }))
+                  }
+                  className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Telefone</label>
+                <input
+                  type="text"
+                  value={registerForm.phone}
+                  onChange={(event) =>
+                    setRegisterForm((prev) => ({ ...prev, phone: event.target.value }))
+                  }
+                  className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">CEP *</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    required
+                    maxLength={8}
+                    value={registerForm.zipCode}
+                    onChange={(event) => {
+                      const cep = event.target.value.replace(/\D/g, '')
+                      setRegisterForm((prev) => ({ ...prev, zipCode: cep }))
+                      if (cep.length === 8) handleRegisterCep()
+                    }}
+                    className="flex-1 px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                    placeholder="00000000"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRegisterCep}
+                    className="px-4 py-3 bg-gray-100 rounded-lg font-semibold hover:bg-gray-200"
+                  >
+                    OK
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Rua *</label>
+                <input
+                  type="text"
+                  required
+                  value={registerForm.street}
+                  onChange={(event) =>
+                    setRegisterForm((prev) => ({ ...prev, street: event.target.value }))
+                  }
+                  className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Número *</label>
+                  <input
+                    type="text"
+                    required
+                    value={registerForm.number}
+                    onChange={(event) =>
+                      setRegisterForm((prev) => ({ ...prev, number: event.target.value }))
+                    }
+                    className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Complemento</label>
+                  <input
+                    type="text"
+                    value={registerForm.complement}
+                    onChange={(event) =>
+                      setRegisterForm((prev) => ({ ...prev, complement: event.target.value }))
+                    }
+                    className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Bairro *</label>
+                <input
+                  type="text"
+                  required
+                  value={registerForm.neighborhood}
+                  onChange={(event) =>
+                    setRegisterForm((prev) => ({ ...prev, neighborhood: event.target.value }))
+                  }
+                  className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Cidade *</label>
+                  <input
+                    type="text"
+                    required
+                    value={registerForm.city}
+                    onChange={(event) =>
+                      setRegisterForm((prev) => ({ ...prev, city: event.target.value }))
+                    }
+                    className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2">Estado *</label>
+                  <input
+                    type="text"
+                    required
+                    value={registerForm.state}
+                    onChange={(event) =>
+                      setRegisterForm((prev) => ({ ...prev, state: event.target.value }))
+                    }
+                    className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">CPF</label>
+                <input
+                  type="text"
+                  value={registerForm.cpf}
+                  onChange={(event) =>
+                    setRegisterForm((prev) => ({ ...prev, cpf: event.target.value }))
+                  }
+                  className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Email (login)</label>
+                <input
+                  type="email"
+                  required
+                  value={registerForm.email}
+                  onChange={(event) =>
+                    setRegisterForm((prev) => ({ ...prev, email: event.target.value }))
+                  }
+                  className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold mb-2">Senha</label>
+                <input
+                  type="password"
+                  required
+                  value={registerForm.password}
+                  onChange={(event) =>
+                    setRegisterForm((prev) => ({ ...prev, password: event.target.value }))
+                  }
+                  className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={registerLoading}
+                className="w-full py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {registerLoading ? 'Criando conta...' : 'Criar conta e continuar'}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {

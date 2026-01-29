@@ -6,11 +6,11 @@ import bcrypt from 'bcryptjs'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, email, password, cpf, birthday } = body
+    const { name, email, password, cpf, birthday, address } = body
 
-    if (!name || !email || !password || !cpf || !birthday) {
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { error: 'Todos os campos são obrigatórios' },
+        { error: 'Nome, email e senha são obrigatórios' },
         { status: 400 }
       )
     }
@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
       where: {
         OR: [
           { email },
-          { cpf }
-        ]
+          ...(cpf ? [{ cpf }] : []),
+        ],
       },
     })
 
@@ -49,11 +49,53 @@ export async function POST(request: NextRequest) {
         name,
         email,
         password: passwordHash,
-        cpf,
-        birthday: new Date(birthday),
+        cpf: cpf || null,
+        birthday: birthday ? new Date(birthday) : null,
         role: 'customer',
       },
     })
+
+    if (address) {
+      const {
+        recipient,
+        phone,
+        zipCode,
+        street,
+        number,
+        complement,
+        neighborhood,
+        city,
+        state,
+      } = address
+
+      const hasRequiredFields = Boolean(
+        (recipient || name) &&
+          zipCode &&
+          street &&
+          number &&
+          neighborhood &&
+          city &&
+          state
+      )
+
+      if (hasRequiredFields) {
+        await db.address.create({
+          data: {
+            userId: user.id,
+            recipient: recipient || name,
+            phone: phone || null,
+            zipCode,
+            street,
+            number,
+            complement: complement || null,
+            neighborhood,
+            city,
+            state,
+            isDefault: true,
+          },
+        })
+      }
+    }
 
     return NextResponse.json({
       message: 'Usuário criado com sucesso',
