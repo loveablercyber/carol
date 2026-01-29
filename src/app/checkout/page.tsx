@@ -1,12 +1,13 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession, signIn } from 'next-auth/react'
 import Link from 'next/link'
 import { ShoppingBag, MapPin, CreditCard, QrCode, ArrowLeft, Truck, Lock, CheckCircle } from 'lucide-react'
 import { AuthProvider } from '@/components/providers/AuthProvider'
-import { loadMercadoPago } from '@mercadopago/sdk-js'
 
 interface ShippingAddress {
   recipient: string
@@ -440,6 +441,7 @@ function CheckoutContent() {
     const initCardForm = async () => {
       setCardFormError('')
       setCardFormReady(false)
+      if (typeof window === 'undefined') return
       const publicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
       if (!publicKey) {
         setCardFormError('Chave pública do Mercado Pago não configurada.')
@@ -447,6 +449,7 @@ function CheckoutContent() {
       }
 
       try {
+        const { loadMercadoPago } = await import('@mercadopago/sdk-js')
         const mp = await loadMercadoPago(publicKey)
         if (!isMounted) return
 
