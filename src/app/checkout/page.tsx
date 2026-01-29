@@ -83,7 +83,6 @@ function CheckoutContent() {
 
   const [addresses, setAddresses] = useState<any[]>([])
   const [selectedAddress, setSelectedAddress] = useState<any>(null)
-  const [isEditingAddress, setIsEditingAddress] = useState(false)
   const [customerCpf, setCustomerCpf] = useState('')
 
   const [shippingOptions, setShippingOptions] = useState<any[]>([])
@@ -95,7 +94,6 @@ function CheckoutContent() {
   const [validatingCoupon, setValidatingCoupon] = useState(false)
   const [showCouponForm, setShowCouponForm] = useState(false)
   const [showShippingOptions, setShowShippingOptions] = useState(false)
-  const [showCepField, setShowCepField] = useState(false)
   const [prefillCoupon, setPrefillCoupon] = useState(false)
 
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD'>('PIX')
@@ -162,9 +160,6 @@ function CheckoutContent() {
             city: defaultAddress.city || '',
             state: defaultAddress.state || '',
           })
-          setIsEditingAddress(false)
-        } else {
-          setIsEditingAddress(true)
         }
       } catch (error) {
         console.error('Erro ao buscar enderecos:', error)
@@ -833,7 +828,7 @@ function CheckoutContent() {
                 Endereço de Entrega
               </h2>
 
-              {selectedAddress && !isEditingAddress ? (
+              {selectedAddress ? (
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-semibold text-foreground">
@@ -841,201 +836,23 @@ function CheckoutContent() {
                     </p>
                     <p className="text-sm text-muted-foreground">
                       {shippingAddress.street}, {shippingAddress.number}
-                      {shippingAddress.complement ? `, ${shippingAddress.complement}` : ''},{' '}
-                      {shippingAddress.neighborhood}, {shippingAddress.city} - {shippingAddress.state}
+                      {shippingAddress.complement ? `, ${shippingAddress.complement}` : ''}, {shippingAddress.neighborhood},{' '}
+                      {shippingAddress.city}, {shippingAddress.state}, {formattedZip}
                     </p>
-                    <p className="text-sm text-muted-foreground">CEP: {formattedZip}</p>
                     {errors.phone && (
                       <p className="text-xs text-red-500 mt-2">{errors.phone}</p>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingAddress(true)}
-                    className="text-sm font-semibold text-primary"
-                  >
+                  <Link href="/account" className="text-sm font-semibold text-primary">
                     Editar
-                  </button>
+                  </Link>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold mb-2">Nome Completo *</label>
-                    <input
-                      type="text"
-                      required
-                      value={shippingAddress.recipient}
-                      onChange={(e) => setShippingAddress({ ...shippingAddress, recipient: e.target.value })}
-                      className={`w-full px-4 py-3 border ${errors.recipient ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
-                      placeholder="Seu nome completo"
-                    />
-                    {errors.recipient && <p className="text-red-500 text-xs mt-1">{errors.recipient}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-2">Telefone</label>
-                    <input
-                      type="text"
-                      value={shippingAddress.phone || ''}
-                      onChange={(e) => setShippingAddress({ ...shippingAddress, phone: e.target.value })}
-                      className={`w-full px-4 py-3 border ${errors.phone ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
-                      placeholder="(DDD) 00000-0000"
-                    />
-                    {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-2">CEP *</label>
-                    {shippingAddress.zipCode.length === 8 && !showCepField ? (
-                      <div className="flex items-center justify-between px-4 py-3 border border-pink-200 rounded-lg bg-pink-50">
-                        <span className="text-sm font-semibold">{formattedZip}</span>
-                        <button
-                          type="button"
-                          onClick={() => setShowCepField(true)}
-                          className="text-xs font-semibold text-primary"
-                        >
-                          Alterar
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          required
-                          maxLength={8}
-                          value={shippingAddress.zipCode}
-                          onChange={(e) => {
-                            const cep = e.target.value.replace(/\D/g, '')
-                            setShippingAddress({ ...shippingAddress, zipCode: cep })
-                            if (cep.length === 8) {
-                              calculateShipping(cep)
-                              setShowShippingOptions(true)
-                              setShowCepField(false)
-                            }
-                          }}
-                          className={`flex-1 px-4 py-3 border ${errors.zipCode ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
-                          placeholder="00000000"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (shippingAddress.zipCode.length === 8) {
-                              calculateShipping(shippingAddress.zipCode)
-                              setShowShippingOptions(true)
-                              setShowCepField(false)
-                            }
-                          }}
-                          disabled={calculatingShipping}
-                          className="px-4 py-3 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
-                        >
-                          {calculatingShipping ? '...' : 'OK'}
-                        </button>
-                      </div>
-                    )}
-                    {errors.zipCode && <p className="text-red-500 text-xs mt-1">{errors.zipCode}</p>}
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-semibold mb-2">Rua *</label>
-                    <input
-                      type="text"
-                      required
-                      value={shippingAddress.street}
-                      onChange={(e) => setShippingAddress({ ...shippingAddress, street: e.target.value })}
-                      className={`w-full px-4 py-3 border ${errors.street ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
-                      placeholder="Nome da rua"
-                    />
-                    {errors.street && <p className="text-red-500 text-xs mt-1">{errors.street}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-2">Número *</label>
-                    <input
-                      type="text"
-                      required
-                      value={shippingAddress.number}
-                      onChange={(e) => setShippingAddress({ ...shippingAddress, number: e.target.value })}
-                      className={`w-full px-4 py-3 border ${errors.number ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
-                      placeholder="123"
-                    />
-                    {errors.number && <p className="text-red-500 text-xs mt-1">{errors.number}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-2">Complemento</label>
-                    <input
-                      type="text"
-                      value={shippingAddress.complement || ''}
-                      onChange={(e) => setShippingAddress({ ...shippingAddress, complement: e.target.value })}
-                      className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
-                      placeholder="Apto, Bloco..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-2">Bairro *</label>
-                    <input
-                      type="text"
-                      required
-                      value={shippingAddress.neighborhood}
-                      onChange={(e) => setShippingAddress({ ...shippingAddress, neighborhood: e.target.value })}
-                      className={`w-full px-4 py-3 border ${errors.neighborhood ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
-                      placeholder="Bairro"
-                    />
-                    {errors.neighborhood && <p className="text-red-500 text-xs mt-1">{errors.neighborhood}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-2">Cidade *</label>
-                    <input
-                      type="text"
-                      required
-                      value={shippingAddress.city}
-                      onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
-                      className={`w-full px-4 py-3 border ${errors.city ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
-                      placeholder="Cidade"
-                    />
-                    {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-2">Estado *</label>
-                    <select
-                      required
-                      value={shippingAddress.state}
-                      onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })}
-                      className={`w-full px-4 py-3 border ${errors.state ? 'border-red-500' : 'border-pink-200'} rounded-lg focus:outline-none focus:border-pink-400`}
-                    >
-                      <option value="">Selecione</option>
-                      <option value="SP">São Paulo</option>
-                      <option value="RJ">Rio de Janeiro</option>
-                      <option value="MG">Minas Gerais</option>
-                      <option value="RS">Rio Grande do Sul</option>
-                      <option value="PR">Paraná</option>
-                      <option value="BA">Bahia</option>
-                      <option value="PE">Pernambuco</option>
-                      <option value="CE">Ceará</option>
-                      <option value="DF">Distrito Federal</option>
-                    </select>
-                    {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
-                  </div>
-
-                  <div className="md:col-span-2 flex items-center justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingAddress(false)}
-                      className="px-4 py-2 text-sm rounded-lg border border-pink-200 text-muted-foreground"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingAddress(false)}
-                      className="px-4 py-2 text-sm rounded-lg bg-primary text-white font-semibold"
-                    >
-                      Usar este endereço
-                    </button>
-                  </div>
+                <div className="text-sm text-muted-foreground">
+                  Nenhum endereço cadastrado.{' '}
+                  <Link href="/account" className="text-primary font-semibold hover:underline">
+                    Adicionar endereço
+                  </Link>
                 </div>
               )}
             </div>
