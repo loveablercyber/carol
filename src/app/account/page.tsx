@@ -6,6 +6,10 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { User, ShoppingBag, LogOut, MapPin, CreditCard, Clock, Package, CheckCircle, XCircle, LayoutDashboard } from 'lucide-react'
 import { AuthProvider } from '@/components/providers/AuthProvider'
+import AdminProducts from '@/components/admin/AdminProducts'
+import AdminCategories from '@/components/admin/AdminCategories'
+import AdminOrders from '@/components/admin/AdminOrders'
+import AdminCustomers from '@/components/admin/AdminCustomers'
 
 interface Order {
   id: string
@@ -51,6 +55,9 @@ function AccountContent() {
   const { data: session } = useSession()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'addresses' | 'admin'>('orders')
+  const [adminSection, setAdminSection] = useState<
+    'dashboard' | 'products' | 'categories' | 'orders' | 'customers'
+  >('dashboard')
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [addresses, setAddresses] = useState<Address[]>([])
@@ -764,46 +771,66 @@ function AccountContent() {
 
             {activeTab === 'admin' && session.user?.role === 'admin' && (
               <div className="space-y-6">
-                <div className="bg-white rounded-2xl shadow-md p-6">
-                  <h2 className="font-display font-bold text-2xl text-foreground mb-6">
-                    Painel Administrativo
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {[
-                      {
-                        title: 'Produtos',
-                        description: 'Gerencie catálogo, estoque e destaque.',
-                        href: '/admin/products',
-                      },
-                      {
-                        title: 'Categorias',
-                        description: 'Organize categorias e ordem de exibição.',
-                        href: '/admin/categories',
-                      },
-                      {
-                        title: 'Pedidos',
-                        description: 'Atualize status, pagamentos e rastreio.',
-                        href: '/admin/orders',
-                      },
-                      {
-                        title: 'Clientes',
-                        description: 'Gerencie contas, cadastros e acesso.',
-                        href: '/admin/customers',
-                      },
-                    ].map((card) => (
-                      <Link
-                        key={card.href}
-                        href={card.href}
-                        className="bg-white rounded-2xl shadow-md p-6 border border-pink-100 hover:border-pink-300 hover:shadow-lg transition-all"
-                      >
-                        <h3 className="font-display font-bold text-lg text-foreground mb-2">
-                          {card.title}
-                        </h3>
-                        <p className="text-muted-foreground">{card.description}</p>
-                      </Link>
-                    ))}
+                {adminSection === 'dashboard' ? (
+                  <div className="bg-white rounded-2xl shadow-md p-6">
+                    <h2 className="font-display font-bold text-2xl text-foreground mb-6">
+                      Painel Administrativo
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                      {[
+                        {
+                          key: 'products',
+                          title: 'Produtos',
+                          description: 'Gerencie catálogo, estoque e destaque.',
+                        },
+                        {
+                          key: 'categories',
+                          title: 'Categorias',
+                          description: 'Organize categorias e ordem de exibição.',
+                        },
+                        {
+                          key: 'orders',
+                          title: 'Pedidos',
+                          description: 'Atualize status, pagamentos e rastreio.',
+                        },
+                        {
+                          key: 'customers',
+                          title: 'Clientes',
+                          description: 'Gerencie contas, cadastros e acesso.',
+                        },
+                      ].map((card) => (
+                        <button
+                          key={card.key}
+                          onClick={() => setAdminSection(card.key as typeof adminSection)}
+                          className="text-left bg-white rounded-2xl shadow-md p-6 border border-pink-100 hover:border-pink-300 hover:shadow-lg transition-all"
+                        >
+                          <h3 className="font-display font-bold text-lg text-foreground mb-2">
+                            {card.title}
+                          </h3>
+                          <p className="text-muted-foreground">{card.description}</p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h2 className="font-display font-bold text-2xl text-foreground">
+                        Painel Administrativo
+                      </h2>
+                      <button
+                        onClick={() => setAdminSection('dashboard')}
+                        className="px-4 py-2 text-sm rounded-lg border border-pink-200 text-muted-foreground hover:border-pink-300"
+                      >
+                        Voltar ao painel
+                      </button>
+                    </div>
+                    {adminSection === 'products' && <AdminProducts />}
+                    {adminSection === 'categories' && <AdminCategories />}
+                    {adminSection === 'orders' && <AdminOrders />}
+                    {adminSection === 'customers' && <AdminCustomers />}
+                  </div>
+                )}
               </div>
             )}
           </div>
