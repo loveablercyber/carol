@@ -102,6 +102,8 @@ function CheckoutContent() {
 
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD'>('PIX')
   const cardFormRef = useRef<any>(null)
+  const cardFormDataRef = useRef<any>(null)
+  const cardFormSubmitResolverRef = useRef<((data: any) => void) | null>(null)
   const [cardFormReady, setCardFormReady] = useState(false)
   const [cardFormError, setCardFormError] = useState('')
 
@@ -529,6 +531,15 @@ function CheckoutContent() {
               }
               setCardFormReady(true)
             },
+            onSubmit: (event: any) => {
+              event.preventDefault()
+              const formData = cardFormRef.current?.getCardFormData?.()
+              cardFormDataRef.current = formData
+              if (cardFormSubmitResolverRef.current) {
+                cardFormSubmitResolverRef.current(formData)
+                cardFormSubmitResolverRef.current = null
+              }
+            },
             onFetching: () => {
               setCardFormReady(false)
               return () => setCardFormReady(true)
@@ -667,6 +678,27 @@ function CheckoutContent() {
     }
   }
 
+  const collectCardFormData = async () => {
+    if (typeof window === 'undefined') return null
+    const form = document.getElementById('mp-card-form') as HTMLFormElement | null
+    if (!form) return null
+
+    return new Promise<any>((resolve) => {
+      cardFormSubmitResolverRef.current = resolve
+      if (typeof (form as any).requestSubmit === 'function') {
+        ;(form as any).requestSubmit()
+      } else {
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+      }
+      window.setTimeout(() => {
+        if (cardFormSubmitResolverRef.current === resolve) {
+          cardFormSubmitResolverRef.current = null
+          resolve(null)
+        }
+      }, 2000)
+    })
+  }
+
   const requestCardPayment = async (orderInfo: { id: string; orderNumber: string; total: number }) => {
     setPaymentError('')
     const cardForm = cardFormRef.current
@@ -675,7 +707,13 @@ function CheckoutContent() {
       return false
     }
 
-    const formData = cardForm.getCardFormData()
+    let formData = cardForm.getCardFormData()
+    if (!formData?.token && cardFormDataRef.current) {
+      formData = cardFormDataRef.current
+    }
+    if (!formData?.token) {
+      formData = (await collectCardFormData()) || cardForm.getCardFormData()
+    }
     const token = formData?.token
     const paymentMethodId = formData?.paymentMethodId
     const issuerId = formData?.issuerId
@@ -1515,7 +1553,7 @@ function CheckoutContent() {
               </div>
 
               {paymentMethod === 'CREDIT_CARD' && (
-                <form id="mp-card-form" className="space-y-4" onSubmit={(event) => event.preventDefault()}>
+                <form id="mp-card-form" className="space-y-4">
                   {cardFormError && (
                     <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
                       {cardFormError}
@@ -1526,7 +1564,7 @@ function CheckoutContent() {
                     <label className="block text-sm font-semibold mb-2">Número do Cartão *</label>
                     <div
                       id="form-checkout__cardNumber"
-                      className="w-full px-4 py-3 border border-pink-200 rounded-lg bg-white"
+                      className="w-full h-12 border border-pink-200 rounded-lg bg-white px-3 overflow-hidden flex items-center"
                     />
                   </div>
 
@@ -1535,14 +1573,14 @@ function CheckoutContent() {
                       <label className="block text-sm font-semibold mb-2">Validade *</label>
                       <div
                         id="form-checkout__expirationDate"
-                        className="w-full px-4 py-3 border border-pink-200 rounded-lg bg-white"
+                        className="w-full h-12 border border-pink-200 rounded-lg bg-white px-3 overflow-hidden flex items-center"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold mb-2">CVV *</label>
                       <div
                         id="form-checkout__securityCode"
-                        className="w-full px-4 py-3 border border-pink-200 rounded-lg bg-white"
+                        className="w-full h-12 border border-pink-200 rounded-lg bg-white px-3 overflow-hidden flex items-center"
                       />
                     </div>
                   </div>
@@ -1616,6 +1654,9 @@ function CheckoutContent() {
                     <Lock className="w-4 h-4" />
                     <span>Pagamento 100% seguro via Mercado Pago</span>
                   </div>
+                  <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1}>
+                    Enviar
+                  </button>
                 </form>
               )}
 
