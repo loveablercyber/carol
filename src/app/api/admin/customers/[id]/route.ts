@@ -14,12 +14,18 @@ const ensureAdmin = async () => {
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await ensureAdmin()
     if (!session) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
+    }
+
+    const { id } = await params
+    const userId = id?.trim()
+    if (!userId) {
+      return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     }
 
     const body = await request.json()
@@ -37,7 +43,7 @@ export async function PUT(
     }
 
     const updated = await db.user.update({
-      where: { id: params.id },
+      where: { id: userId },
       data,
     })
 
@@ -58,7 +64,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await ensureAdmin()
@@ -66,7 +72,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
-    const userId = params?.id?.trim()
+    const { id } = await params
+    const userId = id?.trim()
     if (!userId) {
       return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     }
@@ -78,35 +85,7 @@ export async function DELETE(
       )
     }
 
-    const existing = await db.user.findUnique({ where: { id: userId } })
-    if (!existing) {
-      return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 })
-    }
-
-    await db.$transaction([
-      db.order.updateMany({
-        where: { userId },
-        data: { userId: null },
-      }),
-      db.cart.updateMany({
-        where: { userId },
-        data: { userId: null },
-      }),
-      db.review.updateMany({
-        where: { userId },
-        data: { userId: null },
-      }),
-      db.address.deleteMany({
-        where: { userId },
-      }),
-      db.session.deleteMany({
-        where: { userId },
-      }),
-      db.account.deleteMany({
-        where: { userId },
-      }),
-      db.user.delete({ where: { id: userId } }),
-    ])
+    await db.user.delete({ where: { id: userId } })
 
     return NextResponse.json({ success: true })
   } catch (error) {

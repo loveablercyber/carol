@@ -170,10 +170,36 @@ export async function DELETE(
     }
 
     const { id } = await params
+    if (!id) {
+      return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+    }
 
-    await db.product.delete({
-      where: { id },
+    const existing = await db.product.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Produto não encontrado' }, { status: 404 })
+    }
+
+    const orderItemCount = await db.orderItem.count({
+      where: { productId: id },
     })
+
+    if (orderItemCount > 0) {
+      await db.product.update({
+        where: { id },
+        data: {
+          isActive: false,
+          inStock: false,
+          stock: 0,
+        },
+      })
+
+      return NextResponse.json({
+        message: 'Produto possui pedidos e foi desativado.',
+        softDeleted: true,
+      })
+    }
+
+    await db.product.delete({ where: { id } })
 
     return NextResponse.json({ message: 'Produto deletado com sucesso' })
   } catch (error) {

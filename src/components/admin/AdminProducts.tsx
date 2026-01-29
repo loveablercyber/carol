@@ -64,7 +64,7 @@ export default function AdminProducts() {
     setLoading(true)
     try {
       const [productsRes, categoriesRes] = await Promise.all([
-        fetch('/api/shop/products?all=true&limit=200'),
+        fetch('/api/shop/products?limit=200'),
         fetch('/api/shop/categories?all=true'),
       ])
 
@@ -170,7 +170,12 @@ export default function AdminProducts() {
         const data = await response.json()
         throw new Error(data.error || 'Erro ao remover produto')
       }
-      toast({ title: 'Produto removido' })
+      const data = await response.json()
+      if (data?.softDeleted) {
+        toast({ title: 'Produto desativado', description: data.message || 'Produto possui pedidos.' })
+      } else {
+        toast({ title: 'Produto removido' })
+      }
       setProducts((prev) => prev.filter((p) => p.id !== productId))
     } catch (error: any) {
       toast({
