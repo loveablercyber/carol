@@ -73,7 +73,30 @@ export async function DELETE(
       )
     }
 
-    await db.user.delete({ where: { id: params.id } })
+    await db.$transaction([
+      db.order.updateMany({
+        where: { userId: params.id },
+        data: { userId: null },
+      }),
+      db.cart.updateMany({
+        where: { userId: params.id },
+        data: { userId: null },
+      }),
+      db.review.updateMany({
+        where: { userId: params.id },
+        data: { userId: null },
+      }),
+      db.address.deleteMany({
+        where: { userId: params.id },
+      }),
+      db.session.deleteMany({
+        where: { userId: params.id },
+      }),
+      db.account.deleteMany({
+        where: { userId: params.id },
+      }),
+      db.user.delete({ where: { id: params.id } }),
+    ])
 
     return NextResponse.json({ success: true })
   } catch (error) {
