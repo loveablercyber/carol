@@ -195,13 +195,27 @@ export async function POST(request: NextRequest) {
         total,
         estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 dias
         items: {
-          create: cart.items.map((item) => ({
-            productId: item.productId,
-            productName: item.product.name,
-            productImage: JSON.parse(item.product.images)[0],
-            price: item.product.price,
-            quantity: item.quantity,
-          })),
+          create: cart.items.map((item) => {
+            const rawImages = item.product.images
+            let parsedImages: string[] = []
+            if (Array.isArray(rawImages)) {
+              parsedImages = rawImages as string[]
+            } else if (typeof rawImages === 'string') {
+              try {
+                parsedImages = JSON.parse(rawImages)
+              } catch (parseError) {
+                parsedImages = []
+              }
+            }
+
+            return {
+              productId: item.productId,
+              productName: item.product.name,
+              productImage: parsedImages[0] || '',
+              price: item.product.price,
+              quantity: item.quantity,
+            }
+          }),
         },
       },
     })

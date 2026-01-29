@@ -84,6 +84,7 @@ function CheckoutContent() {
   const [addresses, setAddresses] = useState<any[]>([])
   const [selectedAddress, setSelectedAddress] = useState<any>(null)
   const [isEditingAddress, setIsEditingAddress] = useState(false)
+  const [addressesLoading, setAddressesLoading] = useState(false)
   const [customerCpf, setCustomerCpf] = useState('')
 
   const [shippingOptions, setShippingOptions] = useState<any[]>([])
@@ -141,6 +142,7 @@ function CheckoutContent() {
 
     const fetchAddresses = async () => {
       if (!session?.user) return
+      setAddressesLoading(true)
       try {
         const response = await fetch('/api/account/addresses')
         if (!response.ok) return
@@ -162,9 +164,24 @@ function CheckoutContent() {
             state: defaultAddress.state || '',
           })
           setIsEditingAddress(false)
+        } else {
+          setSelectedAddress(null)
+          setShippingAddress({
+            recipient: '',
+            phone: '',
+            zipCode: '',
+            street: '',
+            number: '',
+            complement: '',
+            neighborhood: '',
+            city: '',
+            state: '',
+          })
         }
       } catch (error) {
         console.error('Erro ao buscar enderecos:', error)
+      } finally {
+        setAddressesLoading(false)
       }
     }
 
@@ -172,33 +189,7 @@ function CheckoutContent() {
     fetchAddresses()
   }, [session])
 
-  useEffect(() => {
-    if (!session?.user) return
-    if (selectedAddress) return
-    if (shippingAddress.street) return
-
-    try {
-      const stored = localStorage.getItem('checkout_register_address')
-      if (!stored) return
-      const parsed = JSON.parse(stored)
-      if (parsed?.zipCode) {
-        setShippingAddress((prev) => ({
-          ...prev,
-          recipient: parsed.recipient || prev.recipient,
-          phone: parsed.phone || prev.phone,
-          zipCode: parsed.zipCode || prev.zipCode,
-          street: parsed.street || prev.street,
-          number: parsed.number || prev.number,
-          complement: parsed.complement || prev.complement,
-          neighborhood: parsed.neighborhood || prev.neighborhood,
-          city: parsed.city || prev.city,
-          state: parsed.state || prev.state,
-        }))
-      }
-    } catch (error) {
-      console.error('Erro ao ler endereço salvo:', error)
-    }
-  }, [session, selectedAddress, shippingAddress.street])
+  
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -279,7 +270,6 @@ function CheckoutContent() {
         return [savedAddress, ...prev]
       })
       setIsEditingAddress(false)
-      localStorage.removeItem('checkout_register_address')
       if (shippingAddress.zipCode.length === 8) {
         calculateShipping(shippingAddress.zipCode)
       }
@@ -318,21 +308,6 @@ function CheckoutContent() {
     setRegisterError('')
 
     try {
-      localStorage.setItem(
-        'checkout_register_address',
-        JSON.stringify({
-          recipient: registerForm.name,
-          phone: registerForm.phone,
-          zipCode: registerForm.zipCode,
-          street: registerForm.street,
-          number: registerForm.number,
-          complement: registerForm.complement,
-          neighborhood: registerForm.neighborhood,
-          city: registerForm.city,
-          state: registerForm.state,
-        })
-      )
-
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -962,7 +937,9 @@ function CheckoutContent() {
                 Endereço de Entrega
               </h2>
 
-              {!isEditingAddress && (selectedAddress || shippingAddress.street) ? (
+              {addressesLoading && !isEditingAddress ? (
+                <p className="text-sm text-muted-foreground">Carregando endereço...</p>
+              ) : selectedAddress && !isEditingAddress ? (
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="font-semibold text-foreground">
@@ -982,7 +959,7 @@ function CheckoutContent() {
                     Editar
                   </button>
                 </div>
-              ) : (
+              ) : isEditingAddress ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
                     <label className="block text-sm font-semibold mb-2">Nome Completo *</label>
@@ -1126,15 +1103,13 @@ function CheckoutContent() {
                   )}
 
                   <div className="md:col-span-2 flex items-center justify-end gap-2">
-                    {selectedAddress && (
-                      <button
-                        type="button"
-                        onClick={() => setIsEditingAddress(false)}
-                        className="px-4 py-2 text-sm rounded-lg border border-pink-200 text-muted-foreground"
-                      >
-                        Cancelar
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingAddress(false)}
+                      className="px-4 py-2 text-sm rounded-lg border border-pink-200 text-muted-foreground"
+                    >
+                      Cancelar
+                    </button>
                     <button
                       type="button"
                       onClick={handleSaveAddress}
@@ -1143,6 +1118,17 @@ function CheckoutContent() {
                       Salvar endereço
                     </button>
                   </div>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-1">
+                  <span>Nenhum endereço cadastrado.</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingAddress(true)}
+                    className="text-primary font-semibold hover:underline"
+                  >
+                    Adicionar endereço
+                  </button>
                 </div>
               )}
             </div>
@@ -1262,8 +1248,8 @@ function CheckoutContent() {
               <input
                 type="text"
                 value={customerCpf}
-                onChange={(event) => setCustomerCpf(event.target.value)}
-                className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                readOnly
+                className="w-full px-4 py-3 border border-pink-200 rounded-lg bg-gray-50 text-muted-foreground focus:outline-none"
                 placeholder="000.000.000-00"
               />
             </div>
