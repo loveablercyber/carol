@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    let addressSaved = true
     if (address) {
       const {
         recipient,
@@ -79,26 +80,32 @@ export async function POST(request: NextRequest) {
       )
 
       if (hasRequiredFields) {
-        await db.address.create({
-          data: {
-            userId: user.id,
-            recipient: recipient || name,
-            phone: phone || null,
-            zipCode,
-            street,
-            number,
-            complement: complement || null,
-            neighborhood,
-            city,
-            state,
-            isDefault: true,
-          },
-        })
+        try {
+          await db.address.create({
+            data: {
+              userId: user.id,
+              recipient: recipient || name,
+              phone: phone || null,
+              zipCode,
+              street,
+              number,
+              complement: complement || null,
+              neighborhood,
+              city,
+              state,
+              isDefault: true,
+            },
+          })
+        } catch (error) {
+          addressSaved = false
+          console.error('Erro ao salvar endereco no cadastro:', error)
+        }
       }
     }
 
     return NextResponse.json({
       message: 'Usuário criado com sucesso',
+      addressSaved,
       user: {
         id: user.id,
         name: user.name,

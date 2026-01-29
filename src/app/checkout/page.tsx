@@ -251,8 +251,17 @@ function CheckoutContent() {
       })
 
       if (!response.ok) {
-        const data = await response.json()
-        setRegisterError(data.error || 'Erro ao criar conta')
+        let errorMessage = 'Erro ao criar conta'
+        try {
+          const data = await response.json()
+          errorMessage = data.error || errorMessage
+        } catch (parseError) {
+          const text = await response.text()
+          if (text) {
+            errorMessage = text
+          }
+        }
+        setRegisterError(errorMessage)
         return
       }
 
