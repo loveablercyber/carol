@@ -48,6 +48,7 @@ function OrderDetailContent() {
   const [pixQrImage, setPixQrImage] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD'>('PIX')
   const [payerEmail, setPayerEmail] = useState('')
+  const [payerEmailTouched, setPayerEmailTouched] = useState(false)
   const [cardFormReady, setCardFormReady] = useState(false)
   const [cardFormError, setCardFormError] = useState('')
   const cardFormRef = useRef<any>(null)
@@ -108,7 +109,9 @@ function OrderDetailContent() {
 
   useEffect(() => {
     if (!order) return
-    setPayerEmail(session?.user?.email || order.customerEmail || '')
+    if (!payerEmailTouched) {
+      setPayerEmail(session?.user?.email || order.customerEmail || '')
+    }
   }, [order, session])
 
   const shipping = useMemo(() => {
@@ -122,6 +125,11 @@ function OrderDetailContent() {
     }
     return order.shippingAddress
   }, [order])
+
+  const defaultCpf = useMemo(() => {
+    const raw = (shipping as any)?.cpf || ''
+    return raw ? String(raw) : ''
+  }, [shipping])
 
   const canRetryPayment =
     order?.paymentStatus && !['APPROVED', 'REFUNDED'].includes(order.paymentStatus)
@@ -279,6 +287,11 @@ function OrderDetailContent() {
     setPixCode('')
     setPixQrImage('')
     try {
+      const publicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || ''
+      if (publicKey.startsWith('TEST-') && !payerEmail.includes('@testuser.com')) {
+        setRetryError('Use o e-mail do comprador de teste do Mercado Pago.')
+        return
+      }
       let cardPayload = {}
       if (paymentMethod === 'CREDIT_CARD') {
         if (!cardFormReady) {
@@ -477,7 +490,10 @@ function OrderDetailContent() {
                 <input
                   type="email"
                   value={payerEmail}
-                  onChange={(event) => setPayerEmail(event.target.value)}
+                  onChange={(event) => {
+                    setPayerEmailTouched(true)
+                    setPayerEmail(event.target.value)
+                  }}
                   placeholder="email@dominio.com"
                   className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                 />
@@ -563,6 +579,7 @@ function OrderDetailContent() {
                       <input
                         id="form-checkout__identificationNumber"
                         type="text"
+                        defaultValue={defaultCpf}
                         placeholder="000.000.000-00"
                         className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                       />
