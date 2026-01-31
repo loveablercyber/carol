@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       identificationNumber,
     } = body
 
-    if (!orderId || !amount || !payerEmail) {
+    if (!orderId || !amount) {
       return NextResponse.json(
         { error: 'Dados obrigatorios nao informados' },
         { status: 400 }
@@ -39,8 +39,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 })
     }
 
-    if (order.customerEmail !== payerEmail) {
-      return NextResponse.json({ error: 'Email nao autorizado' }, { status: 403 })
+    const resolvedPayerEmail = payerEmail || order.customerEmail
+    if (!resolvedPayerEmail) {
+      return NextResponse.json({ error: 'Email do pagador nao informado' }, { status: 400 })
     }
 
     const finalAmount = Number(order.total)
@@ -73,7 +74,7 @@ export async function POST(request: NextRequest) {
               payment_method_id: paymentMethodId,
               issuer_id: issuerId ? Number(issuerId) : undefined,
               payer: {
-                email: payerEmail,
+                email: resolvedPayerEmail,
                 identification: {
                   type: identificationType || 'CPF',
                   number: identificationNumber,
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest) {
               description: description || `Pedido ${order.orderNumber}`,
               payment_method_id: 'pix',
               payer: {
-                email: payerEmail,
+                email: resolvedPayerEmail,
               },
             }
       ),

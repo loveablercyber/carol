@@ -815,28 +815,23 @@ function CheckoutContent() {
       const data = await response.json()
 
       if (response.ok) {
+        const orderInfo = {
+          id: data.order.id,
+          orderNumber: data.order.orderNumber,
+          total: data.order.total,
+        }
         if (paymentMethod === 'PIX') {
           setOrderCreated(true)
-          setCreatedOrder({
-            id: data.order.id,
-            orderNumber: data.order.orderNumber,
-            total: data.order.total,
-          })
-          await requestPixPayment({
-            id: data.order.id,
-            orderNumber: data.order.orderNumber,
-            total: data.order.total,
-          })
+          setCreatedOrder(orderInfo)
+          await requestPixPayment(orderInfo)
         } else {
           setOrderCreated(false)
-          const paid = await requestCardPayment({
-            id: data.order.id,
-            orderNumber: data.order.orderNumber,
-            total: data.order.total,
-          })
-          if (paid) {
-            router.push(`/account/orders/${data.order.orderNumber}`)
+          setCreatedOrder(orderInfo)
+          const paid = await requestCardPayment(orderInfo)
+          if (!paid) {
+            setPaymentError('Pagamento não aprovado. Você pode tentar novamente no pedido.')
           }
+          router.push(`/account/orders/${orderInfo.orderNumber}`)
         }
       } else {
         setErrors({ submit: data.error || 'Erro ao criar pedido' })
