@@ -46,6 +46,10 @@ export async function POST(request: NextRequest) {
     if (token.startsWith('TEST-')) {
       resolvedPayerEmail = 'test@testuser.com'
     }
+    resolvedPayerEmail = resolvedPayerEmail.trim().toLowerCase()
+    const cleanedIdentificationNumber = identificationNumber
+      ? String(identificationNumber).replace(/\D/g, '')
+      : undefined
 
     const finalAmount = Number(order.total)
     const isCardPayment = Boolean(cardToken && paymentMethodId)
@@ -80,7 +84,7 @@ export async function POST(request: NextRequest) {
                 email: resolvedPayerEmail,
                 identification: {
                   type: identificationType || 'CPF',
-                  number: identificationNumber,
+                  number: cleanedIdentificationNumber || identificationNumber,
                 },
               },
             }
@@ -98,7 +102,14 @@ export async function POST(request: NextRequest) {
     const data = await response.json()
     if (!response.ok) {
       return NextResponse.json(
-        { error: data?.message || 'Erro ao gerar pagamento' },
+        {
+          error: data?.message || 'Erro ao gerar pagamento',
+          details: {
+            status: data?.status,
+            status_detail: data?.status_detail,
+            cause: data?.cause,
+          },
+        },
         { status: response.status }
       )
     }
