@@ -47,6 +47,7 @@ function OrderDetailContent() {
   const [pixCode, setPixCode] = useState('')
   const [pixQrImage, setPixQrImage] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD'>('PIX')
+  const [payerEmail, setPayerEmail] = useState('')
   const [cardFormReady, setCardFormReady] = useState(false)
   const [cardFormError, setCardFormError] = useState('')
   const cardFormRef = useRef<any>(null)
@@ -104,6 +105,11 @@ function OrderDetailContent() {
       setLoading(false)
     }
   }, [orderNumber, session, status])
+
+  useEffect(() => {
+    if (!order) return
+    setPayerEmail(session?.user?.email || order.customerEmail || '')
+  }, [order, session])
 
   const shipping = useMemo(() => {
     if (!order?.shippingAddress) return {}
@@ -324,7 +330,7 @@ function OrderDetailContent() {
           orderId: order.id,
           amount: order.total,
           description: `Pedido ${order.orderNumber}`,
-          payerEmail: session?.user?.email || order.customerEmail,
+          payerEmail,
           ...cardPayload,
         }),
       })
@@ -466,6 +472,19 @@ function OrderDetailContent() {
               <p className="text-sm text-muted-foreground">
                 Pagamento pendente ou recusado. Você pode refazer o pagamento via Pix ou cartão.
               </p>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold">Email do pagador</label>
+                <input
+                  type="email"
+                  value={payerEmail}
+                  onChange={(event) => setPayerEmail(event.target.value)}
+                  placeholder="email@dominio.com"
+                  className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use o e-mail do comprador de teste do Mercado Pago.
+                </p>
+              </div>
               <div className="flex gap-3">
                 <button
                   type="button"
