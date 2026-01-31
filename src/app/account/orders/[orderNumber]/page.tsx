@@ -92,32 +92,6 @@ function OrderDetailContent() {
     const load = async () => {
       await fetchOrder()
     }
-      if (!orderNumber) return
-      if (!session?.user) return
-      setLoading(true)
-      setError('')
-      try {
-        const response = await fetch(`/api/shop/orders?orderNumber=${encodeURIComponent(orderNumber)}`)
-        const data = await response.json()
-        if (!response.ok) {
-          setError(data.error || 'Erro ao carregar pedido.')
-          setOrder(null)
-          return
-        }
-        const found = data.orders?.[0] || null
-        if (!found) {
-          setError('Pedido não encontrado.')
-          setOrder(null)
-          return
-        }
-        setOrder(found)
-      } catch (err) {
-        setError('Erro ao carregar pedido.')
-        setOrder(null)
-      } finally {
-        setLoading(false)
-      }
-    }
 
     if (status === 'authenticated') {
       if (!orderNumber) {
