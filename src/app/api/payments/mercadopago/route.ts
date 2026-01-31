@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 const MERCADO_PAGO_URL = 'https://api.mercadopago.com/v1/payments'
+const MERCADO_PAGO_TEST_USER_URL = 'https://api.mercadopago.com/users/test_user'
+
+async function createTestUser(accessToken: string) {
+  const response = await fetch(MERCADO_PAGO_TEST_USER_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ site_id: 'MLB' }),
+  })
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new Error(data?.message || 'Falha ao criar usuario de teste')
+  }
+
+  return response.json()
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,20 +58,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 })
     }
 
+    const isTestToken = token.startsWith('TEST-')
     let resolvedPayerEmail = payerEmail || order.customerEmail
-    if (!resolvedPayerEmail) {
-      return NextResponse.json({ error: 'Email do pagador nao informado' }, { status: 400 })
-    }
-    resolvedPayerEmail = resolvedPayerEmail.trim().toLowerCase()
     const cleanedIdentificationNumber = identificationNumber
       ? String(identificationNumber).replace(/\D/g, '')
       : undefined
+    let resolvedIdentificationNumber = cleanedIdentificationNumber || identificationNumber
+
+    if (isTestToken && (!resolvedPayerEmail || !resolvedPayerEmail.includes('@testuser.com'))) {
+      try {
+        const testUser = await createTestUser(token)
+        resolvedPayerEmail = testUser?.email || resolvedPayerEmail
+        if (!resolvedIdentificationNumber && testUser?.identification?.number) {
+          resolvedIdentificationNumber = testUser.identification.number
+        }
+      } catch (error) {
+        console.error('Erro ao criar usuario de teste Mercado Pago:', error)
+      }
+    }
+
+    if (!resolvedPayerEmail) {
+      return NextResponse.json({ error: 'Email do pagador nao informado' }, { status: 400 })
+    }
+
+    resolvedPayerEmail = resolvedPayerEmail.trim().toLowerCase()
 
     const finalAmount = Number(order.total)
     const isCardPayment = Boolean(cardToken && paymentMethodId)
 
     if (isCardPayment) {
-      if (!identificationNumber) {
+      if (!resolvedIdentificationNumber) {
         return NextResponse.json(
           { error: 'CPF obrigatório para pagamento com cartão' },
           { status: 400 }
@@ -81,7 +116,7 @@ export async function POST(request: NextRequest) {
                 email: resolvedPayerEmail,
                 identification: {
                   type: identificationType || 'CPF',
-                  number: cleanedIdentificationNumber || identificationNumber,
+                  number: resolvedIdentificationNumber,
                 },
               },
             }
