@@ -43,6 +43,7 @@ function OrderDetailContent() {
   const [error, setError] = useState('')
   const [retryLoading, setRetryLoading] = useState(false)
   const [retryError, setRetryError] = useState('')
+  const [retrySuccess, setRetrySuccess] = useState('')
   const [pixCode, setPixCode] = useState('')
   const [pixQrImage, setPixQrImage] = useState('')
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD'>('PIX')
@@ -59,8 +60,38 @@ function OrderDetailContent() {
     return decodeURIComponent(value).trim()
   }, [params])
 
+  const fetchOrder = async () => {
+    if (!orderNumber) return
+    if (!session?.user) return
+    setLoading(true)
+    setError('')
+    try {
+      const response = await fetch(`/api/shop/orders?orderNumber=${encodeURIComponent(orderNumber)}`)
+      const data = await response.json()
+      if (!response.ok) {
+        setError(data.error || 'Erro ao carregar pedido.')
+        setOrder(null)
+        return
+      }
+      const found = data.orders?.[0] || null
+      if (!found) {
+        setError('Pedido não encontrado.')
+        setOrder(null)
+        return
+      }
+      setOrder(found)
+    } catch (err) {
+      setError('Erro ao carregar pedido.')
+      setOrder(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    const fetchOrder = async () => {
+    const load = async () => {
+      await fetchOrder()
+    }
       if (!orderNumber) return
       if (!session?.user) return
       setLoading(true)
@@ -94,7 +125,7 @@ function OrderDetailContent() {
         setLoading(false)
         return
       }
-      fetchOrder()
+      load()
     } else if (status === 'unauthenticated') {
       setLoading(false)
     }
@@ -264,6 +295,7 @@ function OrderDetailContent() {
     if (!order) return
     setRetryLoading(true)
     setRetryError('')
+    setRetrySuccess('')
     setPixCode('')
     setPixQrImage('')
     try {
@@ -331,6 +363,16 @@ function OrderDetailContent() {
       if (data.qrCodeBase64) setPixQrImage(`data:image/png;base64,${data.qrCodeBase64}`)
       if (paymentMethod === 'PIX' && !data.qrCode && !data.qrCodeBase64) {
         setRetryError('Não foi possível gerar o QR Code do Pix.')
+      }
+      if (paymentMethod === 'CREDIT_CARD') {
+        if (data.status === 'approved') {
+          setRetrySuccess('Pagamento aprovado com sucesso.')
+          await fetchOrder()
+        } else if (data.status === 'rejected') {
+          setRetryError('Pagamento recusado. Verifique os dados do cartão.')
+        } else {
+          setRetryError('Pagamento em análise. Aguarde alguns minutos.')
+        }
       }
     } catch (err) {
       setRetryError('Erro ao gerar pagamento.')
@@ -582,6 +624,9 @@ function OrderDetailContent() {
               </button>
               {retryError && (
                 <p className="text-sm text-red-500">{retryError}</p>
+              )}
+              {retrySuccess && (
+                <p className="text-sm text-green-600">{retrySuccess}</p>
               )}
               {(paymentMethod === 'PIX' && (pixQrImage || pixCode)) && (
                 <div className="mt-4 bg-pink-50 border border-pink-100 rounded-xl p-4">
