@@ -39,9 +39,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 })
     }
 
-    const resolvedPayerEmail = payerEmail || order.customerEmail
+    let resolvedPayerEmail = payerEmail || order.customerEmail
     if (!resolvedPayerEmail) {
       return NextResponse.json({ error: 'Email do pagador nao informado' }, { status: 400 })
+    }
+    if (token.startsWith('TEST-')) {
+      resolvedPayerEmail = 'test@testuser.com'
     }
 
     const finalAmount = Number(order.total)
