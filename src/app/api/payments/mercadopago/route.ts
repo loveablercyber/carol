@@ -43,9 +43,6 @@ export async function POST(request: NextRequest) {
     if (!resolvedPayerEmail) {
       return NextResponse.json({ error: 'Email do pagador nao informado' }, { status: 400 })
     }
-    if (token.startsWith('TEST-')) {
-      resolvedPayerEmail = 'test@testuser.com'
-    }
     resolvedPayerEmail = resolvedPayerEmail.trim().toLowerCase()
     const cleanedIdentificationNumber = identificationNumber
       ? String(identificationNumber).replace(/\D/g, '')
