@@ -81,6 +81,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email do pagador nao informado' }, { status: 400 })
     }
 
+    if (isTestToken && !resolvedPayerEmail.includes('@testuser.com')) {
+      return NextResponse.json(
+        { error: 'Email do pagador deve ser um usuario de teste do Mercado Pago.' },
+        { status: 400 }
+      )
+    }
+
+    if (!isTestToken && resolvedPayerEmail.includes('@testuser.com')) {
+      return NextResponse.json(
+        { error: 'Email de teste usado com credenciais de producao.' },
+        { status: 400 }
+      )
+    }
+
     resolvedPayerEmail = resolvedPayerEmail.trim().toLowerCase()
 
     const finalAmount = Number(order.total)
