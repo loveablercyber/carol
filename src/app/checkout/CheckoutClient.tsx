@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession, signIn } from 'next-auth/react'
 import Link from 'next/link'
-import { ShoppingBag, MapPin, CreditCard, QrCode, ArrowLeft, Truck, Lock, CheckCircle } from 'lucide-react'
+import { ShoppingBag, MapPin, CreditCard, ArrowLeft, Truck, Lock } from 'lucide-react'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 
 interface ShippingAddress {
@@ -43,8 +43,7 @@ export default function CheckoutPage() {
 function CheckoutContent() {
   const router = useRouter()
   const { data: session, status } = useSession()
-  const isTestMode =
-    (process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || '').startsWith('TEST-')
+  const [redirectingToMercadoPago, setRedirectingToMercadoPago] = useState(false)
 
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [loginLoading, setLoginLoading] = useState(false)
@@ -102,17 +101,7 @@ function CheckoutContent() {
   const [showShippingOptions, setShowShippingOptions] = useState(false)
   const [prefillCoupon, setPrefillCoupon] = useState(false)
 
-  const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD'>('PIX')
-  const cardFormRef = useRef<any>(null)
-  const cardFormDataRef = useRef<any>(null)
-  const cardFormSubmitResolverRef = useRef<((data: any) => void) | null>(null)
-  const [cardFormReady, setCardFormReady] = useState(false)
-  const [cardFormError, setCardFormError] = useState('')
-
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [orderCreated, setOrderCreated] = useState(false)
-  const [pixCode, setPixCode] = useState('')
-  const [pixQrImage, setPixQrImage] = useState('')
 
   // Buscar carrinho
   useEffect(() => {
@@ -443,133 +432,6 @@ function CheckoutContent() {
     : ''
   const shouldShowShippingOptions = showShippingOptions || !selectedShipping
 
-  useEffect(() => {
-    if (paymentMethod !== 'CREDIT_CARD') {
-      setCardFormReady(false)
-      return
-    }
-
-    let isMounted = true
-
-    const initCardForm = async () => {
-      setCardFormError('')
-      setCardFormReady(false)
-      if (typeof window === 'undefined') return
-      const publicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY
-      if (!publicKey) {
-        setCardFormError('Chave pública do Mercado Pago não configurada.')
-        return
-      }
-
-      try {
-        const mpModule = (await import('@mercadopago/sdk-js')) as { loadMercadoPago: () => Promise<void> }
-        await mpModule.loadMercadoPago()
-        const MercadoPagoCtor = (window as any)?.MercadoPago
-        if (!MercadoPagoCtor) {
-          setCardFormError('Mercado Pago SDK não disponível.')
-          return
-        }
-        const mp = new MercadoPagoCtor(publicKey, { locale: 'pt-BR' })
-        if (!isMounted) return
-
-        if (cardFormRef.current?.unmount) {
-          cardFormRef.current.unmount()
-        }
-
-        const rootForm = document.getElementById('mp-card-form')
-        if (!rootForm) {
-          setCardFormError('Formulário do cartão não encontrado na página.')
-          return
-        }
-
-        cardFormRef.current = mp.cardForm({
-          amount: total.toFixed(2),
-          iframe: true,
-          form: {
-            id: 'mp-card-form',
-            cardholderName: {
-              id: 'form-checkout__cardholderName',
-              placeholder: 'Nome no cartão',
-            },
-            cardholderEmail: {
-              id: 'form-checkout__cardholderEmail',
-              placeholder: 'Email',
-            },
-            cardNumber: {
-              id: 'form-checkout__cardNumber',
-              placeholder: 'Número do cartão',
-            },
-            expirationDate: {
-              id: 'form-checkout__expirationDate',
-              placeholder: 'MM/AA',
-            },
-            securityCode: {
-              id: 'form-checkout__securityCode',
-              placeholder: 'CVV',
-            },
-            installments: {
-              id: 'form-checkout__installments',
-              placeholder: 'Parcelas',
-            },
-            issuer: {
-              id: 'form-checkout__issuer',
-              placeholder: 'Banco emissor',
-            },
-            identificationType: {
-              id: 'form-checkout__identificationType',
-              placeholder: 'Tipo',
-            },
-            identificationNumber: {
-              id: 'form-checkout__identificationNumber',
-              placeholder: 'CPF',
-            },
-          },
-          callbacks: {
-            onFormMounted: (error: any) => {
-              if (error) {
-                console.warn('Erro ao montar cardForm:', error)
-                setCardFormError('Erro ao carregar formulário do cartão.')
-                return
-              }
-              setCardFormReady(true)
-            },
-            onSubmit: (event: any) => {
-              event.preventDefault()
-              const formData = cardFormRef.current?.getCardFormData?.()
-              cardFormDataRef.current = formData
-              if (cardFormSubmitResolverRef.current) {
-                cardFormSubmitResolverRef.current(formData)
-                cardFormSubmitResolverRef.current = null
-              }
-            },
-            onFetching: () => {
-              setCardFormReady(false)
-              return () => setCardFormReady(true)
-            },
-          },
-        })
-      } catch (error) {
-        if (isMounted) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : 'Erro ao iniciar formulário do cartão.'
-          console.error('Erro ao iniciar cardForm Mercado Pago:', error)
-          setCardFormError(message)
-        }
-      }
-    }
-
-    initCardForm()
-
-    return () => {
-      isMounted = false
-      if (cardFormRef.current?.unmount) {
-        cardFormRef.current.unmount()
-      }
-    }
-  }, [paymentMethod, total])
-
   // Buscar frete
   const calculateShipping = async (cep: string) => {
     if (cep.length !== 8) return
@@ -640,131 +502,41 @@ function CheckoutContent() {
     }
   }
 
-  // Criar pedido
-  const requestPixPayment = async (orderInfo: { id: string; orderNumber: string; total: number }) => {
+  const redirectToCheckoutPro = async (orderInfo: { id: string; orderNumber: string }) => {
     setPaymentError('')
-    setPixCode('')
-    setPixQrImage('')
+    setRedirectingToMercadoPago(true)
+
     try {
-      const paymentResponse = await fetch('/api/payments/mercadopago', {
+      const response = await fetch('/api/payments/mercadopago/preference', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderId: orderInfo.id,
-          amount: orderInfo.total,
-          description: `Pedido ${orderInfo.orderNumber}`,
-          payerEmail:
-            session?.user?.email ||
-            shippingAddress.recipient.toLowerCase().replace(/\\s/g, '.') + '@email.com',
+          payerEmail: session?.user?.email || undefined,
         }),
       })
 
-      const paymentData = await paymentResponse.json()
-      if (!paymentResponse.ok) {
-        setPaymentError(paymentData?.error || 'Erro ao gerar pagamento')
-        return
-      }
-
-      if (paymentData.qrCode) {
-        setPixCode(paymentData.qrCode)
-      }
-      if (paymentData.qrCodeBase64) {
-        setPixQrImage(`data:image/png;base64,${paymentData.qrCodeBase64}`)
-      }
-
-      if (!paymentData.qrCode && !paymentData.qrCodeBase64) {
-        setPaymentError('Não foi possível gerar o QR Code do Pix.')
-      }
-    } catch (error) {
-      setPaymentError('Erro ao gerar pagamento.')
-    }
-  }
-
-  const collectCardFormData = async () => {
-    if (typeof window === 'undefined') return null
-    const form = document.getElementById('mp-card-form') as HTMLFormElement | null
-    if (!form) return null
-
-    return new Promise<any>((resolve) => {
-      cardFormSubmitResolverRef.current = resolve
-      if (typeof (form as any).requestSubmit === 'function') {
-        ;(form as any).requestSubmit()
-      } else {
-        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-      }
-      window.setTimeout(() => {
-        if (cardFormSubmitResolverRef.current === resolve) {
-          cardFormSubmitResolverRef.current = null
-          resolve(null)
-        }
-      }, 2000)
-    })
-  }
-
-  const requestCardPayment = async (orderInfo: { id: string; orderNumber: string; total: number }) => {
-    setPaymentError('')
-    const cardForm = cardFormRef.current
-    if (!cardForm || typeof cardForm.getCardFormData !== 'function') {
-      setPaymentError('Formulário do cartão não carregado.')
-      return false
-    }
-
-    let formData = cardForm.getCardFormData()
-    if (!formData?.token && cardFormDataRef.current) {
-      formData = cardFormDataRef.current
-    }
-    if (!formData?.token) {
-      formData = (await collectCardFormData()) || cardForm.getCardFormData()
-    }
-    const token = formData?.token
-    const paymentMethodId = formData?.paymentMethodId
-    const issuerId = formData?.issuerId
-    const installments = formData?.installments
-    const identificationType = formData?.identificationType || 'CPF'
-    const identificationNumber = formData?.identificationNumber || customerCpf
-    const payerEmail =
-      formData?.cardholderEmail ||
-      session?.user?.email ||
-      shippingAddress.recipient.toLowerCase().replace(/\\s/g, '.') + '@email.com'
-
-    if (!token || !paymentMethodId) {
-      setPaymentError('Preencha os dados do cartão para continuar.')
-      return false
-    }
-
-    if (!identificationNumber) {
-      setPaymentError('CPF obrigatório para pagamento com cartão.')
-      return false
-    }
-
-    try {
-      const response = await fetch('/api/payments/mercadopago', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: orderInfo.id,
-          amount: orderInfo.total,
-          description: `Pedido ${orderInfo.orderNumber}`,
-          payerEmail,
-          token,
-          paymentMethodId,
-          issuerId,
-          installments,
-          identificationType,
-          identificationNumber,
-        }),
-      })
-
-      const data = await response.json()
+      const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        setPaymentError(data?.error || 'Erro ao processar pagamento.')
+        const requestId = data?.details?.mp_request_id
+        setPaymentError(
+          `${data?.error || 'Erro ao iniciar checkout.'}${requestId ? ` (MP: ${requestId})` : ''}`
+        )
         return false
       }
 
-      return true
-    } catch (error) {
-      setPaymentError('Erro ao processar pagamento.')
+      if (typeof window !== 'undefined' && data?.redirectUrl) {
+        window.location.href = data.redirectUrl
+        return true
+      }
+
+      setPaymentError('Preferência criada, mas não foi possível redirecionar ao Mercado Pago.')
       return false
+    } catch (error) {
+      setPaymentError('Erro ao iniciar checkout.')
+      return false
+    } finally {
+      setRedirectingToMercadoPago(false)
     }
   }
 
@@ -787,11 +559,6 @@ function CheckoutContent() {
       return
     }
 
-    if (paymentMethod === 'CREDIT_CARD' && !cardFormReady) {
-      setPaymentError('Aguarde o carregamento do formulário do cartão.')
-      return
-    }
-
     setProcessing(true)
     setErrors({})
 
@@ -809,7 +576,7 @@ function CheckoutContent() {
             method: selectedShipping.code,
             cpf: customerCpf || undefined,
           },
-          paymentMethod: paymentMethod === 'PIX' ? 'MERCADO_PAGO_PIX' : 'MERCADO_PAGO_CREDIT_CARD',
+          paymentMethod: 'MERCADO_PAGO_CHECKOUT_PRO',
           couponCode: coupon?.code,
         }),
       })
@@ -822,19 +589,8 @@ function CheckoutContent() {
           orderNumber: data.order.orderNumber,
           total: data.order.total,
         }
-        if (paymentMethod === 'PIX') {
-          setOrderCreated(true)
-          setCreatedOrder(orderInfo)
-          await requestPixPayment(orderInfo)
-        } else {
-          setOrderCreated(false)
-          setCreatedOrder(orderInfo)
-          const paid = await requestCardPayment(orderInfo)
-          if (!paid) {
-            setPaymentError('Pagamento não aprovado. Você pode tentar novamente no pedido.')
-          }
-          router.push(`/account/orders/${orderInfo.orderNumber}`)
-        }
+        setCreatedOrder(orderInfo)
+        await redirectToCheckoutPro(orderInfo)
       } else {
         setErrors({ submit: data.error || 'Erro ao criar pedido' })
       }
@@ -1112,53 +868,36 @@ function CheckoutContent() {
     )
   }
 
-  if (orderCreated && paymentMethod === 'PIX') {
+  if (createdOrder) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white flex items-center justify-center px-4 py-12">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8 text-center">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h1 className="font-display font-bold text-2xl text-foreground mb-2">
-            Pedido Criado com Sucesso!
+            Pedido criado!
           </h1>
           <p className="text-muted-foreground mb-6">
-            Escaneie o QR Code abaixo para pagar via Pix
+            Você será redirecionado ao Mercado Pago para concluir o pagamento (Pix ou cartão).
           </p>
 
-          <div className="bg-gray-100 p-4 rounded-xl mb-6">
-            {pixQrImage ? (
-              <img src={pixQrImage} alt="QR Code Pix" className="w-48 h-48 mx-auto" />
-            ) : paymentError ? (
-              <div className="text-sm text-red-500">{paymentError}</div>
-            ) : (
-              <QrCode className="w-48 h-48 mx-auto text-foreground" />
-            )}
-          </div>
-
-          {pixCode && (
-            <>
-              <p className="text-sm text-muted-foreground mb-2">
-                Ou copie o código Pix:
-              </p>
-              <code className="block bg-gray-100 p-3 rounded-lg text-xs mb-6 break-all">
-                {pixCode}
-              </code>
-            </>
-          )}
-
-          {paymentError && createdOrder && (
-            <button
-              onClick={() => requestPixPayment(createdOrder)}
-              className="w-full py-3 mb-4 border border-pink-200 rounded-xl font-semibold text-primary hover:border-pink-400"
-            >
-              Tentar gerar Pix novamente
-            </button>
+          {paymentError && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4">
+              {paymentError}
+            </div>
           )}
 
           <button
-            onClick={() => router.push('/account')}
-            className="w-full py-4 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors"
+            onClick={() => redirectToCheckoutPro(createdOrder)}
+            disabled={processing || redirectingToMercadoPago}
+            className="w-full py-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Ir para Meus Pedidos
+            {redirectingToMercadoPago ? 'Redirecionando...' : 'Ir para pagamento no Mercado Pago'}
+          </button>
+
+          <button
+            onClick={() => router.push(`/account/orders/${createdOrder.orderNumber}`)}
+            className="w-full mt-3 py-4 border border-pink-200 rounded-xl font-semibold text-primary hover:border-pink-400"
+          >
+            Ver detalhes do pedido
           </button>
         </div>
       </div>
@@ -1520,167 +1259,25 @@ function CheckoutContent() {
                 <CreditCard className="w-6 h-6 text-primary" />
                 Pagamento
               </h2>
-
-              {/* Método de Pagamento */}
-              <div className="flex gap-4 mb-6">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('PIX')}
-                  className={`flex-1 py-4 border-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                    paymentMethod === 'PIX'
-                      ? 'border-primary bg-primary text-white'
-                      : 'border-pink-200 hover:border-pink-300'
-                  }`}
-                >
-                  <QrCode className="w-5 h-5" />
-                  Pix
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('CREDIT_CARD')}
-                  className={`flex-1 py-4 border-2 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${
-                    paymentMethod === 'CREDIT_CARD'
-                      ? 'border-primary bg-primary text-white'
-                      : 'border-pink-200 hover:border-pink-300'
-                  }`}
-                >
-                  <CreditCard className="w-5 h-5" />
-                  Cartão
-                </button>
-              </div>
-
-              {paymentMethod === 'CREDIT_CARD' && (
-                <form id="mp-card-form" className="space-y-4">
-                  {cardFormError && (
-                    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
-                      {cardFormError}
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-2">Número do Cartão *</label>
-                    <div
-                      id="form-checkout__cardNumber"
-                      className="w-full h-12 border border-pink-200 rounded-lg bg-white px-3 overflow-hidden flex items-center"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold mb-2">Validade *</label>
-                      <div
-                        id="form-checkout__expirationDate"
-                        className="w-full h-12 border border-pink-200 rounded-lg bg-white px-3 overflow-hidden flex items-center"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold mb-2">CVV *</label>
-                      <div
-                        id="form-checkout__securityCode"
-                        className="w-full h-12 border border-pink-200 rounded-lg bg-white px-3 overflow-hidden flex items-center"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-2">Nome no Cartão *</label>
-                    <input
-                      id="form-checkout__cardholderName"
-                      type="text"
-                      defaultValue={session?.user?.name || ''}
-                      className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold mb-2">Email *</label>
-                      <input
-                        id="form-checkout__cardholderEmail"
-                        type="email"
-                        defaultValue={isTestMode ? 'test_user_123@testuser.com' : session?.user?.email || ''}
-                        readOnly={isTestMode}
-                        className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
-                      />
-                      {isTestMode && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Em modo TEST, o Mercado Pago exige um email @testuser.com (ex.: test_user_123@testuser.com).
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold mb-2">CPF *</label>
-                      <input
-                        id="form-checkout__identificationNumber"
-                        type="text"
-                        defaultValue={customerCpf}
-                        readOnly={Boolean(customerCpf)}
-                        placeholder="000.000.000-00"
-                        className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-semibold mb-2">Documento</label>
-                      <select
-                        id="form-checkout__identificationType"
-                        defaultValue="CPF"
-                        className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
-                      >
-                        <option value="CPF">CPF</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold mb-2">Parcelas</label>
-                      <select
-                        id="form-checkout__installments"
-                        className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
-                      >
-                        <option value="">Carregando parcelas...</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold mb-2">Banco emissor</label>
-                    <select
-                      id="form-checkout__issuer"
-                      className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
-                    >
-                      <option value="">Carregando banco emissor...</option>
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Lock className="w-4 h-4" />
-                    <span>Pagamento 100% seguro via Mercado Pago</span>
-                  </div>
-                  <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1}>
-                    Enviar
-                  </button>
-                </form>
-              )}
-
-              {paymentMethod === 'PIX' && (
-                <div className="text-center py-6">
-                  <QrCode className="w-16 h-16 mx-auto text-primary mb-4" />
-                  <p className="text-muted-foreground">
-                    Após confirmar o pedido, você receberá um QR Code para pagamento via Pix
-                  </p>
+              <div className="space-y-3 mb-6">
+                <p className="text-sm text-muted-foreground">
+                  Ao confirmar o pedido, você será redirecionado ao Mercado Pago para concluir o pagamento (Pix ou cartão).
+                </p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Lock className="w-4 h-4" />
+                  <span>Pagamento 100% seguro via Mercado Pago</span>
                 </div>
-              )}
+              </div>
 
               <button
                 onClick={createOrder}
-                disabled={processing || !selectedShipping}
+                disabled={processing || redirectingToMercadoPago || !selectedShipping}
                 className="w-full py-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {processing ? 'Processando...' : 'Confirmar Pedido'}
+                {processing || redirectingToMercadoPago ? 'Redirecionando...' : 'Ir para pagamento'}
               </button>
               {errors.submit && <p className="text-red-500 text-sm mt-2 text-center">{errors.submit}</p>}
-              {paymentError && !orderCreated && (
+              {paymentError && (
                 <p className="text-red-500 text-sm mt-2 text-center">{paymentError}</p>
               )}
             </div>

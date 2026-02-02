@@ -39,6 +39,12 @@ export async function POST(request: NextRequest) {
     }
 
     const status = data.status
+    const externalReference =
+      (data?.external_reference ||
+        data?.metadata?.external_reference ||
+        data?.metadata?.orderNumber ||
+        data?.metadata?.order_number ||
+        '') as string
     const paymentStatusMap: Record<string, string> = {
       approved: 'APPROVED',
       pending: 'PENDING',
@@ -53,9 +59,17 @@ export async function POST(request: NextRequest) {
       refunded: 'REFUNDED',
     }
 
+    const where: any = {
+      OR: [{ paymentId: String(paymentId) }],
+    }
+    if (externalReference && String(externalReference).trim()) {
+      where.OR.push({ orderNumber: String(externalReference).trim() })
+    }
+
     await db.order.updateMany({
-      where: { paymentId: String(paymentId) },
+      where,
       data: {
+        paymentId: String(paymentId),
         paymentStatus: paymentStatusMap[status] || 'PENDING',
         status: orderStatusMap[status] || 'PENDING',
       },
