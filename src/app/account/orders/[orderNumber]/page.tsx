@@ -54,6 +54,8 @@ function OrderDetailContent() {
   const cardFormRef = useRef<any>(null)
   const cardFormDataRef = useRef<any>(null)
   const cardFormSubmitResolverRef = useRef<((data: any) => void) | null>(null)
+  const payerEmailRef = useRef('')
+  const orderRef = useRef<Order | null>(null)
 
   const orderNumber = useMemo(() => {
     const raw = params?.orderNumber
@@ -114,6 +116,14 @@ function OrderDetailContent() {
     }
   }, [order, session])
 
+  useEffect(() => {
+    payerEmailRef.current = payerEmail
+  }, [payerEmail])
+
+  useEffect(() => {
+    orderRef.current = order
+  }, [order])
+
   const shipping = useMemo(() => {
     if (!order?.shippingAddress) return {}
     if (typeof order.shippingAddress === 'string') {
@@ -133,6 +143,78 @@ function OrderDetailContent() {
 
   const canRetryPayment =
     order?.paymentStatus && !['APPROVED', 'REFUNDED'].includes(order.paymentStatus)
+
+  const retryCardPayment = async (formData: any) => {
+    const currentOrder = orderRef.current
+    if (!currentOrder) return
+
+    setRetryLoading(true)
+    setRetryError('')
+    setRetrySuccess('')
+    setPixCode('')
+    setPixQrImage('')
+
+    try {
+      const publicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || ''
+      const currentPayerEmail = (payerEmailRef.current || '').trim()
+      if (publicKey.startsWith('TEST-') && !currentPayerEmail.includes('@testuser.com')) {
+        setRetryError('Use o e-mail do comprador de teste do Mercado Pago.')
+        return
+      }
+
+      const token = formData?.token
+      const paymentMethodId = formData?.paymentMethodId
+      const issuerId = formData?.issuerId
+      const installments = formData?.installments
+      const identificationType = formData?.identificationType || 'CPF'
+      const identificationNumber = formData?.identificationNumber || defaultCpf
+
+      if (!token || !paymentMethodId) {
+        setRetryError('Preencha os dados do cartão para continuar.')
+        return
+      }
+      if (!identificationNumber) {
+        setRetryError('CPF obrigatório para pagamento com cartão.')
+        return
+      }
+
+      const response = await fetch('/api/payments/mercadopago', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: currentOrder.id,
+          amount: currentOrder.total,
+          description: `Pedido ${currentOrder.orderNumber}`,
+          payerEmail: currentPayerEmail || currentOrder.customerEmail,
+          token,
+          paymentMethodId,
+          issuerId,
+          installments,
+          identificationType,
+          identificationNumber,
+        }),
+      })
+
+      const data = await response.json()
+      if (!response.ok) {
+        setRetryError(data?.error || 'Erro ao processar pagamento.')
+        return
+      }
+
+      if (data.status === 'approved') {
+        setRetrySuccess('Pagamento aprovado com sucesso.')
+        await fetchOrder()
+      } else if (data.status === 'rejected') {
+        setRetryError('Pagamento recusado. Verifique os dados do cartão.')
+      } else {
+        setRetryError('Pagamento em análise. Aguarde alguns minutos.')
+      }
+    } catch (error) {
+      setRetryError('Erro ao processar pagamento.')
+    } finally {
+      setRetryLoading(false)
+    }
+  }
 
   useEffect(() => {
     if (!canRetryPayment || paymentMethod !== 'CREDIT_CARD') return
@@ -241,6 +323,7 @@ function OrderDetailContent() {
                 cardFormSubmitResolverRef.current(formData)
                 cardFormSubmitResolverRef.current = null
               }
+              void retryCardPayment(formData)
             },
             onFetching: () => {
               setCardFormReady(false)
@@ -270,48 +353,7 @@ function OrderDetailContent() {
     }
   }, [canRetryPayment, paymentMethod, order?.total])
 
-  const collectCardFormData = async () => {
-    if (typeof window === 'undefined') return null
-    const form = document.getElementById('mp-card-form-retry') as HTMLFormElement | null
-    if (!form) return null
-
-    return new Promise<any>((resolve) => {
-      cardFormSubmitResolverRef.current = resolve
-      const submitButton = document.getElementById('form-checkout__submit') as HTMLButtonElement | null
-      if (submitButton) {
-        submitButton.click()
-      } else if (typeof (form as any).requestSubmit === 'function') {
-        ;(form as any).requestSubmit()
-      } else {
-        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-      }
-      window.setTimeout(() => {
-        if (cardFormSubmitResolverRef.current === resolve) {
-          cardFormSubmitResolverRef.current = null
-          resolve(null)
-        }
-      }, 8000)
-    })
-  }
-
-  const ensureCardFormData = async () => {
-    const cardForm = cardFormRef.current
-    if (!cardForm || typeof cardForm.getCardFormData !== 'function') return null
-
-    // Submit once to trigger tokenization and let SDK fill internal fields.
-    await collectCardFormData()
-
-    const startedAt = Date.now()
-    while (Date.now() - startedAt < 8000) {
-      const data = cardForm.getCardFormData()
-      if (data?.token && data?.paymentMethodId) return data
-      await new Promise((resolve) => window.setTimeout(resolve, 250))
-    }
-
-    return cardForm.getCardFormData()
-  }
-
-  const retryPayment = async () => {
+  const retryPixPayment = async () => {
     if (!order) return
     setRetryLoading(true)
     setRetryError('')
@@ -324,49 +366,6 @@ function OrderDetailContent() {
         setRetryError('Use o e-mail do comprador de teste do Mercado Pago.')
         return
       }
-      let cardPayload = {}
-      if (paymentMethod === 'CREDIT_CARD') {
-        if (!cardFormReady) {
-          setRetryError('Aguarde o carregamento do formulário do cartão.')
-          return
-        }
-        const cardForm = cardFormRef.current
-        if (!cardForm || typeof cardForm.getCardFormData !== 'function') {
-          setRetryError('Formulário do cartão não carregado.')
-          return
-        }
-        let formData = cardForm.getCardFormData()
-        if (!formData?.token && cardFormDataRef.current) {
-          formData = cardFormDataRef.current
-        }
-        if (!formData?.token) {
-          formData = (await ensureCardFormData()) || cardForm.getCardFormData()
-        }
-        const token = formData?.token
-        const paymentMethodId = formData?.paymentMethodId
-        const issuerId = formData?.issuerId
-        const installments = formData?.installments
-        const identificationType = formData?.identificationType || 'CPF'
-        const identificationNumber = formData?.identificationNumber
-
-        if (!token || !paymentMethodId) {
-          setRetryError('Preencha os dados do cartão para continuar.')
-          return
-        }
-        if (!identificationNumber) {
-          setRetryError('CPF obrigatório para pagamento com cartão.')
-          return
-        }
-
-        cardPayload = {
-          token,
-          paymentMethodId,
-          issuerId,
-          installments,
-          identificationType,
-          identificationNumber,
-        }
-      }
 
       const response = await fetch('/api/payments/mercadopago', {
         method: 'POST',
@@ -376,7 +375,6 @@ function OrderDetailContent() {
           amount: order.total,
           description: `Pedido ${order.orderNumber}`,
           payerEmail,
-          ...cardPayload,
         }),
       })
       const data = await response.json()
@@ -386,18 +384,8 @@ function OrderDetailContent() {
       }
       if (data.qrCode) setPixCode(data.qrCode)
       if (data.qrCodeBase64) setPixQrImage(`data:image/png;base64,${data.qrCodeBase64}`)
-      if (paymentMethod === 'PIX' && !data.qrCode && !data.qrCodeBase64) {
+      if (!data.qrCode && !data.qrCodeBase64) {
         setRetryError('Não foi possível gerar o QR Code do Pix.')
-      }
-      if (paymentMethod === 'CREDIT_CARD') {
-        if (data.status === 'approved') {
-          setRetrySuccess('Pagamento aprovado com sucesso.')
-          await fetchOrder()
-        } else if (data.status === 'rejected') {
-          setRetryError('Pagamento recusado. Verifique os dados do cartão.')
-        } else {
-          setRetryError('Pagamento em análise. Aguarde alguns minutos.')
-        }
       }
     } catch (err) {
       setRetryError('Erro ao gerar pagamento.')
@@ -647,23 +635,26 @@ function OrderDetailContent() {
                       <option value="">Carregando banco emissor...</option>
                     </select>
                   </div>
-                  <button id="form-checkout__submit" type="submit" className="hidden" aria-hidden="true" tabIndex={-1}>
-                    Enviar
+                  <button
+                    id="form-checkout__submit"
+                    type="submit"
+                    disabled={retryLoading || !cardFormReady}
+                    className="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    {retryLoading ? 'Processando cartão...' : 'Refazer pagamento'}
                   </button>
                 </form>
               )}
-              <button
-                type="button"
-                onClick={retryPayment}
-                disabled={retryLoading}
-                className="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {retryLoading
-                  ? paymentMethod === 'CREDIT_CARD'
-                    ? 'Processando cartão...'
-                    : 'Gerando Pix...'
-                  : 'Refazer pagamento'}
-              </button>
+              {paymentMethod === 'PIX' && (
+                <button
+                  type="button"
+                  onClick={retryPixPayment}
+                  disabled={retryLoading}
+                  className="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {retryLoading ? 'Gerando Pix...' : 'Refazer pagamento'}
+                </button>
+              )}
               {retryError && (
                 <p className="text-sm text-red-500">{retryError}</p>
               )}
