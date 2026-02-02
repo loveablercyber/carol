@@ -220,6 +220,18 @@ function OrderDetailContent() {
                 return
               }
               setCardFormReady(true)
+              // Prefilled uncontrolled inputs (defaultValue) might not be picked by the SDK until an input/change happens.
+              window.requestAnimationFrame(() => {
+                const notify = (id: string) => {
+                  const el = document.getElementById(id)
+                  if (!el) return
+                  el.dispatchEvent(new Event('input', { bubbles: true }))
+                  el.dispatchEvent(new Event('change', { bubbles: true }))
+                }
+                notify('form-checkout__cardholderName')
+                notify('form-checkout__cardholderEmail')
+                notify('form-checkout__identificationNumber')
+              })
             },
             onSubmit: (event: any) => {
               event.preventDefault()
@@ -265,7 +277,10 @@ function OrderDetailContent() {
 
     return new Promise<any>((resolve) => {
       cardFormSubmitResolverRef.current = resolve
-      if (typeof (form as any).requestSubmit === 'function') {
+      const submitButton = document.getElementById('form-checkout__submit') as HTMLButtonElement | null
+      if (submitButton) {
+        submitButton.click()
+      } else if (typeof (form as any).requestSubmit === 'function') {
         ;(form as any).requestSubmit()
       } else {
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
@@ -275,8 +290,25 @@ function OrderDetailContent() {
           cardFormSubmitResolverRef.current = null
           resolve(null)
         }
-      }, 2000)
+      }, 8000)
     })
+  }
+
+  const ensureCardFormData = async () => {
+    const cardForm = cardFormRef.current
+    if (!cardForm || typeof cardForm.getCardFormData !== 'function') return null
+
+    // Submit once to trigger tokenization and let SDK fill internal fields.
+    await collectCardFormData()
+
+    const startedAt = Date.now()
+    while (Date.now() - startedAt < 8000) {
+      const data = cardForm.getCardFormData()
+      if (data?.token && data?.paymentMethodId) return data
+      await new Promise((resolve) => window.setTimeout(resolve, 250))
+    }
+
+    return cardForm.getCardFormData()
   }
 
   const retryPayment = async () => {
@@ -308,7 +340,7 @@ function OrderDetailContent() {
           formData = cardFormDataRef.current
         }
         if (!formData?.token) {
-          formData = (await collectCardFormData()) || cardForm.getCardFormData()
+          formData = (await ensureCardFormData()) || cardForm.getCardFormData()
         }
         const token = formData?.token
         const paymentMethodId = formData?.paymentMethodId
@@ -615,7 +647,7 @@ function OrderDetailContent() {
                       <option value="">Carregando banco emissor...</option>
                     </select>
                   </div>
-                  <button type="submit" className="hidden" aria-hidden="true" tabIndex={-1}>
+                  <button id="form-checkout__submit" type="submit" className="hidden" aria-hidden="true" tabIndex={-1}>
                     Enviar
                   </button>
                 </form>
