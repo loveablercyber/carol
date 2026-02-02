@@ -4,6 +4,14 @@ import { db } from '@/lib/db'
 const MERCADO_PAGO_URL = 'https://api.mercadopago.com/v1/payments'
 const MERCADO_PAGO_TEST_USER_URL = 'https://api.mercadopago.com/users/test_user'
 
+function toSafeInt(value: unknown) {
+  if (value === null || value === undefined) return null
+  const raw = String(value).trim()
+  if (!raw) return null
+  const parsed = Number.parseInt(raw, 10)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 async function createTestUser(accessToken: string) {
   const response = await fetch(MERCADO_PAGO_TEST_USER_URL, {
     method: 'POST',
@@ -109,7 +117,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const idempotencyKey = orderId ? `order-${orderId}` : crypto.randomUUID()
+    const idempotencyKey = crypto.randomUUID()
+    const safeInstallments = toSafeInt(installments) || 1
+    const safeIssuerId = toSafeInt(issuerId)
+
     const response = await fetch(MERCADO_PAGO_URL, {
       method: 'POST',
       headers: {
@@ -123,9 +134,9 @@ export async function POST(request: NextRequest) {
               transaction_amount: finalAmount,
               token: cardToken,
               description: description || `Pedido ${order.orderNumber}`,
-              installments: Number(installments || 1),
+              installments: safeInstallments,
               payment_method_id: paymentMethodId,
-              issuer_id: issuerId ? Number(issuerId) : undefined,
+              issuer_id: safeIssuerId || undefined,
               payer: {
                 email: resolvedPayerEmail,
                 identification: {
@@ -145,15 +156,23 @@ export async function POST(request: NextRequest) {
       ),
     })
 
-    const data = await response.json()
+    const mpRequestId =
+      response.headers.get('x-request-id') ||
+      response.headers.get('x-correlation-id') ||
+      response.headers.get('x-trace-id') ||
+      undefined
+
+    const data = await response.json().catch(() => null)
     if (!response.ok) {
       return NextResponse.json(
         {
-          error: data?.message || 'Erro ao gerar pagamento',
+          error: data?.message || data?.error || 'Erro ao gerar pagamento',
           details: {
             status: data?.status,
             status_detail: data?.status_detail,
             cause: data?.cause,
+            mp_request_id: mpRequestId,
+            idempotency_key: idempotencyKey,
           },
         },
         { status: response.status }

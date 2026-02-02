@@ -49,6 +49,9 @@ function OrderDetailContent() {
   const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CREDIT_CARD'>('PIX')
   const [payerEmail, setPayerEmail] = useState('')
   const [payerEmailTouched, setPayerEmailTouched] = useState(false)
+  const [cardCpf, setCardCpf] = useState('')
+  const [cardCpfTouched, setCardCpfTouched] = useState(false)
+  const [profileCpf, setProfileCpf] = useState('')
   const [cardFormReady, setCardFormReady] = useState(false)
   const [cardFormError, setCardFormError] = useState('')
   const cardFormRef = useRef<any>(null)
@@ -110,6 +113,23 @@ function OrderDetailContent() {
   }, [orderNumber, session, status])
 
   useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const response = await fetch('/api/account/profile')
+        if (!response.ok) return
+        const data = await response.json()
+        setProfileCpf(data.user?.cpf || '')
+      } catch (error) {
+        // ignore
+      }
+    }
+
+    if (status === 'authenticated') {
+      loadProfile()
+    }
+  }, [status])
+
+  useEffect(() => {
     if (!order) return
     if (!payerEmailTouched) {
       setPayerEmail(session?.user?.email || order.customerEmail || '')
@@ -141,8 +161,32 @@ function OrderDetailContent() {
     return raw ? String(raw) : ''
   }, [shipping])
 
+  useEffect(() => {
+    if (cardCpfTouched) return
+    const fallbackCpf = defaultCpf || profileCpf
+    if (fallbackCpf && fallbackCpf !== cardCpf) {
+      setCardCpf(fallbackCpf)
+    }
+  }, [defaultCpf, profileCpf, cardCpfTouched])
+
   const canRetryPayment =
     order?.paymentStatus && !['APPROVED', 'REFUNDED'].includes(order.paymentStatus)
+
+  useEffect(() => {
+    if (paymentMethod !== 'CREDIT_CARD') return
+    if (!cardFormReady) return
+    if (typeof window === 'undefined') return
+
+    const notify = (id: string) => {
+      const el = document.getElementById(id)
+      if (!el) return
+      el.dispatchEvent(new Event('input', { bubbles: true }))
+      el.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+
+    notify('form-checkout__cardholderEmail')
+    notify('form-checkout__identificationNumber')
+  }, [paymentMethod, payerEmail, cardCpf, cardFormReady])
 
   const retryCardPayment = async (formData: any) => {
     const currentOrder = orderRef.current
@@ -167,7 +211,7 @@ function OrderDetailContent() {
       const issuerId = formData?.issuerId
       const installments = formData?.installments
       const identificationType = formData?.identificationType || 'CPF'
-      const identificationNumber = formData?.identificationNumber || defaultCpf
+      const identificationNumber = formData?.identificationNumber || cardCpf || defaultCpf || profileCpf
 
       if (!token || !paymentMethodId) {
         setRetryError('Preencha os dados do cartão para continuar.')
@@ -197,7 +241,10 @@ function OrderDetailContent() {
 
       const data = await response.json()
       if (!response.ok) {
-        setRetryError(data?.error || 'Erro ao processar pagamento.')
+        const requestId = data?.details?.mp_request_id
+        setRetryError(
+          `${data?.error || 'Erro ao processar pagamento.'}${requestId ? ` (MP: ${requestId})` : ''}`
+        )
         return
       }
 
@@ -590,7 +637,8 @@ function OrderDetailContent() {
                       <input
                         id="form-checkout__cardholderEmail"
                         type="email"
-                        defaultValue={session?.user?.email || order.customerEmail || ''}
+                        value={payerEmail}
+                        readOnly
                         className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                       />
                     </div>
@@ -599,7 +647,11 @@ function OrderDetailContent() {
                       <input
                         id="form-checkout__identificationNumber"
                         type="text"
-                        defaultValue={defaultCpf}
+                        value={cardCpf}
+                        onChange={(event) => {
+                          setCardCpfTouched(true)
+                          setCardCpf(event.target.value)
+                        }}
                         placeholder="000.000.000-00"
                         className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                       />
