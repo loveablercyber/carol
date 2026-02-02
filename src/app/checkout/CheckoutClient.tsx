@@ -43,6 +43,8 @@ export default function CheckoutPage() {
 function CheckoutContent() {
   const router = useRouter()
   const { data: session, status } = useSession()
+  const isTestMode =
+    (process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || '').startsWith('TEST-')
 
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [loginLoading, setLoginLoading] = useState(false)
@@ -1596,9 +1598,15 @@ function CheckoutContent() {
                       <input
                         id="form-checkout__cardholderEmail"
                         type="email"
-                        defaultValue={session?.user?.email || ''}
+                        defaultValue={isTestMode ? 'test@testuser.com' : session?.user?.email || ''}
+                        readOnly={isTestMode}
                         className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                       />
+                      {isTestMode && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Em modo TEST, use test@testuser.com.
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-semibold mb-2">CPF *</label>

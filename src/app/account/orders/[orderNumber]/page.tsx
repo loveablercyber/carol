@@ -38,6 +38,8 @@ export default function OrderDetailPage() {
 function OrderDetailContent() {
   const params = useParams()
   const { data: session, status } = useSession()
+  const isTestMode =
+    (process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || '').startsWith('TEST-')
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -132,9 +134,9 @@ function OrderDetailContent() {
   useEffect(() => {
     if (!order) return
     if (!payerEmailTouched) {
-      setPayerEmail(session?.user?.email || order.customerEmail || '')
+      setPayerEmail(isTestMode ? 'test@testuser.com' : session?.user?.email || order.customerEmail || '')
     }
-  }, [order, session])
+  }, [order, session, payerEmailTouched, isTestMode])
 
   useEffect(() => {
     payerEmailRef.current = payerEmail
@@ -199,10 +201,9 @@ function OrderDetailContent() {
     setPixQrImage('')
 
     try {
-      const publicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || ''
       const currentPayerEmail = (payerEmailRef.current || '').trim()
-      if (publicKey.startsWith('TEST-') && !currentPayerEmail.includes('@testuser.com')) {
-        setRetryError('Use o e-mail do comprador de teste do Mercado Pago.')
+      if (isTestMode && currentPayerEmail !== 'test@testuser.com') {
+        setRetryError('Para testes, use o e-mail test@testuser.com.')
         return
       }
 
@@ -408,9 +409,8 @@ function OrderDetailContent() {
     setPixCode('')
     setPixQrImage('')
     try {
-      const publicKey = process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || ''
-      if (publicKey.startsWith('TEST-') && !payerEmail.includes('@testuser.com')) {
-        setRetryError('Use o e-mail do comprador de teste do Mercado Pago.')
+      if (isTestMode && payerEmail !== 'test@testuser.com') {
+        setRetryError('Para testes, use o e-mail test@testuser.com.')
         return
       }
 
@@ -557,15 +557,19 @@ function OrderDetailContent() {
                 <input
                   type="email"
                   value={payerEmail}
+                  readOnly={isTestMode}
                   onChange={(event) => {
+                    if (isTestMode) return
                     setPayerEmailTouched(true)
                     setPayerEmail(event.target.value)
                   }}
-                  placeholder="email@dominio.com"
+                  placeholder={isTestMode ? 'test@testuser.com' : 'email@dominio.com'}
                   className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Use o e-mail do comprador de teste do Mercado Pago.
+                  {isTestMode
+                    ? 'Em modo TEST, use test@testuser.com.'
+                    : 'Use o e-mail do comprador (pagador) do Mercado Pago.'}
                 </p>
               </div>
               <div className="flex gap-3">

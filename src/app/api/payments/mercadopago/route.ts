@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 const MERCADO_PAGO_URL = 'https://api.mercadopago.com/v1/payments'
-const MERCADO_PAGO_TEST_USER_URL = 'https://api.mercadopago.com/users/test_user'
+const MERCADO_PAGO_TEST_PAYER_EMAIL = 'test@testuser.com'
+const MERCADO_PAGO_TEST_PAYER_CPF = '19119119100'
 
 function toSafeInt(value: unknown) {
   if (value === null || value === undefined) return null
@@ -10,24 +11,6 @@ function toSafeInt(value: unknown) {
   if (!raw) return null
   const parsed = Number.parseInt(raw, 10)
   return Number.isFinite(parsed) ? parsed : null
-}
-
-async function createTestUser(accessToken: string) {
-  const response = await fetch(MERCADO_PAGO_TEST_USER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ site_id: 'MLB' }),
-  })
-
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    throw new Error(data?.message || 'Falha ao criar usuario de teste')
-  }
-
-  return response.json()
 }
 
 export async function POST(request: NextRequest) {
@@ -67,21 +50,19 @@ export async function POST(request: NextRequest) {
     }
 
     const isTestToken = token.startsWith('TEST-')
-    let resolvedPayerEmail = payerEmail || order.customerEmail
     const cleanedIdentificationNumber = identificationNumber
       ? String(identificationNumber).replace(/\D/g, '')
       : undefined
     let resolvedIdentificationNumber = cleanedIdentificationNumber || identificationNumber
+    const isCardPayment = Boolean(cardToken && paymentMethodId)
 
-    if (isTestToken && (!resolvedPayerEmail || !resolvedPayerEmail.includes('@testuser.com'))) {
-      try {
-        const testUser = await createTestUser(token)
-        resolvedPayerEmail = testUser?.email || resolvedPayerEmail
-        if (!resolvedIdentificationNumber && testUser?.identification?.number) {
-          resolvedIdentificationNumber = testUser.identification.number
-        }
-      } catch (error) {
-        console.error('Erro ao criar usuario de teste Mercado Pago:', error)
+    // Mercado Pago test mode: the test buyer email is fixed for card tests in their docs.
+    // Keep this server-side to avoid depending on the store user's email.
+    let resolvedPayerEmail = (payerEmail || order.customerEmail || '').trim().toLowerCase()
+    if (isTestToken) {
+      resolvedPayerEmail = MERCADO_PAGO_TEST_PAYER_EMAIL
+      if (isCardPayment && !resolvedIdentificationNumber) {
+        resolvedIdentificationNumber = MERCADO_PAGO_TEST_PAYER_CPF
       }
     }
 
@@ -89,24 +70,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email do pagador nao informado' }, { status: 400 })
     }
 
-    if (isTestToken && !resolvedPayerEmail.includes('@testuser.com')) {
-      return NextResponse.json(
-        { error: 'Email do pagador deve ser um usuario de teste do Mercado Pago.' },
-        { status: 400 }
-      )
-    }
-
-    if (!isTestToken && resolvedPayerEmail.includes('@testuser.com')) {
+    if (!isTestToken && resolvedPayerEmail === MERCADO_PAGO_TEST_PAYER_EMAIL) {
       return NextResponse.json(
         { error: 'Email de teste usado com credenciais de producao.' },
         { status: 400 }
       )
     }
 
-    resolvedPayerEmail = resolvedPayerEmail.trim().toLowerCase()
-
     const finalAmount = Number(order.total)
-    const isCardPayment = Boolean(cardToken && paymentMethodId)
 
     if (isCardPayment) {
       if (!resolvedIdentificationNumber) {
