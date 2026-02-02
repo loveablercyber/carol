@@ -1598,13 +1598,13 @@ function CheckoutContent() {
                       <input
                         id="form-checkout__cardholderEmail"
                         type="email"
-                        defaultValue={isTestMode ? 'test@testuser.com' : session?.user?.email || ''}
+                        defaultValue={isTestMode ? 'test_user_123@testuser.com' : session?.user?.email || ''}
                         readOnly={isTestMode}
                         className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                       />
                       {isTestMode && (
                         <p className="text-xs text-muted-foreground mt-1">
-                          Em modo TEST, use test@testuser.com.
+                          Em modo TEST, o Mercado Pago exige um email @testuser.com (ex.: test_user_123@testuser.com).
                         </p>
                       )}
                     </div>

@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 
 const MERCADO_PAGO_URL = 'https://api.mercadopago.com/v1/payments'
-const MERCADO_PAGO_TEST_PAYER_EMAIL = 'test@testuser.com'
+// In TEST credentials, Mercado Pago rejects real buyer emails. A @testuser.com email is required.
+// This default works across accounts and can be overridden by passing a custom @testuser.com email.
+const MERCADO_PAGO_TEST_PAYER_EMAIL = 'test_user_123@testuser.com'
 const MERCADO_PAGO_TEST_PAYER_CPF = '19119119100'
 
 function toSafeInt(value: unknown) {
@@ -56,11 +58,12 @@ export async function POST(request: NextRequest) {
     let resolvedIdentificationNumber = cleanedIdentificationNumber || identificationNumber
     const isCardPayment = Boolean(cardToken && paymentMethodId)
 
-    // Mercado Pago test mode: the test buyer email is fixed for card tests in their docs.
-    // Keep this server-side to avoid depending on the store user's email.
+    // Mercado Pago test mode: do not send the store user's real email; use a test buyer email instead.
     let resolvedPayerEmail = (payerEmail || order.customerEmail || '').trim().toLowerCase()
     if (isTestToken) {
-      resolvedPayerEmail = MERCADO_PAGO_TEST_PAYER_EMAIL
+      if (!resolvedPayerEmail.endsWith('@testuser.com')) {
+        resolvedPayerEmail = MERCADO_PAGO_TEST_PAYER_EMAIL
+      }
       if (isCardPayment && !resolvedIdentificationNumber) {
         resolvedIdentificationNumber = MERCADO_PAGO_TEST_PAYER_CPF
       }
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email do pagador nao informado' }, { status: 400 })
     }
 
-    if (!isTestToken && resolvedPayerEmail === MERCADO_PAGO_TEST_PAYER_EMAIL) {
+    if (!isTestToken && resolvedPayerEmail.endsWith('@testuser.com')) {
       return NextResponse.json(
         { error: 'Email de teste usado com credenciais de producao.' },
         { status: 400 }

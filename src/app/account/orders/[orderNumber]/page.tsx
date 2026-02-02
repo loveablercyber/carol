@@ -134,7 +134,7 @@ function OrderDetailContent() {
   useEffect(() => {
     if (!order) return
     if (!payerEmailTouched) {
-      setPayerEmail(isTestMode ? 'test@testuser.com' : session?.user?.email || order.customerEmail || '')
+      setPayerEmail(isTestMode ? 'test_user_123@testuser.com' : session?.user?.email || order.customerEmail || '')
     }
   }, [order, session, payerEmailTouched, isTestMode])
 
@@ -202,8 +202,8 @@ function OrderDetailContent() {
 
     try {
       const currentPayerEmail = (payerEmailRef.current || '').trim()
-      if (isTestMode && currentPayerEmail !== 'test@testuser.com') {
-        setRetryError('Para testes, use o e-mail test@testuser.com.')
+      if (isTestMode && !currentPayerEmail.endsWith('@testuser.com')) {
+        setRetryError('Para testes, use um e-mail @testuser.com (ex.: test_user_123@testuser.com).')
         return
       }
 
@@ -409,8 +409,8 @@ function OrderDetailContent() {
     setPixCode('')
     setPixQrImage('')
     try {
-      if (isTestMode && payerEmail !== 'test@testuser.com') {
-        setRetryError('Para testes, use o e-mail test@testuser.com.')
+      if (isTestMode && !payerEmail.endsWith('@testuser.com')) {
+        setRetryError('Para testes, use um e-mail @testuser.com (ex.: test_user_123@testuser.com).')
         return
       }
 
@@ -563,12 +563,12 @@ function OrderDetailContent() {
                     setPayerEmailTouched(true)
                     setPayerEmail(event.target.value)
                   }}
-                  placeholder={isTestMode ? 'test@testuser.com' : 'email@dominio.com'}
+                  placeholder={isTestMode ? 'test_user_123@testuser.com' : 'email@dominio.com'}
                   className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
                 />
                 <p className="text-xs text-muted-foreground">
                   {isTestMode
-                    ? 'Em modo TEST, use test@testuser.com.'
+                    ? 'Em modo TEST, o Mercado Pago exige um email @testuser.com (ex.: test_user_123@testuser.com).'
                     : 'Use o e-mail do comprador (pagador) do Mercado Pago.'}
                 </p>
               </div>
