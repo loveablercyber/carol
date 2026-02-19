@@ -1,15 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { resolveMercadoPagoConfig } from '@/lib/mercadopago-config'
 
 const MERCADO_PAGO_PREFERENCES_URL = 'https://api.mercadopago.com/checkout/preferences'
 const DEFAULT_TEST_PAYER_EMAIL = 'test_user_123@testuser.com'
 
+function emailDomain(value: string) {
+  const parts = value.split('@')
+  return parts.length > 1 ? parts[1] : ''
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const token = process.env.MERCADOPAGO_ACCESS_TOKEN
+    const config = resolveMercadoPagoConfig({ requestOrigin: request.nextUrl.origin })
+    const token = config.accessToken
     if (!token) {
       return NextResponse.json(
-        { error: 'Mercado Pago nao configurado' },
+        { error: `Mercado Pago nao configurado para modo ${config.env}` },
+        { status: 501 }
+      )
+    }
+    if (!config.publicKey) {
+      return NextResponse.json(
+        { error: `Chave publica Mercado Pago ausente para modo ${config.env}` },
         { status: 501 }
       )
     }
@@ -29,19 +42,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 })
     }
 
-    const isTestToken = token.startsWith('TEST-')
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      process.env.NEXTAUTH_URL ||
-      request.nextUrl.origin
-
     let resolvedPayerEmail = (payerEmail || order.customerEmail || '').trim().toLowerCase()
-    if (isTestToken && !resolvedPayerEmail.endsWith('@testuser.com')) {
+    if (config.env === 'test' && !resolvedPayerEmail.endsWith('@testuser.com')) {
       resolvedPayerEmail = DEFAULT_TEST_PAYER_EMAIL
     }
 
-    // Keep the preference simple and always match the store order total.
-    // The order items are kept in our DB; Mercado Pago will show a single line item.
     const preference = {
       items: [
         {
@@ -52,15 +57,32 @@ export async function POST(request: NextRequest) {
         },
       ],
       external_reference: order.orderNumber,
-      notification_url: `${baseUrl}/api/payments/mercadopago/webhook`,
+      notification_url: `${config.baseUrl}/api/payments/mercadopago/webhook`,
       back_urls: {
-        success: `${baseUrl}/checkout/return`,
-        failure: `${baseUrl}/checkout/return`,
-        pending: `${baseUrl}/checkout/return`,
+        success: `${config.baseUrl}/pagamento/sucesso`,
+        failure: `${config.baseUrl}/pagamento/erro`,
+        pending: `${config.baseUrl}/pagamento/pendente`,
       },
       auto_return: 'approved',
       ...(resolvedPayerEmail ? { payer: { email: resolvedPayerEmail } } : {}),
     }
+
+    console.info('[MP] Preference create request', {
+      env: config.env,
+      redirectField: config.redirectField,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      baseUrl: config.baseUrl,
+      payerEmailDomain: resolvedPayerEmail ? emailDomain(resolvedPayerEmail) : '',
+      payload: {
+        external_reference: preference.external_reference,
+        auto_return: preference.auto_return,
+        back_urls: preference.back_urls,
+        notification_url: preference.notification_url,
+        itemCount: preference.items.length,
+        total: preference.items[0]?.unit_price,
+      },
+    })
 
     const idempotencyKey = crypto.randomUUID()
     const response = await fetch(MERCADO_PAGO_PREFERENCES_URL, {
@@ -95,19 +117,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const redirectUrl =
-      (isTestToken ? data?.sandbox_init_point : data?.init_point) ||
-      data?.init_point ||
-      data?.sandbox_init_point
+    const redirectUrl = data?.[config.redirectField] as string | undefined
 
     if (!redirectUrl) {
       return NextResponse.json(
-        { error: 'Preferencia criada, mas URL de checkout ausente.' },
+        {
+          error: `Preferencia criada, mas ${config.redirectField} nao foi retornado.`,
+          details: {
+            preferenceId: data?.id,
+            initPointExists: Boolean(data?.init_point),
+            sandboxInitPointExists: Boolean(data?.sandbox_init_point),
+          },
+        },
         { status: 502 }
       )
     }
 
+    console.info('[MP] Preference create response', {
+      env: config.env,
+      redirectField: config.redirectField,
+      preferenceId: data?.id,
+      initPoint: data?.init_point,
+      sandboxInitPoint: data?.sandbox_init_point,
+    })
+
     return NextResponse.json({
+      environment: config.env,
+      redirectField: config.redirectField,
       preferenceId: data.id,
       initPoint: data.init_point,
       sandboxInitPoint: data.sandbox_init_point,
@@ -116,9 +152,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Erro ao criar preferencia Mercado Pago:', error)
     return NextResponse.json(
-      { error: 'Erro ao criar preferencia' },
+      { error: error instanceof Error ? error.message : 'Erro ao criar preferencia' },
       { status: 500 }
     )
   }
 }
-

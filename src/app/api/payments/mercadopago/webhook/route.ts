@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { resolveMercadoPagoConfig } from '@/lib/mercadopago-config'
 
 const MERCADO_PAGO_API = 'https://api.mercadopago.com/v1/payments'
 
 export async function POST(request: NextRequest) {
   try {
-    const token = process.env.MERCADOPAGO_ACCESS_TOKEN
+    const config = resolveMercadoPagoConfig({ requestOrigin: request.nextUrl.origin })
+    const token = config.accessToken
     if (!token) {
       return NextResponse.json(
-        { error: 'Mercado Pago nao configurado' },
+        { error: `Mercado Pago nao configurado para modo ${config.env}` },
         { status: 501 }
       )
     }
