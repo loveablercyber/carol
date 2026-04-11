@@ -3,7 +3,6 @@ import { db } from '@/lib/db'
 import { resolveMercadoPagoConfig } from '@/lib/mercadopago-config'
 
 const MERCADO_PAGO_PREFERENCES_URL = 'https://api.mercadopago.com/checkout/preferences'
-const DEFAULT_TEST_PAYER_EMAIL = 'test_user_123@testuser.com'
 
 function emailDomain(value: string) {
   const parts = value.split('@')
@@ -31,10 +30,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 })
     }
 
-    let resolvedPayerEmail = (payerEmail || order.customerEmail || '').trim().toLowerCase()
-    if (config.env === 'test' && !resolvedPayerEmail.endsWith('@testuser.com')) {
-      resolvedPayerEmail = DEFAULT_TEST_PAYER_EMAIL
-    }
+    const candidatePayerEmail = (payerEmail || order.customerEmail || '').trim().toLowerCase()
+    const resolvedPayerEmail =
+      config.env === 'test' && !candidatePayerEmail.endsWith('@testuser.com')
+        ? ''
+        : candidatePayerEmail
 
     const preference = {
       items: [
