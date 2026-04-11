@@ -9,7 +9,7 @@ export type MercadoPagoConfig = {
   accessToken: string
   publicKey: string
   baseUrl: string
-  redirectField: 'sandbox_init_point' | 'init_point'
+  redirectField: 'init_point'
 }
 
 function normalizeEnv(rawValue?: string): MercadoPagoEnv {
@@ -34,9 +34,12 @@ function enforceCredentialPrefix(
 ) {
   const tokenIsTest = token.startsWith('TEST-')
   const publicKeyIsTest = publicKey.startsWith('TEST-')
+  const credentialPrefix = (value: string) => value.split('-')[0] || 'missing'
 
   if (env === 'test' && (!tokenIsTest || !publicKeyIsTest)) {
-    throw new Error('Ambiente TEST requer credenciais TEST-* (token e public key).')
+    throw new Error(
+      `Ambiente TEST requer credenciais TEST-* (token=${credentialPrefix(token)}, publicKey=${credentialPrefix(publicKey)}).`
+    )
   }
 
   if (env === 'prod' && (tokenIsTest || publicKeyIsTest)) {
@@ -114,6 +117,6 @@ export function resolveMercadoPagoConfig(
     accessToken,
     publicKey,
     baseUrl,
-    redirectField: env === 'test' ? 'sandbox_init_point' : 'init_point',
+    redirectField: 'init_point',
   }
 }
