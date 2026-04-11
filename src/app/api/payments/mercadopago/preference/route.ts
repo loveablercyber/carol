@@ -9,6 +9,33 @@ function emailDomain(value: string) {
   return parts.length > 1 ? parts[1] : ''
 }
 
+function resolvePayerEmail(env: 'test' | 'prod', candidateEmail: string) {
+  const normalizedCandidateEmail = candidateEmail.trim().toLowerCase()
+
+  if (env === 'prod') {
+    return normalizedCandidateEmail
+  }
+
+  const configuredTestBuyerEmail = (process.env.MERCADOPAGO_TEST_BUYER_EMAIL || '')
+    .trim()
+    .toLowerCase()
+
+  if (configuredTestBuyerEmail) {
+    if (!configuredTestBuyerEmail.endsWith('@testuser.com')) {
+      throw new Error('MERCADOPAGO_TEST_BUYER_EMAIL deve ser um e-mail de usuario teste do Mercado Pago.')
+    }
+    return configuredTestBuyerEmail
+  }
+
+  if (normalizedCandidateEmail.endsWith('@testuser.com')) {
+    return normalizedCandidateEmail
+  }
+
+  throw new Error(
+    'MERCADOPAGO_TEST_BUYER_EMAIL obrigatorio em MP_ENV=test. Use o e-mail da conta Comprador de teste do Mercado Pago.'
+  )
+}
+
 export async function POST(request: NextRequest) {
   try {
     const config = resolveMercadoPagoConfig({ requestOrigin: request.nextUrl.origin })
@@ -30,11 +57,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 })
     }
 
-    const candidatePayerEmail = (payerEmail || order.customerEmail || '').trim().toLowerCase()
-    const resolvedPayerEmail =
-      config.env === 'test' && !candidatePayerEmail.endsWith('@testuser.com')
-        ? ''
-        : candidatePayerEmail
+    const resolvedPayerEmail = resolvePayerEmail(config.env, payerEmail || order.customerEmail || '')
 
     const preference = {
       items: [
