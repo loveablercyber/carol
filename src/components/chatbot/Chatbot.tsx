@@ -17,6 +17,8 @@ interface ChatbotProps {
   isOpen: boolean
   onClose: () => void
   initialMessage?: string
+  preSelectedCategory?: ServiceCategory | null
+  preSelectedService?: Service | null
   promoData?: {
     serviceName: string
     price: string
@@ -44,7 +46,14 @@ interface Service {
   }
 }
 
-const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, initialMessage, promoData }) => {
+const Chatbot: React.FC<ChatbotProps> = ({
+  isOpen,
+  onClose,
+  initialMessage,
+  preSelectedCategory,
+  preSelectedService,
+  promoData,
+}) => {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isImageModalOpen, setIsImageModalOpen] = useState(false)
   const [modalImageUrl, setModalImageUrl] = useState('')
@@ -120,6 +129,12 @@ const Chatbot: React.FC<ChatbotProps> = ({ isOpen, onClose, initialMessage, prom
   const [isLoading, setIsLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const hasAutoScrolledCategories = useRef(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    if (preSelectedCategory) setSelectedCategory(preSelectedCategory)
+    if (preSelectedService) setSelectedService(preSelectedService)
+  }, [isOpen, preSelectedCategory, preSelectedService])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })

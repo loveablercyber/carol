@@ -14,18 +14,7 @@ export async function POST(request: NextRequest) {
   try {
     const config = resolveMercadoPagoConfig({ requestOrigin: request.nextUrl.origin })
     const token = config.accessToken
-    if (!token) {
-      return NextResponse.json(
-        { error: `Mercado Pago nao configurado para modo ${config.env}` },
-        { status: 501 }
-      )
-    }
-    if (!config.publicKey) {
-      return NextResponse.json(
-        { error: `Chave publica Mercado Pago ausente para modo ${config.env}` },
-        { status: 501 }
-      )
-    }
+    // resolveMercadoPagoConfig already enforces required credentials by environment.
 
     const body = await request.json().catch(() => ({} as any))
     const { orderId, payerEmail } = body as { orderId?: string; payerEmail?: string }
@@ -136,6 +125,7 @@ export async function POST(request: NextRequest) {
     console.info('[MP] Preference create response', {
       env: config.env,
       redirectField: config.redirectField,
+      mpRequestId,
       preferenceId: data?.id,
       initPoint: data?.init_point,
       sandboxInitPoint: data?.sandbox_init_point,

@@ -13,7 +13,35 @@ export type MercadoPagoConfig = {
 }
 
 function normalizeEnv(rawValue?: string): MercadoPagoEnv {
-  return (rawValue || '').toLowerCase() === 'test' ? 'test' : 'prod'
+  const normalized = (rawValue || '').toLowerCase()
+  if (normalized !== 'test' && normalized !== 'prod') {
+    throw new Error("MP_ENV obrigatorio. Use 'test' ou 'prod'.")
+  }
+  return normalized
+}
+
+function ensurePresent(value: string, keyName: string): string {
+  if (!value) {
+    throw new Error(`${keyName} obrigatorio para o ambiente selecionado.`)
+  }
+  return value
+}
+
+function enforceCredentialPrefix(
+  env: MercadoPagoEnv,
+  token: string,
+  publicKey: string
+) {
+  const tokenIsTest = token.startsWith('TEST-')
+  const publicKeyIsTest = publicKey.startsWith('TEST-')
+
+  if (env === 'test' && (!tokenIsTest || !publicKeyIsTest)) {
+    throw new Error('Ambiente TEST requer credenciais TEST-* (token e public key).')
+  }
+
+  if (env === 'prod' && (tokenIsTest || publicKeyIsTest)) {
+    throw new Error('Ambiente PROD nao aceita credenciais TEST-*.')
+  }
 }
 
 function ensureAbsoluteHttpsBaseUrl(rawValue: string): string {
@@ -42,18 +70,36 @@ export function resolveMercadoPagoConfig(
   const env = normalizeEnv(process.env.MP_ENV)
   const accessToken =
     env === 'test'
-      ? process.env.MERCADOPAGO_ACCESS_TOKEN_TEST || process.env.MERCADOPAGO_ACCESS_TOKEN || ''
-      : process.env.MERCADOPAGO_ACCESS_TOKEN_PROD || process.env.MERCADOPAGO_ACCESS_TOKEN || ''
+      ? ensurePresent(
+          process.env.MERCADOPAGO_ACCESS_TOKEN_TEST ||
+            process.env.MERCADOPAGO_ACCESS_TOKEN ||
+            '',
+          'MERCADOPAGO_ACCESS_TOKEN_TEST'
+        )
+      : ensurePresent(
+          process.env.MERCADOPAGO_ACCESS_TOKEN_PROD ||
+            process.env.MERCADOPAGO_ACCESS_TOKEN ||
+            '',
+          'MERCADOPAGO_ACCESS_TOKEN_PROD'
+        )
   const publicKey =
     env === 'test'
-      ? process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_TEST ||
-        process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ||
-        process.env.MERCADOPAGO_PUBLIC_KEY ||
-        ''
-      : process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_PROD ||
-        process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ||
-        process.env.MERCADOPAGO_PUBLIC_KEY ||
-        ''
+      ? ensurePresent(
+          process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_TEST ||
+            process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ||
+            process.env.MERCADOPAGO_PUBLIC_KEY ||
+            '',
+          'NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_TEST'
+        )
+      : ensurePresent(
+          process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_PROD ||
+            process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY ||
+            process.env.MERCADOPAGO_PUBLIC_KEY ||
+            '',
+          'NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_PROD'
+        )
+
+  enforceCredentialPrefix(env, accessToken, publicKey)
 
   const baseUrlSource =
     process.env.BASE_URL ||
@@ -71,4 +117,3 @@ export function resolveMercadoPagoConfig(
     redirectField: env === 'test' ? 'sandbox_init_point' : 'init_point',
   }
 }
-

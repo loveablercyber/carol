@@ -577,3 +577,25 @@ Para dúvidas ou problemas:
 ## 📄 Licença
 
 Copyright © 2026 CarolSol Studio. Todos os direitos reservados.
+
+## Mercado Pago (Checkout Pro) - Ambientes
+
+Use variaveis separadas por ambiente. Nao misture credenciais TEST e PROD.
+
+- `MP_ENV`: `test` ou `prod` (obrigatorio)
+- `BASE_URL`: URL publica HTTPS (ex.: `https://carolsol.vercel.app`)
+- `MERCADOPAGO_ACCESS_TOKEN_TEST`: token TEST-*
+- `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_TEST`: public key TEST-*
+- `MERCADOPAGO_ACCESS_TOKEN_PROD`: token PROD (nao TEST-*)
+- `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_PROD`: public key PROD (nao TEST-*)
+
+Regras de runtime:
+
+- `MP_ENV=test` redireciona para `sandbox_init_point`.
+- `MP_ENV=prod` redireciona para `init_point`.
+- Em `test`, token e key devem iniciar com `TEST-`.
+- Em `prod`, token e key nao podem iniciar com `TEST-`.
+- `back_urls` usam:
+  - `/pagamento/sucesso`
+  - `/pagamento/erro`
+  - `/pagamento/pendente`

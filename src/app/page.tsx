@@ -77,7 +77,7 @@ const cardData = [
     subtitle: '👩‍🦰',
     description: 'Carol - 14 anos de experiência',
     href: '/profissional',
-    image: '/images/perfil.png',
+    image: '/images/carol.png',
     buttonText: 'Saiba Mais',
     color: 'bg-[#FFF0F5]',
     textColor: 'text-foreground'
@@ -116,7 +116,7 @@ const HeroSection = () => {
       {/* Professional Portrait */}
       <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden shadow-2xl border-4 border-white relative">
         <Image
-          src="/images/perfil.png"
+          src="/images/carol.png"
           alt="Carol - Profissional de Megahair e Perucas"
           fill
           className="object-cover"

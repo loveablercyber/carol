@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { OrderStatus, PaymentStatus } from '@prisma/client'
 import { db } from '@/lib/db'
 import { resolveMercadoPagoConfig } from '@/lib/mercadopago-config'
 
@@ -32,6 +33,11 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${token}`,
       },
     })
+    const mpRequestId =
+      response.headers.get('x-request-id') ||
+      response.headers.get('x-correlation-id') ||
+      response.headers.get('x-trace-id') ||
+      undefined
     const data = await response.json()
     if (!response.ok) {
       return NextResponse.json(
@@ -40,25 +46,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const status = data.status
+    const status = String(data?.status || '')
     const externalReference =
       (data?.external_reference ||
         data?.metadata?.external_reference ||
         data?.metadata?.orderNumber ||
         data?.metadata?.order_number ||
         '') as string
-    const paymentStatusMap: Record<string, string> = {
-      approved: 'APPROVED',
-      pending: 'PENDING',
-      rejected: 'REJECTED',
-      refunded: 'REFUNDED',
+    const paymentStatusMap: Record<string, PaymentStatus> = {
+      approved: PaymentStatus.APPROVED,
+      pending: PaymentStatus.PENDING,
+      rejected: PaymentStatus.REJECTED,
+      refunded: PaymentStatus.REFUNDED,
     }
 
-    const orderStatusMap: Record<string, string> = {
-      approved: 'PAID',
-      pending: 'PENDING',
-      rejected: 'CANCELLED',
-      refunded: 'REFUNDED',
+    const orderStatusMap: Record<string, OrderStatus> = {
+      approved: OrderStatus.PAID,
+      pending: OrderStatus.PENDING,
+      rejected: OrderStatus.CANCELLED,
+      refunded: OrderStatus.REFUNDED,
     }
 
     const where: any = {
@@ -72,9 +78,17 @@ export async function POST(request: NextRequest) {
       where,
       data: {
         paymentId: String(paymentId),
-        paymentStatus: paymentStatusMap[status] || 'PENDING',
-        status: orderStatusMap[status] || 'PENDING',
+        paymentStatus: paymentStatusMap[status] ?? PaymentStatus.PENDING,
+        status: orderStatusMap[status] ?? OrderStatus.PENDING,
       },
+    })
+
+    console.info('[MP] Webhook processed', {
+      env: config.env,
+      paymentId: String(paymentId),
+      externalReference: externalReference || null,
+      status,
+      mpRequestId,
     })
 
     return NextResponse.json({ received: true })

@@ -1,9 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Calendar, DollarSign, ShoppingBag, Sparkles, Camera, User, Instagram, Mail, Star, Heart, Clock, ArrowLeft } from 'lucide-react'
-import Chatbot from '@/components/chatbot/Chatbot'
+
+const Chatbot = dynamic(() => import('@/components/chatbot/Chatbot'), {
+  ssr: false,
+})
 
 interface ServiceCategory {
   id: string

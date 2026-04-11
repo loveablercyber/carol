@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import bcrypt from 'bcryptjs'
+import { Prisma } from '@prisma/client'
 import { authOptions } from '@/lib/auth-options'
 import { db } from '@/lib/db'
 
@@ -21,15 +22,14 @@ export async function GET(request: NextRequest) {
 
     const search = request.nextUrl.searchParams.get('search')?.trim()
 
-    const where = search
-      ? {
-          OR: [
-            { name: { contains: search, mode: 'insensitive' } },
-            { email: { contains: search, mode: 'insensitive' } },
-            { cpf: { contains: search } },
-          ],
-        }
-      : {}
+    const where: Prisma.UserWhereInput = {}
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: Prisma.QueryMode.insensitive } },
+        { email: { contains: search, mode: Prisma.QueryMode.insensitive } },
+        { cpf: { contains: search } },
+      ]
+    }
 
     const customers = await db.user.findMany({
       where,

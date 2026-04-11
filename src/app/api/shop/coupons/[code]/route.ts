@@ -4,10 +4,10 @@ import { db } from '@/lib/db'
 // GET /api/shop/coupons/[code] - Validar cupom
 export async function GET(
   request: NextRequest,
-  { params }: { params: { code: string } }
+  { params }: { params: Promise<{ code: string }> }
 ) {
   try {
-    const { code } = params
+    const { code } = await params
 
     const coupon = await db.coupon.findFirst({
       where: {
