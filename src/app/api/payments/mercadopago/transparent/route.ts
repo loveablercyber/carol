@@ -39,8 +39,6 @@ const statusDetailMessages: Record<string, string> = {
     'O Mercado Pago identificou pagamento duplicado no mesmo valor. Use outro cartao ou aguarde alguns minutos antes de tentar novamente.',
   cc_rejected_max_attempts:
     'Voce atingiu o limite de tentativas permitidas para este cartao. Use outro cartao ou tente novamente mais tarde.',
-  cc_rejected_high_risk:
-    'O Mercado Pago recusou o pagamento por analise de risco. Use outro cartao ou outro meio de pagamento.',
 }
 
 function asString(value: unknown) {
@@ -75,6 +73,59 @@ function resolveIdentification(body: any) {
   )
 }
 
+function resolveStatusDetailMessage(statusDetail: string, env: MercadoPagoEnv) {
+  if (statusDetail === 'cc_rejected_high_risk') {
+    if (env === 'test') {
+      return 'Pagamento recusado por risco no modo teste. Use cartao de teste, titular APRO, CPF 12345678909 e um comprador de teste diferente da conta vendedora.'
+    }
+
+    return 'O Mercado Pago recusou por analise de risco. Em producao, use dados reais do titular (nome, CPF, email e telefone), evite repetidas tentativas em sequencia e tente outro cartao/banco.'
+  }
+
+  return statusDetailMessages[statusDetail]
+}
+
+function splitFullName(fullName: string) {
+  const parts = fullName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (parts.length === 0) {
+    return { firstName: '', lastName: '' }
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(' ') || parts[0],
+  }
+}
+
+function parseShippingAddress(rawAddress: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(rawAddress)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function normalizeDigits(value: string) {
+  return value.replace(/\D/g, '')
+}
+
+function resolvePhoneParts(rawPhone: string) {
+  const digits = normalizeDigits(rawPhone)
+  if (!digits || digits.length < 10) {
+    return null
+  }
+
+  return {
+    areaCode: digits.slice(0, 2),
+    number: digits.slice(2, 11),
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -90,7 +141,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'orderId obrigatorio' }, { status: 400 })
     }
 
-    const order = await db.order.findUnique({ where: { id: orderId } })
+    const order = await db.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: true,
+      },
+    })
     if (!order) {
       return NextResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 })
     }
@@ -113,6 +169,12 @@ export async function POST(request: NextRequest) {
       config.env,
       asString(body?.payer?.email || body?.payerEmail || order.customerEmail)
     )
+    const { firstName, lastName } = splitFullName(order.customerName)
+    const shippingAddress = parseShippingAddress(order.shippingAddress)
+    const phoneParts = resolvePhoneParts(order.customerPhone)
+    const payerAddressZipCode = asString(shippingAddress.zipCode)
+    const payerAddressStreetName = asString(shippingAddress.street)
+    const payerAddressStreetNumber = asString(shippingAddress.number)
 
     if (!token || !paymentMethodId || !installments || !payerEmail) {
       return NextResponse.json(
@@ -131,6 +193,25 @@ export async function POST(request: NextRequest) {
       notification_url: `${config.baseUrl}/api/payments/mercadopago/webhook`,
       payer: {
         email: payerEmail,
+        ...(firstName ? { first_name: firstName } : {}),
+        ...(lastName ? { last_name: lastName } : {}),
+        ...(phoneParts
+          ? {
+              phone: {
+                area_code: phoneParts.areaCode,
+                number: phoneParts.number,
+              },
+            }
+          : {}),
+        ...(payerAddressZipCode || payerAddressStreetName || payerAddressStreetNumber
+          ? {
+              address: {
+                ...(payerAddressZipCode ? { zip_code: payerAddressZipCode } : {}),
+                ...(payerAddressStreetName ? { street_name: payerAddressStreetName } : {}),
+                ...(payerAddressStreetNumber ? { street_number: payerAddressStreetNumber } : {}),
+              },
+            }
+          : {}),
         ...(identification
           ? {
               identification: {
@@ -143,6 +224,62 @@ export async function POST(request: NextRequest) {
       metadata: {
         order_id: order.id,
         order_number: order.orderNumber,
+      },
+      additional_info: {
+        items: order.items.map((item) => ({
+          id: item.productId,
+          title: item.productName,
+          quantity: item.quantity,
+          unit_price: Number(item.price),
+        })),
+        ...(firstName || lastName || phoneParts || payerAddressZipCode || payerAddressStreetName || payerAddressStreetNumber
+          ? {
+              payer: {
+                ...(firstName ? { first_name: firstName } : {}),
+                ...(lastName ? { last_name: lastName } : {}),
+                ...(phoneParts
+                  ? {
+                      phone: {
+                        area_code: phoneParts.areaCode,
+                        number: phoneParts.number,
+                      },
+                    }
+                  : {}),
+                ...(payerAddressZipCode || payerAddressStreetName || payerAddressStreetNumber
+                  ? {
+                      address: {
+                        ...(payerAddressZipCode ? { zip_code: payerAddressZipCode } : {}),
+                        ...(payerAddressStreetName ? { street_name: payerAddressStreetName } : {}),
+                        ...(payerAddressStreetNumber
+                          ? { street_number: payerAddressStreetNumber }
+                          : {}),
+                      },
+                    }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(payerAddressZipCode || payerAddressStreetName || payerAddressStreetNumber
+          ? {
+              shipments: {
+                receiver_address: {
+                  ...(payerAddressZipCode ? { zip_code: payerAddressZipCode } : {}),
+                  ...(payerAddressStreetName ? { street_name: payerAddressStreetName } : {}),
+                  ...(payerAddressStreetNumber ? { street_number: payerAddressStreetNumber } : {}),
+                  ...(asString(shippingAddress.neighborhood)
+                    ? { neighborhood: asString(shippingAddress.neighborhood) }
+                    : {}),
+                  ...(asString(shippingAddress.city)
+                    ? { city_name: asString(shippingAddress.city) }
+                    : {}),
+                  ...(asString(shippingAddress.state)
+                    ? { state_name: asString(shippingAddress.state) }
+                    : {}),
+                  country_name: 'BR',
+                },
+              },
+            }
+          : {}),
       },
     }
 
@@ -222,7 +359,7 @@ export async function POST(request: NextRequest) {
       status,
       statusDetail: data?.status_detail,
       message:
-        statusDetailMessages[String(data?.status_detail || '')] ||
+        resolveStatusDetailMessage(String(data?.status_detail || ''), config.env) ||
         (nextPaymentStatus === PaymentStatus.REJECTED
           ? 'Pagamento recusado pelo Mercado Pago. Use outro cartao ou tente novamente mais tarde.'
           : undefined),
