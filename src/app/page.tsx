@@ -44,14 +44,14 @@ const defaultModules = sortModules(DEFAULT_HOME_MODULES.filter((module) => modul
 const HeroSection = () => {
   return (
     <div className="flex flex-col items-center justify-center gap-6 py-12 px-4">
-      <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden shadow-2xl border-4 border-white relative">
+      <div className="w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden shadow-2xl border-4 border-white relative">
         <Image
           src="/images/carol.png"
           alt="Carol - Profissional de Megahair e Perucas"
           fill
           className="object-cover"
           priority
-          sizes="(max-width: 768px) 128px, 160px"
+          sizes="(max-width: 768px) 256px, 320px"
         />
       </div>
 
