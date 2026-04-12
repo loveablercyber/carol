@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { AuthProvider } from '@/components/providers/AuthProvider'
+import { MercadoPagoTransparentCard } from '@/components/payment/MercadoPagoTransparentCard'
 
 interface OrderItem {
   id: string
@@ -37,13 +38,12 @@ export default function OrderDetailPage() {
 
 function OrderDetailContent() {
   const params = useParams()
+  const router = useRouter()
   const { data: session, status } = useSession()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [retryLoading, setRetryLoading] = useState(false)
-  const [retryError, setRetryError] = useState('')
-  const [retrySuccess, setRetrySuccess] = useState('')
+  const [paymentError, setPaymentError] = useState('')
 
   const orderNumber = useMemo(() => {
     const raw = params?.orderNumber
@@ -111,45 +111,6 @@ function OrderDetailContent() {
 
   const canRetryPayment =
     order?.paymentStatus && !['APPROVED', 'REFUNDED'].includes(order.paymentStatus)
-
-  const retryCheckoutProPayment = async () => {
-    if (!order) return
-
-    setRetryLoading(true)
-    setRetryError('')
-    setRetrySuccess('')
-
-    try {
-      const response = await fetch('/api/payments/mercadopago/preference', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: order.id,
-          payerEmail: session?.user?.email || order.customerEmail || undefined,
-        }),
-      })
-
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        const requestId = data?.details?.mp_request_id
-        setRetryError(
-          `${data?.error || 'Erro ao iniciar checkout.'}${requestId ? ` (MP: ${requestId})` : ''}`
-        )
-        return
-      }
-
-      if (typeof window !== 'undefined' && data?.redirectUrl) {
-        window.location.href = data.redirectUrl
-        return
-      }
-
-      setRetryError('Preferência criada, mas não foi possível redirecionar ao Mercado Pago.')
-    } catch (error) {
-      setRetryError('Erro ao iniciar checkout.')
-    } finally {
-      setRetryLoading(false)
-    }
-  }
 
   if (status === 'loading' || loading) {
     return (
@@ -260,23 +221,24 @@ function OrderDetailContent() {
           {canRetryPayment && (
             <div className="mt-6 border-t border-gray-100 pt-5 space-y-3">
               <p className="text-sm text-muted-foreground">
-                Pagamento pendente ou recusado. Você pode refazer o pagamento pelo Mercado Pago.
+                Pagamento pendente ou recusado. O pagamento agora usa Checkout Transparente, sem redirecionamento externo.
               </p>
 
-              <button
-                type="button"
-                onClick={retryCheckoutProPayment}
-                disabled={retryLoading}
-                className="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-xl font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {retryLoading ? 'Abrindo Mercado Pago...' : 'Refazer pagamento no Mercado Pago'}
-              </button>
-              {retryError && (
-                <p className="text-sm text-red-500">{retryError}</p>
+              {paymentError && (
+                <p className="text-sm text-red-500">{paymentError}</p>
               )}
-              {retrySuccess && (
-                <p className="text-sm text-green-600">{retrySuccess}</p>
-              )}
+
+              <MercadoPagoTransparentCard
+                order={{
+                  id: order.id,
+                  orderNumber: order.orderNumber,
+                  total: order.total,
+                }}
+                payerEmail={session?.user?.email || order.customerEmail}
+                onSuccess={(paidOrderNumber) => router.push(`/pagamento/sucesso?external_reference=${encodeURIComponent(paidOrderNumber)}`)}
+                onPending={(pendingOrderNumber) => router.push(`/pagamento/pendente?external_reference=${encodeURIComponent(pendingOrderNumber)}`)}
+                onError={setPaymentError}
+              />
             </div>
           )}
         </div>

@@ -9,7 +9,6 @@ export type MercadoPagoConfig = {
   accessToken: string
   publicKey: string
   baseUrl: string
-  redirectField: 'sandbox_init_point' | 'init_point'
 }
 
 function normalizeEnv(rawValue?: string): MercadoPagoEnv {
@@ -117,6 +116,5 @@ export function resolveMercadoPagoConfig(
     accessToken,
     publicKey,
     baseUrl,
-    redirectField: env === 'test' ? 'sandbox_init_point' : 'init_point',
   }
 }

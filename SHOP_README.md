@@ -578,7 +578,7 @@ Para dúvidas ou problemas:
 
 Copyright © 2026 CarolSol Studio. Todos os direitos reservados.
 
-## Mercado Pago (Checkout Pro) - Ambientes
+## Mercado Pago (Checkout Transparente) - Ambientes
 
 Use variaveis separadas por ambiente. Nao misture credenciais TEST e PROD.
 
@@ -588,14 +588,11 @@ Use variaveis separadas por ambiente. Nao misture credenciais TEST e PROD.
 - `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_TEST`: public key TEST-*
 - `MERCADOPAGO_ACCESS_TOKEN_PROD`: token PROD (nao TEST-*)
 - `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_PROD`: public key PROD (nao TEST-*)
+- `MERCADOPAGO_TEST_BUYER_EMAIL`: e-mail da conta Comprador de teste do Mercado Pago, quando `MP_ENV=test`
 
 Regras de runtime:
 
-- `MP_ENV=test` redireciona para `sandbox_init_point`.
-- `MP_ENV=prod` redireciona para `init_point`.
+- O checkout usa Card Payment Brick e a API `/v1/payments`, sem `init_point` ou `sandbox_init_point`.
 - Em `test`, token e key devem iniciar com `TEST-`.
 - Em `prod`, token e key nao podem iniciar com `TEST-`.
-- `back_urls` usam:
-  - `/pagamento/sucesso`
-  - `/pagamento/erro`
-  - `/pagamento/pendente`
+- O webhook `/api/payments/mercadopago/webhook` continua atualizando o pedido quando o Mercado Pago notificar mudancas de status.

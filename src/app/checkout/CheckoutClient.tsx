@@ -6,6 +6,7 @@ import { useSession, signIn } from 'next-auth/react'
 import Link from 'next/link'
 import { ShoppingBag, MapPin, CreditCard, ArrowLeft, Truck, Lock } from 'lucide-react'
 import { AuthProvider } from '@/components/providers/AuthProvider'
+import { MercadoPagoTransparentCard } from '@/components/payment/MercadoPagoTransparentCard'
 
 interface ShippingAddress {
   recipient: string
@@ -43,7 +44,6 @@ export default function CheckoutPage() {
 function CheckoutContent() {
   const router = useRouter()
   const { data: session, status } = useSession()
-  const [redirectingToMercadoPago, setRedirectingToMercadoPago] = useState(false)
 
   const [loginForm, setLoginForm] = useState({ email: '', password: '' })
   const [loginLoading, setLoginLoading] = useState(false)
@@ -502,44 +502,6 @@ function CheckoutContent() {
     }
   }
 
-  const redirectToCheckoutPro = async (orderInfo: { id: string; orderNumber: string }) => {
-    setPaymentError('')
-    setRedirectingToMercadoPago(true)
-
-    try {
-      const response = await fetch('/api/payments/mercadopago/preference', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: orderInfo.id,
-          payerEmail: session?.user?.email || undefined,
-        }),
-      })
-
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        const requestId = data?.details?.mp_request_id
-        setPaymentError(
-          `${data?.error || 'Erro ao iniciar checkout.'}${requestId ? ` (MP: ${requestId})` : ''}`
-        )
-        return false
-      }
-
-      if (typeof window !== 'undefined' && data?.redirectUrl) {
-        window.location.href = data.redirectUrl
-        return true
-      }
-
-      setPaymentError('Preferência criada, mas não foi possível redirecionar ao Mercado Pago.')
-      return false
-    } catch (error) {
-      setPaymentError('Erro ao iniciar checkout.')
-      return false
-    } finally {
-      setRedirectingToMercadoPago(false)
-    }
-  }
-
   const createOrder = async () => {
     // Validações
     const newErrors: Record<string, string> = {}
@@ -576,7 +538,7 @@ function CheckoutContent() {
             method: selectedShipping.code,
             cpf: customerCpf || undefined,
           },
-          paymentMethod: 'MERCADO_PAGO_CHECKOUT_PRO',
+          paymentMethod: 'MERCADO_PAGO_TRANSPARENT',
           couponCode: coupon?.code,
         }),
       })
@@ -590,7 +552,6 @@ function CheckoutContent() {
           total: data.order.total,
         }
         setCreatedOrder(orderInfo)
-        await redirectToCheckoutPro(orderInfo)
       } else {
         setErrors({ submit: data.error || 'Erro ao criar pedido' })
       }
@@ -876,7 +837,7 @@ function CheckoutContent() {
             Pedido criado!
           </h1>
           <p className="text-muted-foreground mb-6">
-            Você será redirecionado ao Mercado Pago para concluir o pagamento (Pix ou cartão).
+            Conclua o pagamento com cartão pelo Mercado Pago sem sair do site.
           </p>
 
           {paymentError && (
@@ -885,13 +846,14 @@ function CheckoutContent() {
             </div>
           )}
 
-          <button
-            onClick={() => redirectToCheckoutPro(createdOrder)}
-            disabled={processing || redirectingToMercadoPago}
-            className="w-full py-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {redirectingToMercadoPago ? 'Redirecionando...' : 'Ir para pagamento no Mercado Pago'}
-          </button>
+          <MercadoPagoTransparentCard
+            order={createdOrder}
+            payerEmail={session?.user?.email}
+            disabled={processing}
+            onSuccess={(orderNumber) => router.push(`/pagamento/sucesso?external_reference=${encodeURIComponent(orderNumber)}`)}
+            onPending={(orderNumber) => router.push(`/pagamento/pendente?external_reference=${encodeURIComponent(orderNumber)}`)}
+            onError={setPaymentError}
+          />
 
           <button
             onClick={() => router.push(`/account/orders/${createdOrder.orderNumber}`)}
@@ -1261,7 +1223,7 @@ function CheckoutContent() {
               </h2>
               <div className="space-y-3 mb-6">
                 <p className="text-sm text-muted-foreground">
-                  Ao confirmar o pedido, você será redirecionado ao Mercado Pago para concluir o pagamento (Pix ou cartão).
+                  Ao confirmar o pedido, o pagamento por cartão será feito aqui no site pelo Mercado Pago.
                 </p>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Lock className="w-4 h-4" />
@@ -1271,10 +1233,10 @@ function CheckoutContent() {
 
               <button
                 onClick={createOrder}
-                disabled={processing || redirectingToMercadoPago || !selectedShipping}
+                disabled={processing || !selectedShipping}
                 className="w-full py-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {processing || redirectingToMercadoPago ? 'Redirecionando...' : 'Ir para pagamento'}
+                {processing ? 'Criando pedido...' : 'Finalizar pedido e pagar com cartão'}
               </button>
               {errors.submit && <p className="text-red-500 text-sm mt-2 text-center">{errors.submit}</p>}
               {paymentError && (
