@@ -6,7 +6,7 @@ import { db } from '@/lib/db'
 import { resolveMercadoPagoConfig } from '@/lib/mercadopago-config'
 
 const MERCADO_PAGO_PAYMENTS_URL = 'https://api.mercadopago.com/v1/payments'
-const MERCADO_PAGO_TEST_PAYER_EMAIL = 'test@testuser.com'
+const MERCADO_PAGO_TEST_PAYER_EMAIL = 'cliente.teste.carolsol@example.com'
 
 type MercadoPagoEnv = 'test' | 'prod'
 

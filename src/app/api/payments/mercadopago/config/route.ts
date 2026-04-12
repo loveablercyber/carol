@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveMercadoPagoConfig } from '@/lib/mercadopago-config'
 
-const MERCADO_PAGO_TEST_PAYER_EMAIL = 'test@testuser.com'
+const MERCADO_PAGO_TEST_PAYER_EMAIL = 'cliente.teste.carolsol@example.com'
 
 export async function GET(request: NextRequest) {
   try {
