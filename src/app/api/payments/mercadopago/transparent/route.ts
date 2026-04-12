@@ -26,10 +26,21 @@ const orderStatusMap: Record<string, OrderStatus> = {
   pending: OrderStatus.PENDING,
   in_process: OrderStatus.PENDING,
   authorized: OrderStatus.PENDING,
-  rejected: OrderStatus.CANCELLED,
+  rejected: OrderStatus.PENDING,
   cancelled: OrderStatus.CANCELLED,
   refunded: OrderStatus.REFUNDED,
   charged_back: OrderStatus.REFUNDED,
+}
+
+const statusDetailMessages: Record<string, string> = {
+  cc_amount_rate_limit_exceeded:
+    'O Mercado Pago recusou por limite temporario do cartao. Tente outro cartao de teste, como Visa ou Amex, ou aguarde alguns minutos antes de tentar novamente.',
+  cc_rejected_duplicated_payment:
+    'O Mercado Pago identificou pagamento duplicado no mesmo valor. Use outro cartao ou aguarde alguns minutos antes de tentar novamente.',
+  cc_rejected_max_attempts:
+    'Voce atingiu o limite de tentativas permitidas para este cartao. Use outro cartao ou tente novamente mais tarde.',
+  cc_rejected_high_risk:
+    'O Mercado Pago recusou o pagamento por analise de risco. Use outro cartao ou outro meio de pagamento.',
 }
 
 function asString(value: unknown) {
@@ -210,6 +221,11 @@ export async function POST(request: NextRequest) {
       paymentId: data?.id,
       status,
       statusDetail: data?.status_detail,
+      message:
+        statusDetailMessages[String(data?.status_detail || '')] ||
+        (nextPaymentStatus === PaymentStatus.REJECTED
+          ? 'Pagamento recusado pelo Mercado Pago. Use outro cartao ou tente novamente mais tarde.'
+          : undefined),
       paymentStatus: nextPaymentStatus,
       orderStatus: nextOrderStatus,
       orderNumber: order.orderNumber,

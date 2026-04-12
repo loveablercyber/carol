@@ -130,7 +130,12 @@ export function MercadoPagoTransparentCard({
                     return
                   }
 
-                  throw new Error(data?.statusDetail || data?.error || 'Pagamento recusado pelo Mercado Pago.')
+                  throw new Error(
+                    data?.message ||
+                      data?.statusDetail ||
+                      data?.error ||
+                      'Pagamento recusado pelo Mercado Pago.'
+                  )
                 })
                 .catch((error) => {
                   onErrorRef.current(error instanceof Error ? error.message : 'Erro ao processar pagamento.')

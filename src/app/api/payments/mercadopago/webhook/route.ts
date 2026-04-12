@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     const orderStatusMap: Record<string, OrderStatus> = {
       approved: OrderStatus.PAID,
       pending: OrderStatus.PENDING,
-      rejected: OrderStatus.CANCELLED,
+      rejected: OrderStatus.PENDING,
       refunded: OrderStatus.REFUNDED,
     }
 
