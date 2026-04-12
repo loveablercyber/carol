@@ -61,8 +61,18 @@ export function MercadoPagoTransparentCard({
     const renderBrick = async () => {
       setLoading(true)
       setSetupError('')
+      let timeoutId: number | undefined
 
       try {
+        timeoutId = window.setTimeout(() => {
+          if (!cancelled) {
+            setLoading(false)
+            setSetupError(
+              'O formulário do Mercado Pago demorou para carregar. Verifique se as credenciais de produção pertencem ao Checkout Transparente e tente recarregar a página.'
+            )
+          }
+        }, 12000)
+
         const configResponse = await fetch('/api/payments/mercadopago/config')
         const config = await configResponse.json().catch(() => ({}))
         if (!configResponse.ok || !config?.publicKey) {
@@ -76,6 +86,10 @@ export function MercadoPagoTransparentCard({
         }
 
         const effectivePayerEmail = config?.testBuyerEmail || payerEmail || undefined
+        if (config?.environment === 'prod' && !effectivePayerEmail) {
+          throw new Error('E-mail do pagador ausente. Atualize seu cadastro antes de pagar.')
+        }
+
         const mp = new window.MercadoPago(config.publicKey, { locale: 'pt-BR' })
         const bricksBuilder = mp.bricks()
 
@@ -94,8 +108,10 @@ export function MercadoPagoTransparentCard({
           },
           callbacks: {
             onReady: () => {
+              window.clearTimeout(timeoutId)
               if (!cancelled) {
                 setLoading(false)
+                setSetupError('')
               }
             },
             onSubmit: (cardFormData: Record<string, unknown>) => {
@@ -158,6 +174,9 @@ export function MercadoPagoTransparentCard({
           },
         })
       } catch (error) {
+        if (timeoutId) {
+          window.clearTimeout(timeoutId)
+        }
         if (!cancelled) {
           setSetupError(error instanceof Error ? error.message : 'Erro ao carregar Mercado Pago.')
           setLoading(false)

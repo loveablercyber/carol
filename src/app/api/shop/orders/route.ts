@@ -240,6 +240,7 @@ export async function POST(request: NextRequest) {
       order: {
         id: order.id,
         orderNumber: order.orderNumber,
+        customerEmail: order.customerEmail,
         total: order.total,
         status: order.status,
       },

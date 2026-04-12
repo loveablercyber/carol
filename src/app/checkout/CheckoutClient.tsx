@@ -70,7 +70,12 @@ function CheckoutContent() {
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [paymentError, setPaymentError] = useState('')
-  const [createdOrder, setCreatedOrder] = useState<{ id: string; orderNumber: string; total: number } | null>(null)
+  const [createdOrder, setCreatedOrder] = useState<{
+    id: string
+    orderNumber: string
+    customerEmail?: string | null
+    total: number
+  } | null>(null)
 
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
     recipient: '',
@@ -549,6 +554,7 @@ function CheckoutContent() {
         const orderInfo = {
           id: data.order.id,
           orderNumber: data.order.orderNumber,
+          customerEmail: data.order.customerEmail,
           total: data.order.total,
         }
         setCreatedOrder(orderInfo)
@@ -848,7 +854,7 @@ function CheckoutContent() {
 
           <MercadoPagoTransparentCard
             order={createdOrder}
-            payerEmail={session?.user?.email}
+            payerEmail={session?.user?.email || createdOrder.customerEmail}
             disabled={processing}
             onSuccess={(orderNumber) => router.push(`/pagamento/sucesso?external_reference=${encodeURIComponent(orderNumber)}`)}
             onPending={(orderNumber) => router.push(`/pagamento/pendente?external_reference=${encodeURIComponent(orderNumber)}`)}
