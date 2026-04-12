@@ -266,16 +266,12 @@ export async function POST(request: NextRequest) {
                   ...(payerAddressZipCode ? { zip_code: payerAddressZipCode } : {}),
                   ...(payerAddressStreetName ? { street_name: payerAddressStreetName } : {}),
                   ...(payerAddressStreetNumber ? { street_number: payerAddressStreetNumber } : {}),
-                  ...(asString(shippingAddress.neighborhood)
-                    ? { neighborhood: asString(shippingAddress.neighborhood) }
-                    : {}),
                   ...(asString(shippingAddress.city)
                     ? { city_name: asString(shippingAddress.city) }
                     : {}),
                   ...(asString(shippingAddress.state)
                     ? { state_name: asString(shippingAddress.state) }
                     : {}),
-                  country_name: 'BR',
                 },
               },
             }
