@@ -588,11 +588,11 @@ Use variaveis separadas por ambiente. Nao misture credenciais TEST e PROD.
 - `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_TEST`: public key TEST-*
 - `MERCADOPAGO_ACCESS_TOKEN_PROD`: token PROD (nao TEST-*)
 - `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_PROD`: public key PROD (nao TEST-*)
-- `MERCADOPAGO_TEST_BUYER_EMAIL`: e-mail da conta Comprador de teste do Mercado Pago, quando `MP_ENV=test`
 
 Regras de runtime:
 
 - O checkout usa Card Payment Brick e a API `/v1/payments`, sem `init_point` ou `sandbox_init_point`.
 - Em `test`, token e key devem iniciar com `TEST-`.
+- Em `test`, o e-mail do pagador enviado ao Mercado Pago e preenchido no Brick deve ser `test@testuser.com`, conforme regra de teste do Checkout Transparente.
 - Em `prod`, token e key nao podem iniciar com `TEST-`.
 - O webhook `/api/payments/mercadopago/webhook` continua atualizando o pedido quando o Mercado Pago notificar mudancas de status.

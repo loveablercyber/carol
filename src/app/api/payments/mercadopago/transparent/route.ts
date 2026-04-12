@@ -6,6 +6,7 @@ import { db } from '@/lib/db'
 import { resolveMercadoPagoConfig } from '@/lib/mercadopago-config'
 
 const MERCADO_PAGO_PAYMENTS_URL = 'https://api.mercadopago.com/v1/payments'
+const MERCADO_PAGO_TEST_PAYER_EMAIL = 'test@testuser.com'
 
 type MercadoPagoEnv = 'test' | 'prod'
 
@@ -47,24 +48,7 @@ function resolvePayerEmail(env: MercadoPagoEnv, candidateEmail: string) {
     return normalizedCandidateEmail
   }
 
-  const configuredTestBuyerEmail = (process.env.MERCADOPAGO_TEST_BUYER_EMAIL || '')
-    .trim()
-    .toLowerCase()
-
-  if (configuredTestBuyerEmail) {
-    if (!configuredTestBuyerEmail.endsWith('@testuser.com')) {
-      throw new Error('MERCADOPAGO_TEST_BUYER_EMAIL deve ser um e-mail de usuario teste do Mercado Pago.')
-    }
-    return configuredTestBuyerEmail
-  }
-
-  if (normalizedCandidateEmail.endsWith('@testuser.com')) {
-    return normalizedCandidateEmail
-  }
-
-  throw new Error(
-    'MERCADOPAGO_TEST_BUYER_EMAIL obrigatorio em MP_ENV=test. Use o e-mail da conta Comprador de teste do Mercado Pago.'
-  )
+  return MERCADO_PAGO_TEST_PAYER_EMAIL
 }
 
 function resolveIdentification(body: any) {
