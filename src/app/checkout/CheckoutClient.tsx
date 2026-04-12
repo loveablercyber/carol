@@ -28,9 +28,22 @@ interface CartItem {
     id: string
     name: string
     slug: string
+    categoryId: string
     price: number
     images: string[]
   }
+}
+
+interface SavedCard {
+  id: string
+  label: string
+  holderName: string
+  brand: string
+  last4: string
+  expiryMonth: number
+  expiryYear: number
+  documentNumber?: string | null
+  isDefault: boolean
 }
 
 export default function CheckoutPage() {
@@ -98,6 +111,9 @@ function CheckoutContent() {
   const [shippingOptions, setShippingOptions] = useState<any[]>([])
   const [selectedShipping, setSelectedShipping] = useState<any>(null)
   const [calculatingShipping, setCalculatingShipping] = useState(false)
+  const [freeShippingMin, setFreeShippingMin] = useState(300)
+  const [savedCards, setSavedCards] = useState<SavedCard[]>([])
+  const [selectedSavedCardId, setSelectedSavedCardId] = useState('')
 
   const [couponCode, setCouponCode] = useState('')
   const [coupon, setCoupon] = useState<any>(null)
@@ -107,6 +123,10 @@ function CheckoutContent() {
   const [prefillCoupon, setPrefillCoupon] = useState(false)
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const selectedSavedCard =
+    savedCards.find((card) => card.id === selectedSavedCardId) ||
+    savedCards.find((card) => card.isDefault) ||
+    null
 
   // Buscar carrinho
   useEffect(() => {
@@ -183,8 +203,26 @@ function CheckoutContent() {
       }
     }
 
+    const fetchCards = async () => {
+      if (!session?.user) return
+      try {
+        const response = await fetch('/api/account/cards')
+        if (!response.ok) return
+        const data = await response.json()
+        const list = data.cards || []
+        setSavedCards(list)
+        const defaultCard = list.find((card: SavedCard) => card.isDefault) || list[0]
+        if (defaultCard) {
+          setSelectedSavedCardId(defaultCard.id)
+        }
+      } catch (error) {
+        console.error('Erro ao buscar cartoes salvos:', error)
+      }
+    }
+
     fetchProfile()
     fetchAddresses()
+    fetchCards()
   }, [session])
 
   
@@ -429,7 +467,7 @@ function CheckoutContent() {
   // Calcular totais
   const subtotal = cart?.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0) || 0
   const discount = coupon ? (coupon.type === 'PERCENTAGE' ? subtotal * (coupon.value / 100) : coupon.value) : 0
-  const isFreeShipping = subtotal >= 300 || coupon?.type === 'FREE_SHIPPING'
+  const isFreeShipping = subtotal >= freeShippingMin || coupon?.type === 'FREE_SHIPPING'
   const shippingCost = selectedShipping ? (isFreeShipping ? 0 : selectedShipping.price) : 0
   const total = Math.max(0, subtotal - discount + shippingCost)
   const formattedZip = shippingAddress.zipCode
@@ -449,6 +487,10 @@ function CheckoutContent() {
         // Calcular peso aproximado
         return sum + (item.quantity * 0.5)
       }, 0)
+      const productIds = cart!.items.map((item) => item.productId)
+      const categoryIds = Array.from(
+        new Set(cart!.items.map((item) => item.product.categoryId))
+      )
 
       const response = await fetch('/api/shop/shipping', {
         method: 'POST',
@@ -457,11 +499,15 @@ function CheckoutContent() {
           zipCode: cep,
           weight: totalWeight,
           dimensions: { width: 15, height: 10, length: 20 },
+          productIds,
+          categoryIds,
         }),
       })
 
       const data = await response.json()
       const options = data.shippingOptions || []
+      const apiFreeShippingMin = Number(data.freeShippingMin || 300)
+      setFreeShippingMin(apiFreeShippingMin)
       setShippingOptions(options)
       setSelectedShipping(options[0] || null)
     } catch (error) {
@@ -539,7 +585,7 @@ function CheckoutContent() {
           customerPhone: shippingAddress.phone || '',
           shippingAddress: {
             ...shippingAddress,
-            cost: selectedShipping.price,
+            cost: isFreeShipping ? 0 : selectedShipping.price,
             method: selectedShipping.code,
             cpf: customerCpf || undefined,
           },
@@ -856,9 +902,13 @@ function CheckoutContent() {
             order={createdOrder}
             payerEmail={session?.user?.email || createdOrder.customerEmail}
             payerProfile={{
-              name: shippingAddress.recipient || session?.user?.name || undefined,
+              name:
+                selectedSavedCard?.holderName ||
+                shippingAddress.recipient ||
+                session?.user?.name ||
+                undefined,
               email: session?.user?.email || createdOrder.customerEmail || undefined,
-              cpf: customerCpf || undefined,
+              cpf: selectedSavedCard?.documentNumber || customerCpf || undefined,
               phone: shippingAddress.phone || undefined,
               address: {
                 zipCode: shippingAddress.zipCode || undefined,
@@ -1234,6 +1284,42 @@ function CheckoutContent() {
               />
             </div>
 
+            {/* Cartao salvo */}
+            <div className="bg-white rounded-2xl shadow-md p-6">
+              <h2 className="font-display font-bold text-xl mb-4">Cartao salvo (opcional)</h2>
+              {savedCards.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum cartao salvo. Voce pode cadastrar em{' '}
+                  <Link href="/account" className="text-primary font-semibold hover:underline">
+                    Minha Conta
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <select
+                    value={selectedSavedCardId}
+                    onChange={(event) => setSelectedSavedCardId(event.target.value)}
+                    className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+                  >
+                    {savedCards.map((card) => (
+                      <option key={card.id} value={card.id}>
+                        {card.label} • {card.brand} • ****{card.last4}
+                        {card.isDefault ? ' (padrao)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedSavedCard && (
+                    <p className="text-xs text-muted-foreground">
+                      Titular: {selectedSavedCard.holderName} • Validade:{' '}
+                      {String(selectedSavedCard.expiryMonth).padStart(2, '0')}/
+                      {selectedSavedCard.expiryYear}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Pagamento */}
             <div className="bg-white rounded-2xl shadow-md p-6">
               <h2 className="font-display font-bold text-xl mb-6 flex items-center gap-2">
@@ -1364,7 +1450,10 @@ function CheckoutContent() {
 
               {/* Informações */}
               <div className="mt-6 space-y-2 text-xs text-muted-foreground">
-                <p>Frete grátis em fretes acima R$300,00</p>
+                <p>
+                  Frete grátis acima de R${' '}
+                  {freeShippingMin.toFixed(2).replace('.', ',')}
+                </p>
                 <p>✓ PIX, boleto e cartao em ambiente seguro</p>
                 <p>✓ Pagamento seguro via Mercado Pago</p>
                 <p>✓ 7 dias para troca</p>

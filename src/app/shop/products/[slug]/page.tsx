@@ -36,7 +36,8 @@ interface Product {
 
 interface Review {
   id: string
-  author: string
+  userId?: string | null
+  author?: string | null
   rating: number
   title?: string
   comment: string
@@ -55,29 +56,57 @@ export default function ProductPage() {
   const [selectedImage, setSelectedImage] = useState(0)
   const [cartCount, setCartCount] = useState(0)
   const [addingToCart, setAddingToCart] = useState(false)
+  const [profile, setProfile] = useState<{ id: string; name?: string | null; email?: string | null } | null>(null)
+  const [reviewForm, setReviewForm] = useState({
+    rating: 5,
+    title: '',
+    comment: '',
+  })
+  const [editingReviewId, setEditingReviewId] = useState('')
+  const [submittingReview, setSubmittingReview] = useState(false)
+
+  const fetchProductDetails = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/shop/products/${slug}`)
+      const data = await response.json()
+
+      if (data.product) {
+        setProduct(data.product)
+        setRelatedProducts(data.relatedProducts || [])
+        setSelectedImage(0)
+      } else {
+        setProduct(null)
+      }
+    } catch (error) {
+      console.error('Erro ao buscar produto:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Buscar produto
   useEffect(() => {
-    const fetchProduct = async () => {
-      setLoading(true)
-      try {
-        const response = await fetch(`/api/shop/products/${slug}`)
-        const data = await response.json()
+    fetchProductDetails()
+  }, [slug])
 
-        if (data.product) {
-          setProduct(data.product)
-          setRelatedProducts(data.relatedProducts || [])
-          setSelectedImage(0)
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await fetch('/api/account/profile')
+        if (!response.ok) {
+          setProfile(null)
+          return
         }
+        const data = await response.json()
+        setProfile(data.user || null)
       } catch (error) {
-        console.error('Erro ao buscar produto:', error)
-      } finally {
-        setLoading(false)
+        setProfile(null)
       }
     }
 
-    fetchProduct()
-  }, [slug])
+    fetchProfile()
+  }, [])
 
   // Buscar carrinho
   useEffect(() => {
@@ -154,6 +183,103 @@ export default function ProductPage() {
       console.error('Erro ao adicionar ao carrinho:', error)
     } finally {
       setAddingToCart(false)
+    }
+  }
+
+  const currentUserReview =
+    product?.reviews.find((review) => review.userId && review.userId === profile?.id) || null
+
+  const resetReviewForm = () => {
+    setReviewForm({ rating: 5, title: '', comment: '' })
+    setEditingReviewId('')
+  }
+
+  const handleReviewSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!product) return
+    if (!profile) {
+      toast({
+        title: 'Faca login para comentar',
+        description: 'Entre na sua conta para registrar sua avaliacao.',
+        variant: 'destructive',
+      })
+      return
+    }
+    if (!reviewForm.comment.trim()) {
+      toast({
+        title: 'Comentario obrigatorio',
+        description: 'Escreva um comentario para enviar.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setSubmittingReview(true)
+    try {
+      const isEditing = Boolean(editingReviewId)
+      const response = await fetch(`/api/shop/products/${product.id}/reviews`, {
+        method: isEditing ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewId: editingReviewId || undefined,
+          rating: reviewForm.rating,
+          title: reviewForm.title,
+          comment: reviewForm.comment,
+        }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao salvar comentario')
+      }
+      toast({
+        title: isEditing ? 'Comentario atualizado' : 'Comentario enviado',
+      })
+      resetReviewForm()
+      await fetchProductDetails()
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao salvar comentario',
+        description: error?.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSubmittingReview(false)
+    }
+  }
+
+  const handleReviewEdit = (review: Review) => {
+    setEditingReviewId(review.id)
+    setReviewForm({
+      rating: review.rating,
+      title: review.title || '',
+      comment: review.comment || '',
+    })
+  }
+
+  const handleReviewDelete = async (reviewId: string) => {
+    if (!product) return
+    if (!confirm('Remover seu comentario?')) return
+    try {
+      const response = await fetch(`/api/shop/products/${product.id}/reviews`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewId }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao remover comentario')
+      }
+      toast({ title: 'Comentario removido' })
+      if (editingReviewId === reviewId) {
+        resetReviewForm()
+      }
+      await fetchProductDetails()
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao remover comentario',
+        description: error?.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
     }
   }
 
@@ -501,9 +627,90 @@ export default function ProductPage() {
         )}
 
         {/* Avaliações */}
-        {product.reviews.length > 0 && (
-          <div className="mt-8 bg-white rounded-2xl shadow-md p-6">
-            <h2 className="font-display font-bold text-2xl mb-4">Avaliações</h2>
+        <div className="mt-8 bg-white rounded-2xl shadow-md p-6 space-y-6">
+          <h2 className="font-display font-bold text-2xl">Avaliacoes</h2>
+
+          <div className="border border-pink-100 rounded-xl p-4 space-y-3 bg-pink-50/40">
+            <h3 className="font-semibold text-foreground">
+              {editingReviewId ? 'Editar meu comentario' : 'Adicionar comentario'}
+            </h3>
+            {!profile ? (
+              <p className="text-sm text-muted-foreground">
+                Faca <Link href="/login" className="text-primary font-semibold">login</Link> para avaliar este produto.
+              </p>
+            ) : (
+              <form onSubmit={handleReviewSubmit} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold mb-2">Nota</label>
+                    <select
+                      value={String(reviewForm.rating)}
+                      onChange={(event) =>
+                        setReviewForm((prev) => ({
+                          ...prev,
+                          rating: Number(event.target.value),
+                        }))
+                      }
+                      className="w-full px-3 py-2 border border-pink-200 rounded-lg"
+                    >
+                      {[1, 2, 3, 4, 5].map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-2">Titulo (opcional)</label>
+                    <input
+                      value={reviewForm.title}
+                      onChange={(event) =>
+                        setReviewForm((prev) => ({ ...prev, title: event.target.value }))
+                      }
+                      className="w-full px-3 py-2 border border-pink-200 rounded-lg"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-2">Comentario</label>
+                  <textarea
+                    rows={3}
+                    value={reviewForm.comment}
+                    onChange={(event) =>
+                      setReviewForm((prev) => ({ ...prev, comment: event.target.value }))
+                    }
+                    className="w-full px-3 py-2 border border-pink-200 rounded-lg"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    disabled={submittingReview}
+                    className="px-4 py-2 rounded-lg bg-primary text-white font-semibold disabled:opacity-60"
+                  >
+                    {submittingReview
+                      ? 'Salvando...'
+                      : editingReviewId
+                        ? 'Salvar comentario'
+                        : 'Publicar comentario'}
+                  </button>
+                  {editingReviewId && (
+                    <button
+                      type="button"
+                      onClick={resetReviewForm}
+                      className="px-4 py-2 rounded-lg border border-pink-200 text-muted-foreground font-semibold"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+              </form>
+            )}
+          </div>
+
+          {product.reviews.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhuma avaliacao ainda.</p>
+          ) : (
             <div className="space-y-6">
               {product.reviews.map((review) => (
                 <div key={review.id} className="border-b border-gray-100 pb-4">
@@ -525,16 +732,44 @@ export default function ProductPage() {
                     )}
                   </div>
                   {review.title && <h4 className="font-semibold mb-1">{review.title}</h4>}
-                  <p className="text-sm text-muted-foreground mb-2">{review.author}</p>
-                  <p className="text-muted-foreground">{review.comment}</p>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {new Date(review.createdAt).toLocaleDateString('pt-BR')}
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {review.author || 'Cliente'}
                   </p>
+                  <p className="text-muted-foreground">{review.comment}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(review.createdAt).toLocaleDateString('pt-BR')}
+                    </p>
+                    {profile?.id && review.userId === profile.id && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleReviewEdit(review)}
+                          className="text-xs font-semibold text-primary"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleReviewDelete(review.id)}
+                          className="text-xs font-semibold text-red-600"
+                        >
+                          Remover
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+
+          {profile?.id && currentUserReview && !editingReviewId && (
+            <p className="text-xs text-muted-foreground">
+              Voce ja avaliou este produto. Use "Editar" no seu comentario para atualizar.
+            </p>
+          )}
+        </div>
 
         {/* Produtos Relacionados */}
         {relatedProducts.length > 0 && (

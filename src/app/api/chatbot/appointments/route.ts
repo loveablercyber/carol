@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
+import {
+  createAppointment,
+  listDaySlots,
+} from '@/lib/appointments-store'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    const session = await getServerSession(authOptions)
 
     const {
       customer,
@@ -22,29 +29,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const appointment = {
-      id: `apt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      customer: {
-        id: `cust_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        name: customer.name,
-        email: customer.email,
-        phone: customer.phone
-      },
-      service,
-      scheduledDate: new Date(scheduledDate).toISOString(),
-      durationMinutes,
-      grams,
-      length,
-      totalPrice,
-      paymentMethod,
+    const appointment = await createAppointment({
+      userId: session?.user?.id || null,
+      customerName: String(customer.name || '').trim(),
+      customerEmail: String(customer.email || '').trim(),
+      customerPhone: String(customer.phone || '').trim(),
+      serviceName: String(service.name || service.title || service.serviceName || service || '').trim(),
+      scheduledAt: new Date(scheduledDate).toISOString(),
+      durationMinutes: Number(durationMinutes || 60),
+      grams: grams ? String(grams) : null,
+      lengthLabel: length ? String(length) : null,
+      totalPrice: Number(totalPrice || 0),
+      paymentMethod: paymentMethod ? String(paymentMethod) : null,
       paymentStatus: 'pending',
-      status: 'pending',
-      createdAt: new Date().toISOString()
-    }
+      notes: null,
+    })
 
     return NextResponse.json({
       success: true,
-      appointment,
+      appointment: {
+        id: appointment?.id,
+        customer: {
+          id: session?.user?.id || null,
+          name: appointment?.customerName,
+          email: appointment?.customerEmail,
+          phone: appointment?.customerPhone,
+        },
+        service: appointment?.serviceName,
+        scheduledDate: appointment?.scheduledAt,
+        durationMinutes: appointment?.durationMinutes,
+        grams: appointment?.grams,
+        length: appointment?.lengthLabel,
+        totalPrice: appointment?.totalPrice,
+        paymentMethod: appointment?.paymentMethod,
+        paymentStatus: appointment?.paymentStatus,
+        status: appointment?.status,
+        createdAt: appointment?.createdAt,
+      },
       message: 'Agendamento realizado com sucesso!'
     })
   } catch (error) {
@@ -74,6 +95,10 @@ export async function GET(request: NextRequest) {
   const availableSlots: any[] = []
   const startHour = 9
   const endHour = 19
+  const scheduled = await listDaySlots(selectedDate.toISOString())
+  const taken = new Set(
+    scheduled.map((item) => new Date(item.scheduledAt).toTimeString().slice(0, 5))
+  )
 
   for (let hour = startHour; hour < endHour; hour++) {
     for (const minute of ['00']) {
@@ -89,7 +114,7 @@ export async function GET(request: NextRequest) {
         continue
       }
 
-      const isTaken = Math.random() > 0.9 // Reduced random interference
+      const isTaken = taken.has(`${hour.toString().padStart(2, '0')}:${minute}`)
 
       availableSlots.push({
         time: slotTime.toISOString(),
@@ -98,9 +123,6 @@ export async function GET(request: NextRequest) {
       })
     }
   }
-
-  // Handle local simulation for testing/demo purposes if no real DB
-  // In a real app, we would query the database here
   
   return NextResponse.json({
     success: true,

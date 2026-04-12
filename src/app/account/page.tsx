@@ -4,7 +4,16 @@ import { useState, useEffect } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { User, ShoppingBag, LogOut, MapPin, CreditCard, Clock, Package, CheckCircle, XCircle, LayoutDashboard } from 'lucide-react'
+import {
+  User,
+  ShoppingBag,
+  LogOut,
+  MapPin,
+  CreditCard,
+  Clock,
+  Package,
+  LayoutDashboard,
+} from 'lucide-react'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import AdminProducts from '@/components/admin/AdminProducts'
 import AdminCategories from '@/components/admin/AdminCategories'
@@ -43,6 +52,28 @@ interface Address {
   isDefault: boolean
 }
 
+interface AppointmentHistory {
+  id: string
+  serviceName: string
+  scheduledAt: string
+  totalPrice: number
+  paymentMethod?: string | null
+  status: 'scheduled' | 'completed' | 'cancelled'
+  notes?: string | null
+}
+
+interface SavedCard {
+  id: string
+  label: string
+  holderName: string
+  brand: string
+  last4: string
+  expiryMonth: number
+  expiryYear: number
+  documentNumber?: string | null
+  isDefault: boolean
+}
+
 export default function AccountPage() {
   return (
     <AuthProvider>
@@ -54,7 +85,9 @@ export default function AccountPage() {
 function AccountContent() {
   const { data: session } = useSession()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'orders' | 'profile' | 'addresses' | 'admin'>('orders')
+  const [activeTab, setActiveTab] = useState<
+    'orders' | 'profile' | 'addresses' | 'appointments' | 'cards' | 'admin'
+  >('orders')
   const [adminSection, setAdminSection] = useState<
     'dashboard' | 'products' | 'categories' | 'orders' | 'customers'
   >('dashboard')
@@ -77,6 +110,21 @@ function AccountContent() {
     neighborhood: '',
     city: '',
     state: '',
+    isDefault: false,
+  })
+  const [appointments, setAppointments] = useState<AppointmentHistory[]>([])
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false)
+  const [cards, setCards] = useState<SavedCard[]>([])
+  const [cardsLoading, setCardsLoading] = useState(false)
+  const [cardForm, setCardForm] = useState({
+    id: '',
+    label: '',
+    holderName: '',
+    brand: '',
+    last4: '',
+    expiryMonth: '',
+    expiryYear: '',
+    documentNumber: '',
     isDefault: false,
   })
 
@@ -153,6 +201,46 @@ function AccountContent() {
     }
 
     fetchAddresses()
+  }, [activeTab, session])
+
+  useEffect(() => {
+    if (!session?.user || activeTab !== 'appointments') return
+
+    const fetchAppointments = async () => {
+      setAppointmentsLoading(true)
+      try {
+        const response = await fetch('/api/account/appointments')
+        const data = await response.json()
+        if (!response.ok) return
+        setAppointments(data.appointments || [])
+      } catch (error) {
+        console.error('Erro ao buscar historico de agendamentos:', error)
+      } finally {
+        setAppointmentsLoading(false)
+      }
+    }
+
+    fetchAppointments()
+  }, [activeTab, session])
+
+  useEffect(() => {
+    if (!session?.user || activeTab !== 'cards') return
+
+    const fetchCards = async () => {
+      setCardsLoading(true)
+      try {
+        const response = await fetch('/api/account/cards')
+        const data = await response.json()
+        if (!response.ok) return
+        setCards(data.cards || [])
+      } catch (error) {
+        console.error('Erro ao buscar cartoes salvos:', error)
+      } finally {
+        setCardsLoading(false)
+      }
+    }
+
+    fetchCards()
   }, [activeTab, session])
 
   const handleLogout = async () => {
@@ -268,6 +356,127 @@ function AccountContent() {
     }
   }
 
+  const resetCardForm = () => {
+    setCardForm({
+      id: '',
+      label: '',
+      holderName: '',
+      brand: '',
+      last4: '',
+      expiryMonth: '',
+      expiryYear: '',
+      documentNumber: '',
+      isDefault: false,
+    })
+  }
+
+  const handleCardSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    try {
+      const payload = {
+        label: cardForm.label,
+        holderName: cardForm.holderName,
+        brand: cardForm.brand,
+        last4: cardForm.last4,
+        expiryMonth: Number(cardForm.expiryMonth),
+        expiryYear: Number(cardForm.expiryYear),
+        documentNumber: cardForm.documentNumber || null,
+        isDefault: cardForm.isDefault,
+      }
+
+      const isEdit = Boolean(cardForm.id)
+      const response = await fetch(
+        isEdit ? `/api/account/cards/${cardForm.id}` : '/api/account/cards',
+        {
+          method: isEdit ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      )
+      const data = await response.json()
+      if (!response.ok) {
+        alert(data.error || 'Erro ao salvar cartao')
+        return
+      }
+
+      if (isEdit) {
+        setCards((prev) =>
+          prev.map((card) =>
+            card.id === data.card.id ? data.card : data.card.isDefault ? { ...card, isDefault: false } : card
+          )
+        )
+      } else {
+        setCards((prev) => {
+          const normalized = data.card.isDefault
+            ? prev.map((card) => ({ ...card, isDefault: false }))
+            : prev
+          return [data.card, ...normalized]
+        })
+      }
+
+      resetCardForm()
+    } catch (error) {
+      alert('Erro ao salvar cartao')
+    }
+  }
+
+  const handleCardEdit = (card: SavedCard) => {
+    setCardForm({
+      id: card.id,
+      label: card.label,
+      holderName: card.holderName,
+      brand: card.brand,
+      last4: card.last4,
+      expiryMonth: String(card.expiryMonth),
+      expiryYear: String(card.expiryYear),
+      documentNumber: card.documentNumber || '',
+      isDefault: card.isDefault,
+    })
+  }
+
+  const handleCardDelete = async (cardId: string) => {
+    if (!confirm('Remover este cartao salvo?')) return
+    try {
+      const response = await fetch(`/api/account/cards/${cardId}`, {
+        method: 'DELETE',
+      })
+      if (!response.ok) {
+        const data = await response.json()
+        alert(data.error || 'Erro ao remover cartao')
+        return
+      }
+      setCards((prev) => prev.filter((card) => card.id !== cardId))
+      if (cardForm.id === cardId) {
+        resetCardForm()
+      }
+    } catch (error) {
+      alert('Erro ao remover cartao')
+    }
+  }
+
+  const handleSetDefaultCard = async (card: SavedCard) => {
+    try {
+      const response = await fetch(`/api/account/cards/${card.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isDefault: true }),
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        alert(data.error || 'Erro ao definir cartao padrao')
+        return
+      }
+      setCards((prev) =>
+        prev.map((item) => ({
+          ...item,
+          isDefault: item.id === data.card.id,
+        }))
+      )
+    } catch (error) {
+      alert('Erro ao definir cartao padrao')
+    }
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PENDING':
@@ -298,6 +507,21 @@ function AccountContent() {
       REFUNDED: 'Reembolsado',
     }
     return statusMap[status] || status
+  }
+
+  const getAppointmentStatusText = (status: AppointmentHistory['status']) => {
+    const statusMap = {
+      scheduled: 'Agendado',
+      completed: 'Concluido',
+      cancelled: 'Cancelado',
+    }
+    return statusMap[status] || status
+  }
+
+  const getAppointmentStatusColor = (status: AppointmentHistory['status']) => {
+    if (status === 'completed') return 'bg-green-100 text-green-700'
+    if (status === 'cancelled') return 'bg-red-100 text-red-700'
+    return 'bg-blue-100 text-blue-700'
   }
 
   if (!session) {
@@ -391,6 +615,28 @@ function AccountContent() {
                 >
                   <User className="w-5 h-5" />
                   Perfil
+                </button>
+                <button
+                  onClick={() => setActiveTab('appointments')}
+                  className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
+                    activeTab === 'appointments'
+                      ? 'bg-primary text-white'
+                      : 'hover:bg-gray-100'
+                  }`}
+                >
+                  <Clock className="w-5 h-5" />
+                  Agendamentos
+                </button>
+                <button
+                  onClick={() => setActiveTab('cards')}
+                  className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
+                    activeTab === 'cards'
+                      ? 'bg-primary text-white'
+                      : 'hover:bg-gray-100'
+                  }`}
+                >
+                  <CreditCard className="w-5 h-5" />
+                  Cartoes salvos
                 </button>
                 <button
                   onClick={() => setActiveTab('addresses')}
@@ -765,6 +1011,269 @@ function AccountContent() {
                       Salvar endereco
                     </button>
                   </form>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'appointments' && (
+              <div className="space-y-4">
+                <div className="bg-white rounded-2xl shadow-md p-6">
+                  <h2 className="font-display font-bold text-2xl text-foreground mb-4">
+                    Historico de Agendamentos
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Aqui ficam registrados seus procedimentos e agendamentos.
+                  </p>
+                </div>
+
+                {appointmentsLoading ? (
+                  <div className="bg-white rounded-2xl shadow-md p-6 text-muted-foreground">
+                    Carregando agendamentos...
+                  </div>
+                ) : appointments.length === 0 ? (
+                  <div className="bg-white rounded-2xl shadow-md p-6 text-muted-foreground">
+                    Nenhum agendamento encontrado.
+                  </div>
+                ) : (
+                  appointments.map((appointment) => (
+                    <div
+                      key={appointment.id}
+                      className="bg-white rounded-2xl shadow-md p-6 space-y-3"
+                    >
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-foreground">
+                            {appointment.serviceName}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {new Date(appointment.scheduledAt).toLocaleString('pt-BR')}
+                          </p>
+                        </div>
+                        <span
+                          className={`inline-flex w-fit px-3 py-1 rounded-full text-xs font-semibold ${getAppointmentStatusColor(appointment.status)}`}
+                        >
+                          {getAppointmentStatusText(appointment.status)}
+                        </span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Valor: R$ {appointment.totalPrice.toFixed(2).replace('.', ',')}
+                        {appointment.paymentMethod ? ` • Pagamento: ${appointment.paymentMethod}` : ''}
+                      </div>
+                      {appointment.notes ? (
+                        <p className="text-sm text-muted-foreground">
+                          Observacao: {appointment.notes}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {activeTab === 'cards' && (
+              <div className="space-y-6">
+                <div className="bg-white rounded-2xl shadow-md p-6">
+                  <h2 className="font-display font-bold text-2xl text-foreground mb-4">
+                    Cartoes Salvos
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Salve cartoes para agilizar a finalizacao da compra.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-md p-6">
+                  <h3 className="font-display font-bold text-xl text-foreground mb-4">
+                    {cardForm.id ? 'Editar cartao' : 'Adicionar cartao'}
+                  </h3>
+                  <form onSubmit={handleCardSubmit} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Apelido</label>
+                        <input
+                          value={cardForm.label}
+                          onChange={(event) =>
+                            setCardForm((prev) => ({ ...prev, label: event.target.value }))
+                          }
+                          required
+                          className="w-full px-4 py-3 border border-pink-200 rounded-lg"
+                          placeholder="Cartao principal"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Bandeira</label>
+                        <input
+                          value={cardForm.brand}
+                          onChange={(event) =>
+                            setCardForm((prev) => ({ ...prev, brand: event.target.value }))
+                          }
+                          required
+                          className="w-full px-4 py-3 border border-pink-200 rounded-lg"
+                          placeholder="Visa, Master..."
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Titular</label>
+                        <input
+                          value={cardForm.holderName}
+                          onChange={(event) =>
+                            setCardForm((prev) => ({
+                              ...prev,
+                              holderName: event.target.value,
+                            }))
+                          }
+                          required
+                          className="w-full px-4 py-3 border border-pink-200 rounded-lg"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Ultimos 4 digitos</label>
+                        <input
+                          value={cardForm.last4}
+                          onChange={(event) =>
+                            setCardForm((prev) => ({
+                              ...prev,
+                              last4: event.target.value.replace(/\D/g, '').slice(0, 4),
+                            }))
+                          }
+                          required
+                          className="w-full px-4 py-3 border border-pink-200 rounded-lg"
+                          placeholder="1234"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Mes validade</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={12}
+                          value={cardForm.expiryMonth}
+                          onChange={(event) =>
+                            setCardForm((prev) => ({
+                              ...prev,
+                              expiryMonth: event.target.value,
+                            }))
+                          }
+                          required
+                          className="w-full px-4 py-3 border border-pink-200 rounded-lg"
+                          placeholder="11"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold mb-2">Ano validade</label>
+                        <input
+                          type="number"
+                          min={new Date().getFullYear()}
+                          value={cardForm.expiryYear}
+                          onChange={(event) =>
+                            setCardForm((prev) => ({
+                              ...prev,
+                              expiryYear: event.target.value,
+                            }))
+                          }
+                          required
+                          className="w-full px-4 py-3 border border-pink-200 rounded-lg"
+                          placeholder="2030"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2">CPF do titular</label>
+                      <input
+                        value={cardForm.documentNumber}
+                        onChange={(event) =>
+                          setCardForm((prev) => ({
+                            ...prev,
+                            documentNumber: event.target.value.replace(/\D/g, '').slice(0, 11),
+                          }))
+                        }
+                        className="w-full px-4 py-3 border border-pink-200 rounded-lg"
+                        placeholder="Somente numeros"
+                      />
+                    </div>
+                    <label className="inline-flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={cardForm.isDefault}
+                        onChange={(event) =>
+                          setCardForm((prev) => ({ ...prev, isDefault: event.target.checked }))
+                        }
+                        className="accent-primary"
+                      />
+                      Definir como cartao padrao
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="submit"
+                        className="px-6 py-3 bg-primary text-white rounded-xl font-semibold"
+                      >
+                        {cardForm.id ? 'Salvar cartao' : 'Adicionar cartao'}
+                      </button>
+                      {cardForm.id && (
+                        <button
+                          type="button"
+                          onClick={resetCardForm}
+                          className="px-6 py-3 border border-pink-200 rounded-xl font-semibold text-muted-foreground"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
+
+                <div className="bg-white rounded-2xl shadow-md p-6">
+                  <h3 className="font-display font-bold text-xl text-foreground mb-4">
+                    Meus cartoes
+                  </h3>
+                  {cardsLoading ? (
+                    <p className="text-muted-foreground">Carregando cartoes...</p>
+                  ) : cards.length === 0 ? (
+                    <p className="text-muted-foreground">Nenhum cartao salvo.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {cards.map((card) => (
+                        <div
+                          key={card.id}
+                          className="border border-gray-100 rounded-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+                        >
+                          <div>
+                            <p className="font-semibold text-foreground">
+                              {card.label} {card.isDefault ? '(Padrao)' : ''}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {card.brand} • **** {card.last4} • {String(card.expiryMonth).padStart(2, '0')}/{card.expiryYear}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{card.holderName}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {!card.isDefault && (
+                              <button
+                                type="button"
+                                onClick={() => handleSetDefaultCard(card)}
+                                className="px-4 py-2 text-sm rounded-lg border border-pink-200 text-primary"
+                              >
+                                Definir padrao
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleCardEdit(card)}
+                              className="px-4 py-2 text-sm rounded-lg border border-pink-200 text-primary"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCardDelete(card.id)}
+                              className="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

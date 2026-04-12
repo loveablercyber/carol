@@ -60,6 +60,18 @@ export default async function AdminLayout({
             <Link className="hover:text-primary" href="/admin/internal-pages">
               Paginas Internas
             </Link>
+            <Link className="hover:text-primary" href="/admin/appointments">
+              Agendamentos
+            </Link>
+            <Link className="hover:text-primary" href="/admin/shipping">
+              Frete
+            </Link>
+            <Link className="hover:text-primary" href="/admin/reviews">
+              Comentarios
+            </Link>
+            <Link className="hover:text-primary" href="/admin/backup">
+              Backup
+            </Link>
           </nav>
         </div>
       </header>

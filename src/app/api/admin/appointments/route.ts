@@ -1,0 +1,48 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
+import { listAppointments } from '@/lib/appointments-store'
+
+async function ensureAdmin() {
+  const session = await getServerSession(authOptions)
+  if (!session || session.user?.role !== 'admin') {
+    return null
+  }
+  return session
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await ensureAdmin()
+    if (!session) {
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
+    }
+
+    const searchParams = request.nextUrl.searchParams
+    const status = searchParams.get('status') || 'all'
+    const from = searchParams.get('from') || undefined
+    const to = searchParams.get('to') || undefined
+
+    const appointments = await listAppointments({
+      status: status as any,
+      from,
+      to,
+    })
+
+    const summary = {
+      total: appointments.length,
+      scheduled: appointments.filter((item) => item.status === 'scheduled').length,
+      completed: appointments.filter((item) => item.status === 'completed').length,
+      cancelled: appointments.filter((item) => item.status === 'cancelled').length,
+    }
+
+    return NextResponse.json({ appointments, summary })
+  } catch (error) {
+    console.error('Erro ao buscar agendamentos (admin):', error)
+    return NextResponse.json(
+      { error: 'Erro ao buscar agendamentos' },
+      { status: 500 }
+    )
+  }
+}
+

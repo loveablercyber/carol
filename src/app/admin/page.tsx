@@ -32,6 +32,26 @@ export default function AdminPage() {
       description: 'Edite promocoes, servicos, clube, depoimentos e profissional.',
       href: '/admin/internal-pages',
     },
+    {
+      title: 'Agendamentos',
+      description: 'Gerencie horarios agendados, concluidos e cancelados.',
+      href: '/admin/appointments',
+    },
+    {
+      title: 'Frete',
+      description: 'Defina CEP da loja e regras por categoria ou produto.',
+      href: '/admin/shipping',
+    },
+    {
+      title: 'Comentarios',
+      description: 'Modere avaliacoes e comentarios dos produtos.',
+      href: '/admin/reviews',
+    },
+    {
+      title: 'Backup',
+      description: 'Exportacao manual do banco para seguranca.',
+      href: '/admin/backup',
+    },
   ]
 
   return (
@@ -39,7 +59,7 @@ export default function AdminPage() {
       <h1 className="font-display font-bold text-3xl text-foreground mb-6">
         Painel Administrativo
       </h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {cards.map((card) => (
           <Link
             key={card.href}

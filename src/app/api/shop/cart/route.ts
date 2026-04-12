@@ -66,6 +66,7 @@ export async function GET() {
           id: item.product.id,
           name: item.product.name,
           slug: item.product.slug,
+          categoryId: item.product.categoryId,
           price: item.product.price,
           images: JSON.parse(item.product.images),
           inStock: item.product.inStock,
