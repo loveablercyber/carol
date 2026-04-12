@@ -44,6 +44,32 @@ function enforceCredentialPrefix(
   if (env === 'prod' && (tokenIsTest || publicKeyIsTest)) {
     throw new Error('Ambiente PROD nao aceita credenciais TEST-*.')
   }
+
+  if (looksLikeAccessToken(publicKey)) {
+    const publicKeyVarName =
+      env === 'test'
+        ? 'NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_TEST'
+        : 'NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY_PROD'
+
+    throw new Error(
+      `${publicKeyVarName} invalida: o valor informado parece ACCESS TOKEN. Configure essa variavel com a Public Key da conta ${env.toUpperCase()}.`
+    )
+  }
+}
+
+function looksLikeAccessToken(value: string): boolean {
+  const parts = value.trim().split('-')
+  if (parts.length !== 5) return false
+
+  const [prefix, appId, userId, hash, checksum] = parts
+  if (prefix !== 'APP_USR' && prefix !== 'TEST') return false
+
+  return (
+    /^\d{10,20}$/.test(appId) &&
+    /^\d{4,8}$/.test(userId) &&
+    /^[a-f0-9]{32}$/i.test(hash) &&
+    /^\d{8,12}$/.test(checksum)
+  )
 }
 
 function ensureAbsoluteHttpsBaseUrl(rawValue: string): string {
