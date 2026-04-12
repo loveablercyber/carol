@@ -34,7 +34,7 @@ const orderStatusMap: Record<string, OrderStatus> = {
 
 const statusDetailMessages: Record<string, string> = {
   cc_amount_rate_limit_exceeded:
-    'O Mercado Pago recusou por limite temporario do cartao. Tente outro cartao de teste, como Visa ou Amex, ou aguarde alguns minutos antes de tentar novamente.',
+    'O Mercado Pago recusou por regra de valor/limite do teste. No modo teste, preencha o nome do titular exatamente como APRO e use CPF 12345678909. Se ja usou APRO, aguarde alguns minutos ou refaca o pedido.',
   cc_rejected_duplicated_payment:
     'O Mercado Pago identificou pagamento duplicado no mesmo valor. Use outro cartao ou aguarde alguns minutos antes de tentar novamente.',
   cc_rejected_max_attempts:

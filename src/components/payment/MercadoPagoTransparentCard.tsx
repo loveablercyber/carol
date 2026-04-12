@@ -46,6 +46,7 @@ export function MercadoPagoTransparentCard({
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [setupError, setSetupError] = useState('')
+  const [testMode, setTestMode] = useState(false)
 
   useEffect(() => {
     onSuccessRef.current = onSuccess
@@ -67,6 +68,7 @@ export function MercadoPagoTransparentCard({
         if (!configResponse.ok || !config?.publicKey) {
           throw new Error(config?.error || 'Mercado Pago nao configurado.')
         }
+        setTestMode(config?.environment === 'test')
 
         await loadMercadoPago()
         if (!window.MercadoPago) {
@@ -187,6 +189,13 @@ export function MercadoPagoTransparentCard({
       {submitting && (
         <div className="rounded-xl border border-pink-100 bg-pink-50 p-4 text-sm text-muted-foreground">
           Processando pagamento, aguarde...
+        </div>
+      )}
+      {testMode && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-900">
+          <p className="font-semibold">Dados obrigatórios para aprovar no modo teste</p>
+          <p>Use um cartão de teste do Mercado Pago e preencha o nome do titular como APRO.</p>
+          <p>CPF: 12345678909. Vencimento: 11/30. CVV: 123 para Visa/Master ou 1234 para Amex.</p>
         </div>
       )}
       <div id={`mp-card-payment-${order.id}`} className={disabled ? 'pointer-events-none opacity-60' : ''} />
