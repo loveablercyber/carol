@@ -126,6 +126,28 @@ function resolvePhoneParts(rawPhone: string) {
   }
 }
 
+function isOfflinePayment(paymentTypeId: string, paymentMethodId: string) {
+  const normalizedType = paymentTypeId.trim()
+
+  if (
+    normalizedType === 'ticket' ||
+    normalizedType === 'bank_transfer' ||
+    normalizedType === 'bankTransfer'
+  ) {
+    return true
+  }
+
+  if (paymentMethodId === 'pix') {
+    return true
+  }
+
+  if (paymentMethodId.startsWith('bol')) {
+    return true
+  }
+
+  return false
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
@@ -162,32 +184,53 @@ export async function POST(request: NextRequest) {
 
     const token = asString(body?.token)
     const paymentMethodId = asString(body?.payment_method_id || body?.paymentMethodId)
+    const paymentTypeId = asString(
+      body?.payment_type_id || body?.paymentTypeId || body?.selectedPaymentMethod
+    )
     const issuerId = asString(body?.issuer_id || body?.issuerId)
-    const installments = asNumber(body?.installments, 1)
-    const identification = resolveIdentification(body)
+    const installments = Math.max(1, asNumber(body?.installments, 1))
     const payerEmail = resolvePayerEmail(
       config.env,
       asString(body?.payer?.email || body?.payerEmail || order.customerEmail)
     )
-    const { firstName, lastName } = splitFullName(order.customerName)
     const shippingAddress = parseShippingAddress(order.shippingAddress)
-    const phoneParts = resolvePhoneParts(order.customerPhone)
-    const payerAddressZipCode = asString(shippingAddress.zipCode)
-    const payerAddressStreetName = asString(shippingAddress.street)
-    const payerAddressStreetNumber = asString(shippingAddress.number)
+    const profileAddress = body?.payerProfile?.address || {}
+    const profileName = asString(body?.payerProfile?.name)
+    const { firstName, lastName } = splitFullName(profileName || order.customerName)
+    const phoneParts = resolvePhoneParts(asString(body?.payerProfile?.phone || order.customerPhone))
+    const payerAddressZipCode = asString(profileAddress.zipCode || shippingAddress.zipCode)
+    const payerAddressStreetName = asString(profileAddress.street || shippingAddress.street)
+    const payerAddressStreetNumber = asString(profileAddress.number || shippingAddress.number)
+    const payerAddressCity = asString(profileAddress.city || shippingAddress.city)
+    const payerAddressState = asString(profileAddress.state || shippingAddress.state)
+    const cpfFromOrder = normalizeDigits(asString(body?.payerProfile?.cpf || shippingAddress.cpf))
+    const identification =
+      resolveIdentification(body) ||
+      (cpfFromOrder
+        ? {
+            type: 'CPF',
+            number: cpfFromOrder,
+          }
+        : undefined)
+    const offlinePayment = isOfflinePayment(paymentTypeId, paymentMethodId)
 
-    if (!token || !paymentMethodId || !installments || !payerEmail) {
+    if (!paymentMethodId || !payerEmail) {
       return NextResponse.json(
-        { error: 'Dados do pagamento incompletos. Confira os dados do cartao.' },
+        { error: 'Dados do pagamento incompletos. Confira os dados do pagamento.' },
+        { status: 400 }
+      )
+    }
+
+    if (!offlinePayment && !token) {
+      return NextResponse.json(
+        { error: 'Token do cartao ausente. Recarregue o formulario e tente novamente.' },
         { status: 400 }
       )
     }
 
     const paymentPayload: Record<string, unknown> = {
       transaction_amount: Number(order.total),
-      token,
       description: `Pedido ${order.orderNumber}`,
-      installments,
       payment_method_id: paymentMethodId,
       external_reference: order.orderNumber,
       notification_url: `${config.baseUrl}/api/payments/mercadopago/webhook`,
@@ -266,17 +309,25 @@ export async function POST(request: NextRequest) {
                   ...(payerAddressZipCode ? { zip_code: payerAddressZipCode } : {}),
                   ...(payerAddressStreetName ? { street_name: payerAddressStreetName } : {}),
                   ...(payerAddressStreetNumber ? { street_number: payerAddressStreetNumber } : {}),
-                  ...(asString(shippingAddress.city)
-                    ? { city_name: asString(shippingAddress.city) }
-                    : {}),
-                  ...(asString(shippingAddress.state)
-                    ? { state_name: asString(shippingAddress.state) }
-                    : {}),
+                  ...(payerAddressCity ? { city_name: payerAddressCity } : {}),
+                  ...(payerAddressState ? { state_name: payerAddressState } : {}),
                 },
               },
             }
           : {}),
       },
+    }
+
+    if (token) {
+      paymentPayload.token = token
+    }
+
+    if (!offlinePayment) {
+      paymentPayload.installments = installments
+    }
+
+    if (paymentTypeId) {
+      paymentPayload.payment_type_id = paymentTypeId
     }
 
     if (issuerId) {
@@ -350,10 +401,22 @@ export async function POST(request: NextRequest) {
       mpRequestId,
     })
 
+    const ticketUrl = asString(
+      data?.transaction_details?.external_resource_url ||
+        data?.point_of_interaction?.transaction_data?.ticket_url
+    )
+    const qrCode = asString(data?.point_of_interaction?.transaction_data?.qr_code)
+    const qrCodeBase64 = asString(data?.point_of_interaction?.transaction_data?.qr_code_base64)
+
     return NextResponse.json({
       paymentId: data?.id,
       status,
       statusDetail: data?.status_detail,
+      paymentMethodId: data?.payment_method_id,
+      paymentTypeId: data?.payment_type_id,
+      ticketUrl: ticketUrl || undefined,
+      qrCode: qrCode || undefined,
+      qrCodeBase64: qrCodeBase64 || undefined,
       message:
         resolveStatusDetailMessage(String(data?.status_detail || ''), config.env) ||
         (nextPaymentStatus === PaymentStatus.REJECTED

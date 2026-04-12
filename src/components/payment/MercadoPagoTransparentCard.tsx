@@ -24,15 +24,73 @@ type MercadoPagoTransparentCardProps = {
     total: number
   }
   payerEmail?: string | null
+  payerProfile?: {
+    name?: string | null
+    email?: string | null
+    cpf?: string | null
+    phone?: string | null
+    address?: {
+      zipCode?: string | null
+      street?: string | null
+      number?: string | null
+      city?: string | null
+      state?: string | null
+    }
+  }
   disabled?: boolean
   onSuccess: (orderNumber: string) => void
   onPending: (orderNumber: string) => void
   onError: (message: string) => void
 }
 
+function asString(value: unknown) {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeDigits(value: string) {
+  return value.replace(/\D/g, '')
+}
+
+function splitFullName(fullName: string) {
+  const parts = fullName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+
+  if (parts.length === 0) {
+    return { firstName: '', lastName: '' }
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(' ') || parts[0],
+  }
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function unwrapPaymentBrickPayload(payload: unknown) {
+  const safePayload = isObject(payload) ? payload : {}
+  const wrappedFormData = safePayload.formData
+  if (isObject(wrappedFormData)) {
+    return {
+      formData: wrappedFormData,
+      selectedPaymentMethod: asString(safePayload.selectedPaymentMethod),
+    }
+  }
+
+  return {
+    formData: safePayload,
+    selectedPaymentMethod: '',
+  }
+}
+
 export function MercadoPagoTransparentCard({
   order,
   payerEmail,
+  payerProfile,
   disabled,
   onSuccess,
   onPending,
@@ -56,7 +114,7 @@ export function MercadoPagoTransparentCard({
 
   useEffect(() => {
     let cancelled = false
-    const containerId = `mp-card-payment-${order.id}`
+    const containerId = `mp-payment-${order.id}`
 
     const renderBrick = async () => {
       setLoading(true)
@@ -85,21 +143,50 @@ export function MercadoPagoTransparentCard({
           throw new Error('SDK do Mercado Pago indisponivel.')
         }
 
-        const effectivePayerEmail = config?.testBuyerEmail || payerEmail || undefined
+        const effectivePayerEmail =
+          config?.testBuyerEmail ||
+          asString(payerProfile?.email) ||
+          asString(payerEmail) ||
+          undefined
         if (config?.environment === 'prod' && !effectivePayerEmail) {
           throw new Error('E-mail do pagador ausente. Atualize seu cadastro antes de pagar.')
         }
+
+        const profileName = asString(payerProfile?.name)
+        const { firstName, lastName } = splitFullName(profileName)
+        const cpf = normalizeDigits(asString(payerProfile?.cpf))
 
         const mp = new window.MercadoPago(config.publicKey, { locale: 'pt-BR' })
         const bricksBuilder = mp.bricks()
 
         controllerRef.current?.unmount?.()
-        controllerRef.current = await bricksBuilder.create('cardPayment', containerId, {
+        controllerRef.current = await bricksBuilder.create('payment', containerId, {
           initialization: {
             amount: Number(order.total),
-            payer: effectivePayerEmail ? { email: effectivePayerEmail } : undefined,
+            payer: effectivePayerEmail
+              ? {
+                  email: effectivePayerEmail,
+                  ...(firstName ? { firstName } : {}),
+                  ...(lastName ? { lastName } : {}),
+                  ...(cpf
+                    ? {
+                        identification: {
+                          type: 'CPF',
+                          number: cpf,
+                        },
+                      }
+                    : {}),
+                }
+              : undefined,
           },
           customization: {
+            paymentMethods: {
+              creditCard: 'all',
+              debitCard: 'all',
+              ticket: 'all',
+              bankTransfer: 'all',
+              mercadoPago: 'none',
+            },
             visual: {
               style: {
                 theme: 'default',
@@ -114,7 +201,7 @@ export function MercadoPagoTransparentCard({
                 setSetupError('')
               }
             },
-            onSubmit: (cardFormData: Record<string, unknown>) => {
+            onSubmit: (submitPayload: unknown) => {
               if (disabled || submittingRef.current) {
                 return Promise.reject(new Error('Pagamento ja esta em processamento.'))
               }
@@ -122,14 +209,36 @@ export function MercadoPagoTransparentCard({
               submittingRef.current = true
               setSubmitting(true)
               onErrorRef.current('')
+              const { formData, selectedPaymentMethod } = unwrapPaymentBrickPayload(submitPayload)
+              const existingPayer = isObject(formData.payer) ? formData.payer : {}
+              const fallbackPayer = {
+                ...existingPayer,
+                ...(effectivePayerEmail ? { email: effectivePayerEmail } : {}),
+                ...(cpf && !isObject(existingPayer.identification)
+                  ? {
+                      identification: {
+                        type: 'CPF',
+                        number: cpf,
+                      },
+                    }
+                  : {}),
+              }
 
               return fetch('/api/payments/mercadopago/transparent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  ...cardFormData,
+                  ...formData,
+                  payer: fallbackPayer,
                   orderId: order.id,
-                  payerEmail,
+                  payerEmail: effectivePayerEmail,
+                  selectedPaymentMethod,
+                  payerProfile: {
+                    name: profileName || undefined,
+                    cpf: cpf || undefined,
+                    phone: asString(payerProfile?.phone) || undefined,
+                    address: payerProfile?.address || undefined,
+                  },
                 }),
               })
                 .then(async (response) => {
@@ -144,6 +253,10 @@ export function MercadoPagoTransparentCard({
                   }
 
                   if (data.paymentStatus === 'PENDING') {
+                    const ticketUrl = asString(data?.ticketUrl)
+                    if (ticketUrl && typeof window !== 'undefined') {
+                      window.open(ticketUrl, '_blank', 'noopener,noreferrer')
+                    }
                     onPendingRef.current(order.orderNumber)
                     return
                   }
@@ -165,7 +278,7 @@ export function MercadoPagoTransparentCard({
                 })
             },
             onError: (error: unknown) => {
-              console.error('[MP] Card Payment Brick error', error)
+              console.error('[MP] Payment Brick error', error)
               if (!cancelled) {
                 setSetupError('Erro ao carregar o formulário de pagamento do Mercado Pago.')
                 setLoading(false)
@@ -191,13 +304,28 @@ export function MercadoPagoTransparentCard({
       controllerRef.current?.unmount?.()
       controllerRef.current = null
     }
-  }, [disabled, order.id, order.orderNumber, order.total, payerEmail])
+  }, [
+    disabled,
+    order.id,
+    order.orderNumber,
+    order.total,
+    payerEmail,
+    payerProfile?.name,
+    payerProfile?.email,
+    payerProfile?.cpf,
+    payerProfile?.phone,
+    payerProfile?.address?.zipCode,
+    payerProfile?.address?.street,
+    payerProfile?.address?.number,
+    payerProfile?.address?.city,
+    payerProfile?.address?.state,
+  ])
 
   return (
     <div className="space-y-3">
       {loading && (
         <div className="rounded-xl border border-pink-100 bg-pink-50 p-4 text-sm text-muted-foreground">
-          Carregando pagamento seguro do Mercado Pago...
+          Carregando opcoes de pagamento do Mercado Pago...
         </div>
       )}
       {setupError && (
@@ -212,12 +340,12 @@ export function MercadoPagoTransparentCard({
       )}
       {testMode && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-900">
-          <p className="font-semibold">Dados obrigatórios para aprovar no modo teste</p>
-          <p>Use um cartão de teste do Mercado Pago e preencha o nome do titular como APRO.</p>
+          <p className="font-semibold">Modo teste ativo</p>
+          <p>Para pagamento com cartao de teste, use titular APRO e CPF 12345678909.</p>
           <p>CPF: 12345678909. Vencimento: 11/30. CVV: 123 para Visa/Master ou 1234 para Amex.</p>
         </div>
       )}
-      <div id={`mp-card-payment-${order.id}`} className={disabled ? 'pointer-events-none opacity-60' : ''} />
+      <div id={`mp-payment-${order.id}`} className={disabled ? 'pointer-events-none opacity-60' : ''} />
     </div>
   )
 }

@@ -855,6 +855,19 @@ function CheckoutContent() {
           <MercadoPagoTransparentCard
             order={createdOrder}
             payerEmail={session?.user?.email || createdOrder.customerEmail}
+            payerProfile={{
+              name: shippingAddress.recipient || session?.user?.name || undefined,
+              email: session?.user?.email || createdOrder.customerEmail || undefined,
+              cpf: customerCpf || undefined,
+              phone: shippingAddress.phone || undefined,
+              address: {
+                zipCode: shippingAddress.zipCode || undefined,
+                street: shippingAddress.street || undefined,
+                number: shippingAddress.number || undefined,
+                city: shippingAddress.city || undefined,
+                state: shippingAddress.state || undefined,
+              },
+            }}
             disabled={processing}
             onSuccess={(orderNumber) => router.push(`/pagamento/sucesso?external_reference=${encodeURIComponent(orderNumber)}`)}
             onPending={(orderNumber) => router.push(`/pagamento/pendente?external_reference=${encodeURIComponent(orderNumber)}`)}
@@ -1229,7 +1242,7 @@ function CheckoutContent() {
               </h2>
               <div className="space-y-3 mb-6">
                 <p className="text-sm text-muted-foreground">
-                  Ao confirmar o pedido, o pagamento por cartão será feito aqui no site pelo Mercado Pago.
+                  Ao confirmar o pedido, escolha PIX, boleto ou cartao de credito/debito sem sair do site.
                 </p>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Lock className="w-4 h-4" />
@@ -1242,7 +1255,7 @@ function CheckoutContent() {
                 disabled={processing || !selectedShipping}
                 className="w-full py-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {processing ? 'Criando pedido...' : 'Finalizar pedido e pagar com cartão'}
+                {processing ? 'Criando pedido...' : 'Finalizar pedido e escolher pagamento'}
               </button>
               {errors.submit && <p className="text-red-500 text-sm mt-2 text-center">{errors.submit}</p>}
               {paymentError && (
@@ -1352,7 +1365,7 @@ function CheckoutContent() {
               {/* Informações */}
               <div className="mt-6 space-y-2 text-xs text-muted-foreground">
                 <p>Frete grátis em fretes acima R$300,00</p>
-                <p>✓ Parcelamento em até 12x no cartão</p>
+                <p>✓ PIX, boleto e cartao em ambiente seguro</p>
                 <p>✓ Pagamento seguro via Mercado Pago</p>
                 <p>✓ 7 dias para troca</p>
               </div>

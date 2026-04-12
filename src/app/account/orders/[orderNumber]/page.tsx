@@ -21,7 +21,9 @@ interface Order {
   status: string
   paymentStatus: string
   paymentMethod?: string | null
+  customerName?: string | null
   customerEmail?: string | null
+  customerPhone?: string | null
   total: number
   trackingCode?: string | null
   shippingAddress: any
@@ -221,7 +223,7 @@ function OrderDetailContent() {
           {canRetryPayment && (
             <div className="mt-6 border-t border-gray-100 pt-5 space-y-3">
               <p className="text-sm text-muted-foreground">
-                Pagamento pendente ou recusado. O pagamento agora usa Checkout Transparente, sem redirecionamento externo.
+                Pagamento pendente ou recusado. Tente novamente com PIX, boleto ou cartao direto no checkout transparente.
               </p>
 
               {paymentError && (
@@ -235,6 +237,21 @@ function OrderDetailContent() {
                   total: order.total,
                 }}
                 payerEmail={session?.user?.email || order.customerEmail}
+                payerProfile={{
+                  name: order.customerName || shipping.recipient || session?.user?.name || undefined,
+                  email: session?.user?.email || order.customerEmail || undefined,
+                  cpf: typeof shipping.cpf === 'string' ? shipping.cpf : undefined,
+                  phone:
+                    order.customerPhone ||
+                    (typeof shipping.phone === 'string' ? shipping.phone : undefined),
+                  address: {
+                    zipCode: typeof shipping.zipCode === 'string' ? shipping.zipCode : undefined,
+                    street: typeof shipping.street === 'string' ? shipping.street : undefined,
+                    number: typeof shipping.number === 'string' ? shipping.number : undefined,
+                    city: typeof shipping.city === 'string' ? shipping.city : undefined,
+                    state: typeof shipping.state === 'string' ? shipping.state : undefined,
+                  },
+                }}
                 onSuccess={(paidOrderNumber) => router.push(`/pagamento/sucesso?external_reference=${encodeURIComponent(paidOrderNumber)}`)}
                 onPending={(pendingOrderNumber) => router.push(`/pagamento/pendente?external_reference=${encodeURIComponent(pendingOrderNumber)}`)}
                 onError={setPaymentError}
