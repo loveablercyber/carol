@@ -232,13 +232,6 @@ export default function Home() {
             <LayoutDashboard className="w-4 h-4 text-primary" />
             Painel Cliente
           </Link>
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-pink-200 text-sm font-semibold text-foreground hover:border-pink-400"
-          >
-            <LayoutDashboard className="w-4 h-4 text-primary" />
-            Painel Admin
-          </Link>
           {supportUrl && (
             <a
               href={supportUrl}
