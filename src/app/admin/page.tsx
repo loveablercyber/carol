@@ -27,6 +27,11 @@ export default function AdminPage() {
       description: 'Ative modulos, edite conteudo e ordem da home.',
       href: '/admin/home-modules',
     },
+    {
+      title: 'Paginas Internas',
+      description: 'Edite promocoes, servicos, clube, depoimentos e profissional.',
+      href: '/admin/internal-pages',
+    },
   ]
 
   return (
@@ -34,7 +39,7 @@ export default function AdminPage() {
       <h1 className="font-display font-bold text-3xl text-foreground mb-6">
         Painel Administrativo
       </h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         {cards.map((card) => (
           <Link
             key={card.href}

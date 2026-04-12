@@ -1,48 +1,73 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowLeft, Star, MapPin, Sparkles, Heart, Scissors, BadgeCheck, Instagram } from 'lucide-react'
+import {
+  ArrowLeft,
+  Star,
+  MapPin,
+  Sparkles,
+  Heart,
+  Scissors,
+  BadgeCheck,
+  Instagram,
+} from 'lucide-react'
 import Chatbot from '@/components/chatbot/Chatbot'
+import { getDefaultInternalPage } from '@/lib/internal-pages-defaults'
+import {
+  asObjectArray,
+  asString,
+  asStringArray,
+  loadInternalPageContent,
+} from '@/lib/internal-pages-runtime'
 
-const instagramPhotos = [
-  '/assets/salon.png',
-  '/assets/transformation.png',
-  '/assets/hair-closeup.png',
-  '/assets/products.png',
-  '/images/perfil.png',
-  '/images/services/extensions-destaque.png',
-  '/images/services/megahair-invisible.png',
-  '/images/services/megahair-fita.png',
-]
+type Highlight = {
+  title: string
+  description: string
+}
 
-const highlights = [
-  {
-    title: 'Especialista em Mega Hair',
-    description: '✨ Técnicas modernas, aplicação segura e manutenção cuidadosa.',
-  },
-  {
-    title: 'Bio Orgânico & Fibra Russa',
-    description: '🌿 Seleção de fios premium para naturalidade e leveza.',
-  },
-  {
-    title: 'Fita Adesiva, Microlink e Entrelaçamento',
-    description: '🔗 Protocolos personalizados para cada estilo de vida.',
-  },
-]
+function normalizeHighlights(rawValue: unknown, fallback: Highlight[]) {
+  const parsed = asObjectArray<Record<string, unknown>>(rawValue, [])
+    .map((item) => ({
+      title: asString(item.title),
+      description: asString(item.description),
+    }))
+    .filter((item) => item.title && item.description)
 
-const techniques = [
-  'Diagnóstico capilar detalhado',
-  'Mapeamento de couro cabeludo',
-  'Planejamento de volume e cor',
-  'Aplicação com acabamento invisível',
-  'Manutenção mensal orientada',
-  'Cuidados pós-procedimento',
-]
+  return parsed.length > 0 ? parsed : fallback
+}
+
+const defaultContent = getDefaultInternalPage('profissional')?.content || {}
+const defaultHighlights = normalizeHighlights(defaultContent.highlights, [])
 
 export default function ProfissionalPage() {
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
+  const [content, setContent] = useState<Record<string, unknown>>(defaultContent)
+
+  useEffect(() => {
+    loadInternalPageContent('profissional').then((pageContent) => setContent(pageContent))
+  }, [])
+
+  const pageTitle = asString(content.pageTitle, 'Conhecer a Profissional')
+  const profileName = asString(content.profileName, 'Carol Sol')
+  const profileRole = asString(content.profileRole, 'Especialista em Mega Hair')
+  const profileLocation = asString(content.location, 'Bauru - SP')
+  const profileImage = asString(content.profileImage, '/images/perfil.png')
+  const bookingButtonText = asString(content.bookingButtonText, 'Agendar atendimento')
+  const badges = asStringArray(content.badges, [])
+  const profileSectionTitle = asString(content.profileSectionTitle, 'Perfil profissional')
+  const profileDescription = asString(content.profileDescription)
+  const highlights = useMemo(
+    () => normalizeHighlights(content.highlights, defaultHighlights),
+    [content.highlights]
+  )
+  const techniques = asStringArray(content.techniques, [])
+  const instagramTitle = asString(content.instagramTitle, 'Quer conhecer o resultado real?')
+  const instagramDescription = asString(content.instagramDescription)
+  const instagramButtonText = asString(content.instagramButtonText, 'Acessar perfil no Instagram')
+  const instagramUrl = asString(content.instagramUrl, 'https://www.instagram.com/carolsolhair/')
+  const instagramPhotos = asStringArray(content.instagramPhotos, []).slice(0, 8)
   const photos = instagramPhotos.slice(0, 5)
 
   return (
@@ -53,7 +78,7 @@ export default function ProfissionalPage() {
             <ArrowLeft className="w-4 h-4" />
             <span className="font-semibold text-foreground">Voltar</span>
           </Link>
-          <span className="font-display font-bold text-xl text-foreground">Conhecer a Profissional</span>
+          <span className="font-display font-bold text-xl text-foreground">{pageTitle}</span>
           <div className="w-10" />
         </div>
       </header>
@@ -63,48 +88,49 @@ export default function ProfissionalPage() {
           <div className="flex flex-col items-center text-center bg-white rounded-2xl shadow-xl p-6">
             <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-xl relative">
               <Image
-                src="/images/perfil.png"
-                alt="CarolSol - Especialista em Mega Hair"
+                src={profileImage}
+                alt={`${profileName} - ${profileRole}`}
                 fill
                 className="object-cover"
                 sizes="160px"
                 priority
               />
             </div>
-            <h1 className="mt-6 font-display text-3xl font-bold text-foreground">Carol Sol</h1>
-            <p className="text-sm text-muted-foreground mt-2">✨ Especialista em Mega Hair</p>
+            <h1 className="mt-6 font-display text-3xl font-bold text-foreground">{profileName}</h1>
+            <p className="text-sm text-muted-foreground mt-2">✨ {profileRole}</p>
             <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
               <MapPin className="w-4 h-4 text-primary" />
-              <span>📍 Bauru - SP</span>
+              <span>📍 {profileLocation}</span>
             </div>
             <button
               onClick={() => setIsChatbotOpen(true)}
               className="mt-6 w-full bg-primary text-white py-3 rounded-xl font-semibold hover:bg-primary/90 transition"
             >
-              Agendar atendimento
+              {bookingButtonText}
             </button>
           </div>
 
           <div className="space-y-8">
             <div className="bg-white rounded-2xl shadow-md p-8">
               <div className="flex flex-wrap gap-3 mb-4">
-                {[
-                  { icon: Star, text: '14 anos de experiência' },
-                  { icon: Sparkles, text: 'Atendimento humanizado' },
-                  { icon: BadgeCheck, text: 'Protocolos personalizados' },
-                ].map((badge) => (
-                  <div key={badge.text} className="flex items-center gap-2 bg-pink-50 text-pink-900 px-3 py-2 rounded-full text-xs font-semibold">
-                    <badge.icon className="w-4 h-4" />
-                    <span>{badge.text}</span>
-                  </div>
-                ))}
+                {badges.map((badge, index) => {
+                  const Icon = [Star, Sparkles, BadgeCheck][index] || Sparkles
+                  return (
+                    <div
+                      key={`${badge}-${index}`}
+                      className="flex items-center gap-2 bg-pink-50 text-pink-900 px-3 py-2 rounded-full text-xs font-semibold"
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{badge}</span>
+                    </div>
+                  )
+                })}
               </div>
-              <h2 className="font-display text-3xl font-bold text-foreground mb-3">Perfil profissional</h2>
+              <h2 className="font-display text-3xl font-bold text-foreground mb-3">
+                {profileSectionTitle}
+              </h2>
               <p className="text-base text-muted-foreground leading-relaxed">
-                Carol Sol é uma profissional especializada em mega hair, com foco em resultados naturais e
-                duradouros. O atendimento é feito de forma individual, combinando diagnóstico capilar,
-                seleção de fios premium e técnicas de aplicação seguras. Cada procedimento é pensado para
-                valorizar a identidade de cada cliente e garantir conforto durante o uso.
+                {profileDescription}
               </p>
               <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                 {highlights.map((item) => (
@@ -119,7 +145,9 @@ export default function ProfissionalPage() {
             <div className="bg-white rounded-2xl shadow-md p-8">
               <div className="flex items-center gap-3 mb-4">
                 <Scissors className="w-6 h-6 text-primary" />
-                <h2 className="font-display text-2xl font-bold text-foreground">Como é o atendimento</h2>
+                <h2 className="font-display text-2xl font-bold text-foreground">
+                  Como e o atendimento
+                </h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {techniques.map((item) => (
@@ -132,14 +160,14 @@ export default function ProfissionalPage() {
             </div>
 
             <div className="bg-gradient-to-r from-[#E91E63] to-[#F8B6D8] text-white rounded-2xl p-8 shadow-xl">
-              <h2 className="font-display text-3xl font-bold mb-3">Quer conhecer o resultado real?</h2>
-              <p className="text-base mb-6">Veja a rotina, transformações e bastidores no Instagram.</p>
+              <h2 className="font-display text-3xl font-bold mb-3">{instagramTitle}</h2>
+              <p className="text-base mb-6">{instagramDescription}</p>
               <div className="grid grid-cols-5 gap-2 mb-6">
-                {photos.map((photo, i) => (
-                  <div key={photo} className="relative w-full aspect-[3/2] rounded-lg overflow-hidden">
+                {photos.map((photo, index) => (
+                  <div key={`${photo}-${index}`} className="relative w-full aspect-[3/2] rounded-lg overflow-hidden">
                     <Image
                       src={photo}
-                      alt={`Instagram CarolSolHair ${i + 1}`}
+                      alt={`Instagram CarolSolHair ${index + 1}`}
                       fill
                       className="object-cover"
                       sizes="(max-width: 768px) 20vw, 10vw"
@@ -148,13 +176,13 @@ export default function ProfissionalPage() {
                 ))}
               </div>
               <a
-                href="https://www.instagram.com/carolsolhair/"
+                href={instagramUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 bg-white text-primary px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition"
               >
                 <Instagram className="w-5 h-5" />
-                Acessar perfil no Instagram
+                {instagramButtonText}
               </a>
             </div>
           </div>
@@ -165,3 +193,4 @@ export default function ProfissionalPage() {
     </main>
   )
 }
+

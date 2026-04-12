@@ -1,29 +1,71 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Sparkles, Heart, CalendarCheck } from 'lucide-react'
+import { getDefaultInternalPage } from '@/lib/internal-pages-defaults'
+import {
+  asObjectArray,
+  asString,
+  loadInternalPageContent,
+} from '@/lib/internal-pages-runtime'
 
-const testimonials = [
-  {
-    id: 'resultado-1',
-    title: 'Mega Hair Natural com Volume',
-    description: 'Aplicação com acabamento invisível e fios bio orgânicos.',
-    before: '/images/antes1.png',
-    after: '/images/depois1.png',
-    quote: '“Eu sempre tive medo de alongamento, mas o resultado ficou super natural. Me senti linda e segura!”',
-    client: 'Camila, Bauru - SP',
-  },
-  {
-    id: 'resultado-2',
-    title: 'Transformação Completa',
-    description: 'Alongamento com ajuste de cor e tratamento de brilho.',
-    before: '/images/antes2.png',
-    after: '/images/depois2.png',
-    quote: '“A textura ficou leve e o cabelo virou outro! Atendimento carinhoso do início ao fim.”',
-    client: 'Renata, Bauru - SP',
-  },
-]
+type Testimonial = {
+  id: string
+  title: string
+  description: string
+  before: string
+  after: string
+  quote: string
+  client: string
+}
+
+function normalizeTestimonials(rawValue: unknown, fallback: Testimonial[]) {
+  const parsed = asObjectArray<Record<string, unknown>>(rawValue, [])
+    .map((item, index) => ({
+      id: asString(item.id, `resultado-${index + 1}`),
+      title: asString(item.title),
+      description: asString(item.description),
+      before: asString(item.before),
+      after: asString(item.after),
+      quote: asString(item.quote),
+      client: asString(item.client),
+    }))
+    .filter(
+      (item) =>
+        item.title &&
+        item.description &&
+        item.before &&
+        item.after &&
+        item.quote &&
+        item.client
+    )
+
+  return parsed.length > 0 ? parsed : fallback
+}
+
+const defaultContent = getDefaultInternalPage('depoimentos')?.content || {}
+const defaultTestimonials = normalizeTestimonials(defaultContent.testimonials, [])
 
 export default function DepoimentosPage() {
+  const [content, setContent] = useState<Record<string, unknown>>(defaultContent)
+
+  useEffect(() => {
+    loadInternalPageContent('depoimentos').then((pageContent) => setContent(pageContent))
+  }, [])
+
+  const badgeText = asString(content.badgeText, 'Antes & Depois')
+  const pageTitle = asString(content.title, 'Depoimentos e Transformacoes')
+  const pageDescription = asString(content.description)
+  const testimonials = useMemo(
+    () => normalizeTestimonials(content.testimonials, defaultTestimonials),
+    [content.testimonials]
+  )
+  const ctaTitle = asString(content.ctaTitle, 'Quer viver sua transformacao?')
+  const ctaDescription = asString(content.ctaDescription)
+  const ctaButtonText = asString(content.ctaButtonText, 'Agendar atendimento')
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-white via-[#FFF7FB] to-white pb-20">
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
@@ -41,14 +83,12 @@ export default function DepoimentosPage() {
         <div className="text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-md mb-4">
             <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-sm font-semibold">Antes & Depois</span>
+            <span className="text-sm font-semibold">{badgeText}</span>
           </div>
           <h1 className="font-display font-bold text-4xl md:text-5xl text-foreground mb-4">
-            Depoimentos e Transformações
+            {pageTitle}
           </h1>
-          <p className="text-lg text-muted-foreground">
-            Resultados reais de clientes atendidas com técnicas de mega hair, alinhamento e cuidado capilar.
-          </p>
+          <p className="text-lg text-muted-foreground">{pageDescription}</p>
         </div>
 
         <div className="mt-12 grid grid-cols-1 gap-8">
@@ -93,7 +133,7 @@ export default function DepoimentosPage() {
               </div>
 
               <div className="mt-6 bg-pink-50 rounded-xl p-4 border border-pink-100">
-                <p className="text-sm text-foreground italic">{item.quote}</p>
+                <p className="text-sm text-foreground italic">“{item.quote}”</p>
                 <p className="text-xs text-muted-foreground mt-2">— {item.client}</p>
               </div>
             </div>
@@ -103,19 +143,18 @@ export default function DepoimentosPage() {
 
       <section className="max-w-5xl mx-auto px-4 pb-16">
         <div className="bg-gradient-to-r from-[#E91E63] to-[#F8B6D8] text-white rounded-2xl p-8 text-center shadow-xl">
-          <h2 className="font-display font-bold text-3xl mb-3">Quer viver sua transformação?</h2>
-          <p className="text-base mb-6">
-            Agende uma avaliação personalizada e descubra o melhor método para o seu cabelo.
-          </p>
+          <h2 className="font-display font-bold text-3xl mb-3">{ctaTitle}</h2>
+          <p className="text-base mb-6">{ctaDescription}</p>
           <Link
             href="/"
             className="inline-flex items-center gap-2 bg-white text-primary px-8 py-4 rounded-xl font-semibold hover:shadow-lg transition"
           >
             <CalendarCheck className="w-5 h-5" />
-            Agendar atendimento
+            {ctaButtonText}
           </Link>
         </div>
       </section>
     </main>
   )
 }
+

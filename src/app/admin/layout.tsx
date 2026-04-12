@@ -57,6 +57,9 @@ export default async function AdminLayout({
             <Link className="hover:text-primary" href="/admin/home-modules">
               Pagina Inicial
             </Link>
+            <Link className="hover:text-primary" href="/admin/internal-pages">
+              Paginas Internas
+            </Link>
           </nav>
         </div>
       </header>

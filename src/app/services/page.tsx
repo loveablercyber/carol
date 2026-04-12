@@ -1,9 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { Calendar, DollarSign, ShoppingBag, Sparkles, Camera, User, Instagram, Mail, Star, Heart, Clock, ArrowLeft } from 'lucide-react'
+import { Sparkles, ShoppingBag, ArrowLeft } from 'lucide-react'
+import { getDefaultInternalPage } from '@/lib/internal-pages-defaults'
+import {
+  asObjectArray,
+  asString,
+  loadInternalPageContent,
+} from '@/lib/internal-pages-runtime'
 
 const Chatbot = dynamic(() => import('@/components/chatbot/Chatbot'), {
   ssr: false,
@@ -17,61 +23,45 @@ interface ServiceCategory {
   image: string
 }
 
-interface Service {
-  id: string
-  name: string
-  description: string
-  images: string[]
-  durationMinutes: number
-  priceInfo: {
-    tiers?: Array<{ name: string; price: number }>
-    table?: Array<{ grams: string; lengths: Array<{ size: string; price: number }> }>
-    fixedPrice?: number
-  }
+function normalizeCategories(rawValue: unknown, fallback: ServiceCategory[]) {
+  const parsed = asObjectArray<Record<string, unknown>>(rawValue, [])
+    .map((category, index) => ({
+      id: asString(category.id, `categoria-${index + 1}`),
+      name: asString(category.name),
+      nameEmoji: asString(category.nameEmoji, '✨'),
+      description: asString(category.description),
+      image: asString(category.image),
+    }))
+    .filter((category) => category.name && category.description && category.image)
+
+  return parsed.length > 0 ? parsed : fallback
 }
+
+const defaultContent = getDefaultInternalPage('services')?.content || {}
+const defaultCategories = normalizeCategories(defaultContent.categories, [])
 
 export default function ServicesPage() {
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null)
-  const [selectedService, setSelectedService] = useState<Service | null>(null)
-  const [selectedOption, setSelectedOption] = useState<any>(null)
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
-  const [isBookingFlow, setIsBookingFlow] = useState(false)
+  const [content, setContent] = useState<Record<string, unknown>>(defaultContent)
 
-  const categories: ServiceCategory[] = [
-    {
-      id: 'extensoes',
-      name: 'Extensões / Mega Hair',
-      nameEmoji: '💖',
-      description: 'Comprimento e volume com técnicas invisíveis',
-      image: '/images/services/extensions-destaque.png'
-    },
-    {
-      id: 'tratamentos',
-      name: 'Tratamentos e Alinhamento',
-      nameEmoji: '✨',
-      description: 'Tratamentos que restauram a saúde do seu cabelo',
-      image: '/images/services/tratamentos-destaque.png'
-    },
-    {
-      id: 'alisamento',
-      name: 'Alisamento',
-      nameEmoji: '💇‍♀️',
-      description: 'Alinhamento suave e natural para seu cabelo',
-      image: '/images/services/alisamento-destaque.png'
-    },
-    {
-      id: 'cronograma',
-      name: 'Cronograma Capilar',
-      nameEmoji: '🌸',
-      description: 'Tratamento completo com acompanhamento semanal',
-      image: '/images/services/cronograma-destaque.png'
-    }
-  ]
+  useEffect(() => {
+    loadInternalPageContent('services').then((pageContent) => setContent(pageContent))
+  }, [])
+
+  const pageTitle = asString(content.title, 'Nossos Servicos')
+  const pageSubtitle = asString(
+    content.subtitle,
+    'Escolha um servico e veja os resultados incriveis que podemos criar para voce'
+  )
+  const categories = useMemo(
+    () => normalizeCategories(content.categories, defaultCategories),
+    [content.categories]
+  )
 
   const openChatbotForCategory = (category: ServiceCategory) => {
     setSelectedCategory(category)
     setIsChatbotOpen(true)
-    setIsBookingFlow(true)
   }
 
   return (
@@ -84,7 +74,9 @@ export default function ServicesPage() {
           </Link>
           <div className="flex items-center gap-2">
             <Sparkles className="w-8 h-8 text-pink-500" />
-            <span className="font-display font-bold text-2xl text-gradient-primary">CarolSol Studio</span>
+            <span className="font-display font-bold text-2xl text-gradient-primary">
+              CarolSol Studio
+            </span>
           </div>
         </div>
       </header>
@@ -92,25 +84,28 @@ export default function ServicesPage() {
       <main className="max-w-7xl mx-auto px-4 py-12">
         <div className="text-center mb-8">
           <h1 className="font-display font-bold text-4xl md:text-5xl text-foreground mb-4 leading-tight">
-            Nossos Serviços
+            {pageTitle}
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Escolha um serviço e veja os resultados incríveis que podemos criar para você
-          </p>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">{pageSubtitle}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {categories.map((category) => (
-            <div key={category.id} className="group cursor-pointer" onClick={() => openChatbotForCategory(category)}>
+            <div
+              key={category.id}
+              className="group cursor-pointer"
+              onClick={() => openChatbotForCategory(category)}
+            >
               <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-pink-100 hover:border-pink-300 hover:shadow-xl transition-all duration-300">
                 <div className="relative h-48 md:h-64 overflow-hidden">
                   <img
                     src={category.image}
                     alt={category.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    onError={(e) => {
-                      const target = e.currentTarget as HTMLImageElement
-                      target.src = 'data:image/svg+xml;base64,PHN2ZyB3aW0iMCAwIDI0IDIwIiB4bWxucz0aHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMCI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2ZmYwZDUiLz48L3N2Z+'
+                    onError={(event) => {
+                      const target = event.currentTarget as HTMLImageElement
+                      target.src =
+                        'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDUwMCAzMDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjUwMCIgaGVpZ2h0PSIzMDAiIGZpbGw9IiNmZmYwZjUiLz48L3N2Zz4='
                     }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-black/40 flex items-center justify-center">
@@ -126,7 +121,7 @@ export default function ServicesPage() {
                   </p>
                   <button className="w-full mt-4 py-3 px-6 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2">
                     <ShoppingBag className="w-5 h-5" />
-                    <span>Agendar este serviço</span>
+                    <span>Agendar este servico</span>
                   </button>
                 </div>
               </div>
@@ -141,14 +136,11 @@ export default function ServicesPage() {
           onClose={() => {
             setIsChatbotOpen(false)
             setSelectedCategory(null)
-            setSelectedService(null)
-            setSelectedOption(null)
-            setIsBookingFlow(false)
           }}
           preSelectedCategory={selectedCategory}
-          preSelectedService={selectedService}
         />
       )}
     </div>
   )
 }
+
