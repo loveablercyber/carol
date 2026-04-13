@@ -19,6 +19,12 @@ import AdminProducts from '@/components/admin/AdminProducts'
 import AdminCategories from '@/components/admin/AdminCategories'
 import AdminOrders from '@/components/admin/AdminOrders'
 import AdminCustomers from '@/components/admin/AdminCustomers'
+import AdminHomeModules from '@/components/admin/AdminHomeModules'
+import AdminInternalPages from '@/components/admin/AdminInternalPages'
+import AdminAppointments from '@/components/admin/AdminAppointments'
+import AdminShipping from '@/components/admin/AdminShipping'
+import AdminReviews from '@/components/admin/AdminReviews'
+import AdminBackup from '@/components/admin/AdminBackup'
 
 interface Order {
   id: string
@@ -57,9 +63,36 @@ interface AppointmentHistory {
   serviceName: string
   scheduledAt: string
   totalPrice: number
+  customerPhone?: string | null
   paymentMethod?: string | null
   status: 'scheduled' | 'completed' | 'cancelled'
+  clientConfirmedAt?: string | null
+  confirmationDeadlineAt?: string | null
+  canConfirmFromClient?: boolean
+  canCancelFromClient?: boolean
+  confirmationWindowHours?: number
+  questionnaireData?: {
+    name?: string
+    phone?: string
+    email?: string
+    age?: string
+    allergies?: string
+    megaHairHistory?: string
+    hairType?: string
+    hairColor?: string
+    hairState?: string
+    methods?: string
+  } | null
+  beforeImageUrl?: string | null
+  afterImageUrl?: string | null
+  maintenanceHistory?: Array<{
+    id: string
+    date: string
+    notes: string
+    createdAt: string
+  }>
   notes?: string | null
+  googleCalendarUrl?: string | null
 }
 
 interface SavedCard {
@@ -73,6 +106,9 @@ interface SavedCard {
   documentNumber?: string | null
   isDefault: boolean
 }
+
+const DEFAULT_COMPANY_WHATSAPP_URL =
+  'https://wa.me/5514998373935'
 
 export default function AccountPage() {
   return (
@@ -89,7 +125,17 @@ function AccountContent() {
     'orders' | 'profile' | 'addresses' | 'appointments' | 'cards' | 'admin'
   >('orders')
   const [adminSection, setAdminSection] = useState<
-    'dashboard' | 'products' | 'categories' | 'orders' | 'customers'
+    | 'dashboard'
+    | 'products'
+    | 'categories'
+    | 'orders'
+    | 'customers'
+    | 'homeModules'
+    | 'internalPages'
+    | 'appointments'
+    | 'shipping'
+    | 'reviews'
+    | 'backup'
   >('dashboard')
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
@@ -114,6 +160,12 @@ function AccountContent() {
   })
   const [appointments, setAppointments] = useState<AppointmentHistory[]>([])
   const [appointmentsLoading, setAppointmentsLoading] = useState(false)
+  const [expandedAppointmentDetails, setExpandedAppointmentDetails] = useState<
+    Record<string, boolean>
+  >({})
+  const [appointmentActionId, setAppointmentActionId] = useState<string | null>(null)
+  const [appointmentActionError, setAppointmentActionError] = useState('')
+  const [appointmentActionSuccess, setAppointmentActionSuccess] = useState('')
   const [cards, setCards] = useState<SavedCard[]>([])
   const [cardsLoading, setCardsLoading] = useState(false)
   const [cardForm, setCardForm] = useState({
@@ -208,19 +260,24 @@ function AccountContent() {
 
     const fetchAppointments = async () => {
       setAppointmentsLoading(true)
+      setAppointmentActionError('')
       try {
         const response = await fetch('/api/account/appointments')
         const data = await response.json()
-        if (!response.ok) return
+        if (!response.ok) {
+          setAppointmentActionError(data.error || 'Erro ao buscar historico de agendamentos')
+          return
+        }
         setAppointments(data.appointments || [])
       } catch (error) {
         console.error('Erro ao buscar historico de agendamentos:', error)
+        setAppointmentActionError('Erro ao buscar historico de agendamentos')
       } finally {
         setAppointmentsLoading(false)
       }
     }
 
-    fetchAppointments()
+    void fetchAppointments()
   }, [activeTab, session])
 
   useEffect(() => {
@@ -245,6 +302,145 @@ function AccountContent() {
 
   const handleLogout = async () => {
     await signOut({ callbackUrl: '/' })
+  }
+
+  const loadAppointments = async () => {
+    setAppointmentsLoading(true)
+    setAppointmentActionError('')
+    try {
+      const response = await fetch('/api/account/appointments')
+      const data = await response.json()
+      if (!response.ok) {
+        setAppointmentActionError(data.error || 'Erro ao buscar historico de agendamentos')
+        return
+      }
+      setAppointments(data.appointments || [])
+    } catch (error) {
+      console.error('Erro ao buscar historico de agendamentos:', error)
+      setAppointmentActionError('Erro ao buscar historico de agendamentos')
+    } finally {
+      setAppointmentsLoading(false)
+    }
+  }
+
+  const getCompanyWhatsappSupportUrl = async () => {
+    try {
+      const response = await fetch('/api/home/modules', { cache: 'no-store' })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        return DEFAULT_COMPANY_WHATSAPP_URL
+      }
+
+      const modules = Array.isArray(data?.modules) ? data.modules : []
+      const supportModule = modules.find(
+        (item: any) => String(item?.key || '') === 'support'
+      )
+      const href = String(supportModule?.href || '').trim()
+
+      if (
+        href &&
+        (href.includes('wa.me/') || href.includes('whatsapp.com'))
+      ) {
+        return href
+      }
+    } catch (error) {
+      console.warn('Nao foi possivel obter o link de suporte do WhatsApp:', error)
+    }
+
+    return DEFAULT_COMPANY_WHATSAPP_URL
+  }
+
+  const buildWhatsAppUrlWithText = (baseUrl: string, text: string) => {
+    try {
+      const url = new URL(baseUrl || DEFAULT_COMPANY_WHATSAPP_URL)
+      const host = url.hostname.toLowerCase()
+      if (!host.includes('wa.me') && !host.includes('whatsapp.com')) {
+        throw new Error('URL de suporte invalida para WhatsApp')
+      }
+      url.searchParams.set('text', text)
+      return url.toString()
+    } catch {
+      return `${DEFAULT_COMPANY_WHATSAPP_URL}?text=${encodeURIComponent(text)}`
+    }
+  }
+
+  const handleAppointmentAction = async (
+    appointmentId: string,
+    action: 'confirm' | 'cancel'
+  ) => {
+    setAppointmentActionId(appointmentId)
+    setAppointmentActionError('')
+    setAppointmentActionSuccess('')
+
+    try {
+      const response = await fetch(`/api/account/appointments/${appointmentId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setAppointmentActionError(
+          data.error || 'Nao foi possivel atualizar o agendamento.'
+        )
+      } else {
+        setAppointmentActionSuccess(
+          data.message ||
+            (action === 'confirm'
+              ? 'Agendamento confirmado com sucesso.'
+              : 'Agendamento cancelado com sucesso.')
+        )
+
+        if (action === 'confirm') {
+          const appointmentFromResponse = data?.appointment || {}
+          const appointmentFromState = appointments.find(
+            (item) => item.id === appointmentId
+          )
+          const serviceName = String(
+            appointmentFromResponse?.serviceName ||
+              appointmentFromState?.serviceName ||
+              'Servico'
+          )
+          const scheduledAt = String(
+            appointmentFromResponse?.scheduledAt ||
+              appointmentFromState?.scheduledAt ||
+              ''
+          )
+          const dateText = scheduledAt
+            ? new Date(scheduledAt).toLocaleString('pt-BR')
+            : 'Nao informado'
+          const customerName = String(
+            session?.user?.name || appointmentFromResponse?.customerName || 'Cliente'
+          )
+          const customerEmail = String(
+            session?.user?.email || appointmentFromResponse?.customerEmail || ''
+          )
+
+          const message = [
+            'Ola! Agendamento confirmado pela cliente no painel.',
+            `Cliente: ${customerName}`,
+            customerEmail ? `Email: ${customerEmail}` : '',
+            `Servico: ${serviceName}`,
+            `Data/Hora: ${dateText}`,
+          ]
+            .filter(Boolean)
+            .join('\n')
+
+          const supportBaseUrl = await getCompanyWhatsappSupportUrl()
+          const redirectUrl = buildWhatsAppUrlWithText(supportBaseUrl, message)
+          window.location.href = redirectUrl
+          return
+        }
+      }
+
+      await loadAppointments()
+    } catch (error) {
+      console.error('Erro ao atualizar agendamento da cliente:', error)
+      setAppointmentActionError('Erro ao atualizar agendamento. Tente novamente.')
+    } finally {
+      setAppointmentActionId(null)
+    }
   }
 
   const handleProfileSave = async () => {
@@ -524,6 +720,34 @@ function AccountContent() {
     return 'bg-blue-100 text-blue-700'
   }
 
+  const getAppointmentConfirmationText = (appointment: AppointmentHistory) => {
+    if (appointment.status !== 'scheduled') return null
+    if (appointment.clientConfirmedAt) {
+      return `Presenca confirmada em ${new Date(
+        appointment.clientConfirmedAt
+      ).toLocaleString('pt-BR')}`
+    }
+    if (appointment.confirmationDeadlineAt) {
+      return `Confirme ate ${new Date(appointment.confirmationDeadlineAt).toLocaleString(
+        'pt-BR'
+      )} para manter o horario reservado.`
+    }
+    return null
+  }
+
+  const getAppointmentConfirmationColor = (appointment: AppointmentHistory) => {
+    if (appointment.status !== 'scheduled') return 'text-muted-foreground'
+    if (appointment.clientConfirmedAt) return 'text-green-700'
+    return 'text-amber-700'
+  }
+
+  const toggleAppointmentDetails = (appointmentId: string) => {
+    setExpandedAppointmentDetails((prev) => ({
+      ...prev,
+      [appointmentId]: !prev[appointmentId],
+    }))
+  }
+
   if (!session) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white flex items-center justify-center px-4">
@@ -583,7 +807,10 @@ function AccountContent() {
               <nav className="space-y-2">
                 {session.user?.role === 'admin' && (
                   <button
-                    onClick={() => setActiveTab('admin')}
+                    onClick={() => {
+                      setActiveTab('admin')
+                      setAdminSection('dashboard')
+                    }}
                     className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
                       activeTab === 'admin'
                         ? 'bg-primary text-white'
@@ -1022,9 +1249,20 @@ function AccountContent() {
                     Historico de Agendamentos
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Aqui ficam registrados seus procedimentos e agendamentos.
+                    Confirme sua presenca dentro do prazo para manter o horario reservado.
                   </p>
                 </div>
+
+                {appointmentActionError ? (
+                  <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+                    {appointmentActionError}
+                  </div>
+                ) : null}
+                {appointmentActionSuccess ? (
+                  <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm">
+                    {appointmentActionSuccess}
+                  </div>
+                ) : null}
 
                 {appointmentsLoading ? (
                   <div className="bg-white rounded-2xl shadow-md p-6 text-muted-foreground">
@@ -1059,10 +1297,214 @@ function AccountContent() {
                         Valor: R$ {appointment.totalPrice.toFixed(2).replace('.', ',')}
                         {appointment.paymentMethod ? ` • Pagamento: ${appointment.paymentMethod}` : ''}
                       </div>
+                      {getAppointmentConfirmationText(appointment) ? (
+                        <p
+                          className={`text-sm font-medium ${getAppointmentConfirmationColor(appointment)}`}
+                        >
+                          {getAppointmentConfirmationText(appointment)}
+                        </p>
+                      ) : null}
                       {appointment.notes ? (
                         <p className="text-sm text-muted-foreground">
                           Observacao: {appointment.notes}
                         </p>
+                      ) : null}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleAppointmentDetails(appointment.id)}
+                          className="px-4 py-2 rounded-lg border border-pink-200 text-primary text-sm font-semibold hover:bg-pink-50"
+                        >
+                          {expandedAppointmentDetails[appointment.id]
+                            ? 'Ocultar detalhes'
+                            : 'Ver detalhes'}
+                        </button>
+                      </div>
+                      {expandedAppointmentDetails[appointment.id] ? (
+                        <div className="rounded-xl border border-pink-100 bg-pink-50/40 p-4 space-y-4">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground mb-2">
+                              Dados do atendimento (chatbot)
+                            </p>
+                            {appointment.questionnaireData ? (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <p>
+                                  <span className="font-semibold">Nome:</span>{' '}
+                                  {appointment.questionnaireData.name || 'Nao informado'}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">Telefone:</span>{' '}
+                                  {appointment.questionnaireData.phone ||
+                                    appointment.customerPhone ||
+                                    'Nao informado'}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">E-mail:</span>{' '}
+                                  {appointment.questionnaireData.email || 'Nao informado'}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">Idade:</span>{' '}
+                                  {appointment.questionnaireData.age || 'Nao informado'}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">Alergias:</span>{' '}
+                                  {appointment.questionnaireData.allergies ||
+                                    'Nao informado'}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">Historico mega hair:</span>{' '}
+                                  {appointment.questionnaireData.megaHairHistory ||
+                                    'Nao informado'}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">Tipo de cabelo:</span>{' '}
+                                  {appointment.questionnaireData.hairType ||
+                                    'Nao informado'}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">Cor do cabelo:</span>{' '}
+                                  {appointment.questionnaireData.hairColor ||
+                                    'Nao informado'}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">Estado do cabelo:</span>{' '}
+                                  {appointment.questionnaireData.hairState ||
+                                    'Nao informado'}
+                                </p>
+                                <p>
+                                  <span className="font-semibold">Metodos usados:</span>{' '}
+                                  {appointment.questionnaireData.methods ||
+                                    'Nao informado'}
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                Sem respostas detalhadas registradas.
+                              </p>
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="text-sm font-semibold text-foreground mb-2">
+                              Antes e Depois
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className="space-y-2">
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                                  Antes
+                                </p>
+                                {appointment.beforeImageUrl ? (
+                                  <img
+                                    src={appointment.beforeImageUrl}
+                                    alt="Antes do procedimento"
+                                    className="w-full h-48 object-cover rounded-lg border border-pink-100"
+                                  />
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">
+                                    Imagem ainda nao adicionada.
+                                  </p>
+                                )}
+                              </div>
+                              <div className="space-y-2">
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                                  Depois
+                                </p>
+                                {appointment.afterImageUrl ? (
+                                  <img
+                                    src={appointment.afterImageUrl}
+                                    alt="Depois do procedimento"
+                                    className="w-full h-48 object-cover rounded-lg border border-pink-100"
+                                  />
+                                ) : (
+                                  <p className="text-sm text-muted-foreground">
+                                    Imagem ainda nao adicionada.
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <p className="text-sm font-semibold text-foreground mb-2">
+                              Manutencoes registradas
+                            </p>
+                            {appointment.maintenanceHistory &&
+                            appointment.maintenanceHistory.length > 0 ? (
+                              <div className="space-y-2">
+                                {appointment.maintenanceHistory.map((maintenance) => (
+                                  <div
+                                    key={maintenance.id}
+                                    className="rounded-lg border border-pink-100 bg-white p-3"
+                                  >
+                                    <p className="text-sm font-semibold text-foreground">
+                                      {new Date(maintenance.date).toLocaleDateString('pt-BR')}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      {maintenance.notes || 'Sem observacoes'}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                Nenhuma manutencao registrada ate o momento.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                      {appointment.status === 'scheduled' && (
+                        <div className="flex flex-wrap gap-2">
+                          {appointment.canConfirmFromClient ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleAppointmentAction(appointment.id, 'confirm')
+                              }
+                              disabled={appointmentActionId === appointment.id}
+                              className="px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700 disabled:opacity-60"
+                            >
+                              {appointmentActionId === appointment.id
+                                ? 'Processando...'
+                                : 'Confirmar presenca'}
+                            </button>
+                          ) : !appointment.clientConfirmedAt ? (
+                            <span className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700">
+                              Prazo de confirmacao expirado. O horario pode ser liberado.
+                            </span>
+                          ) : null}
+
+                          {appointment.canCancelFromClient ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (
+                                  confirm(
+                                    'Deseja cancelar este agendamento e liberar o horario para outra cliente?'
+                                  )
+                                ) {
+                                  void handleAppointmentAction(appointment.id, 'cancel')
+                                }
+                              }}
+                              disabled={appointmentActionId === appointment.id}
+                              className="px-4 py-2 rounded-lg border border-red-200 text-red-700 text-sm font-semibold hover:bg-red-50 disabled:opacity-60"
+                            >
+                              {appointmentActionId === appointment.id
+                                ? 'Processando...'
+                                : 'Cancelar agendamento'}
+                            </button>
+                          ) : null}
+                        </div>
+                      )}
+                      {appointment.googleCalendarUrl ? (
+                        <a
+                          href={appointment.googleCalendarUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex text-sm font-semibold text-primary hover:underline"
+                        >
+                          Adicionar ao Google Agenda
+                        </a>
                       ) : null}
                     </div>
                   ))
@@ -1285,7 +1727,7 @@ function AccountContent() {
                     <h2 className="font-display font-bold text-2xl text-foreground mb-6">
                       Painel Administrativo
                     </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                       {[
                         {
                           key: 'products',
@@ -1306,6 +1748,36 @@ function AccountContent() {
                           key: 'customers',
                           title: 'Clientes',
                           description: 'Gerencie contas, cadastros e acesso.',
+                        },
+                        {
+                          key: 'homeModules',
+                          title: 'Pagina Inicial',
+                          description: 'Ative modulos e personalize a ordem da home.',
+                        },
+                        {
+                          key: 'internalPages',
+                          title: 'Paginas Internas',
+                          description: 'Edite promocoes, servicos e paginas de conteudo.',
+                        },
+                        {
+                          key: 'appointments',
+                          title: 'Agendamentos',
+                          description: 'Gerencie horarios, confirmacoes e cancelamentos.',
+                        },
+                        {
+                          key: 'shipping',
+                          title: 'Frete',
+                          description: 'Defina regras por CEP, categoria e produto.',
+                        },
+                        {
+                          key: 'reviews',
+                          title: 'Comentarios',
+                          description: 'Modere avaliacoes e comentarios da loja.',
+                        },
+                        {
+                          key: 'backup',
+                          title: 'Backup',
+                          description: 'Exporte backup manual do banco de dados.',
                         },
                       ].map((card) => (
                         <button
@@ -1338,6 +1810,12 @@ function AccountContent() {
                     {adminSection === 'categories' && <AdminCategories />}
                     {adminSection === 'orders' && <AdminOrders />}
                     {adminSection === 'customers' && <AdminCustomers />}
+                    {adminSection === 'homeModules' && <AdminHomeModules />}
+                    {adminSection === 'internalPages' && <AdminInternalPages />}
+                    {adminSection === 'appointments' && <AdminAppointments />}
+                    {adminSection === 'shipping' && <AdminShipping />}
+                    {adminSection === 'reviews' && <AdminReviews />}
+                    {adminSection === 'backup' && <AdminBackup />}
                   </div>
                 )}
               </div>

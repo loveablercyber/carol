@@ -5,11 +5,23 @@ import {
   createAppointment,
   listDaySlots,
 } from '@/lib/appointments-store'
+import { dispatchAppointmentNotification } from '@/lib/appointment-notifications'
+import { buildGoogleCalendarUrl } from '@/lib/appointment-calendar'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const session = await getServerSession(authOptions)
+
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Conta obrigatoria: faca login ou crie sua conta para concluir o agendamento.',
+        },
+        { status: 401 }
+      )
+    }
 
     const {
       customer,
@@ -19,7 +31,8 @@ export async function POST(request: NextRequest) {
       totalPrice,
       grams,
       length,
-      paymentMethod
+      paymentMethod,
+      questionnaireData,
     } = body
 
     if (!customer || !service || !scheduledDate || !totalPrice) {
@@ -30,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
 
     const appointment = await createAppointment({
-      userId: session?.user?.id || null,
+      userId: session.user.id,
       customerName: String(customer.name || '').trim(),
       customerEmail: String(customer.email || '').trim(),
       customerPhone: String(customer.phone || '').trim(),
@@ -42,8 +55,31 @@ export async function POST(request: NextRequest) {
       totalPrice: Number(totalPrice || 0),
       paymentMethod: paymentMethod ? String(paymentMethod) : null,
       paymentStatus: 'pending',
+      questionnaireData:
+        questionnaireData && typeof questionnaireData === 'object'
+          ? questionnaireData
+          : null,
       notes: null,
     })
+
+    const googleCalendarUrl = appointment
+      ? buildGoogleCalendarUrl({
+          serviceName: appointment.serviceName,
+          customerName: appointment.customerName,
+          scheduledAt: appointment.scheduledAt,
+          durationMinutes: appointment.durationMinutes,
+          notes: appointment.notes,
+        })
+      : null
+
+    if (appointment) {
+      await dispatchAppointmentNotification({
+        appointment,
+        type: 'confirmation',
+      }).catch((error) => {
+        console.error('Erro ao disparar notificacao de confirmacao:', error)
+      })
+    }
 
     return NextResponse.json({
       success: true,
@@ -64,8 +100,12 @@ export async function POST(request: NextRequest) {
         paymentMethod: appointment?.paymentMethod,
         paymentStatus: appointment?.paymentStatus,
         status: appointment?.status,
+        confirmationSentAt: appointment?.confirmationSentAt || null,
+        questionnaireData: appointment?.questionnaireData || null,
         createdAt: appointment?.createdAt,
+        googleCalendarUrl,
       },
+      googleCalendarUrl,
       message: 'Agendamento realizado com sucesso!'
     })
   } catch (error) {

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Send, Bot, User, ArrowLeft, Calendar, Clock, CreditCard, Check } from 'lucide-react'
+import { signIn } from 'next-auth/react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface ChatMessage {
@@ -46,6 +47,45 @@ interface Service {
   }
 }
 
+type CustomerFormData = {
+  name: string
+  phone: string
+  email: string
+  age: string
+  allergies: string
+  megaHairHistory: string
+  hairType: string
+  hairColor: string
+  hairState: string
+  methods: string
+}
+
+const QUESTION_FIELD_MAP: Array<keyof CustomerFormData> = [
+  'name',
+  'phone',
+  'email',
+  'age',
+  'allergies',
+  'megaHairHistory',
+  'hairType',
+  'hairColor',
+  'hairState',
+  'methods',
+]
+
+const EMPTY_CUSTOMER_DATA: CustomerFormData = {
+  name: '',
+  phone: '',
+  email: '',
+  age: '',
+  allergies: '',
+  megaHairHistory: '',
+  hairType: '',
+  hairColor: '',
+  hairState: '',
+  methods: '',
+}
+
 const Chatbot: React.FC<ChatbotProps> = ({
   isOpen,
   onClose,
@@ -59,18 +99,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
   const [modalImageUrl, setModalImageUrl] = useState('')
   const [currentStep, setCurrentStep] = useState(0)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [customerData, setCustomerData] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    age: '',
-    allergies: '',
-    megaHairHistory: '',
-    hairType: '',
-    hairColor: '',
-    hairState: '',
-    methods: '',
-  })
+  const [customerData, setCustomerData] = useState<CustomerFormData>(EMPTY_CUSTOMER_DATA)
+  const [questionnaireStarted, setQuestionnaireStarted] = useState(false)
 
   // Options for form questions
   const questionOptions: Record<number, { label: string; value: string }[]> = {
@@ -250,19 +280,250 @@ const Chatbot: React.FC<ChatbotProps> = ({
     }, 800)
   }
 
+  const fetchLoggedCustomerPrefill = async (input?: {
+    fallbackEmail?: string
+  }): Promise<{
+    isLoggedIn: boolean
+    data: Partial<CustomerFormData>
+  }> => {
+    const wait = (ms: number) =>
+      new Promise((resolve) => {
+        setTimeout(resolve, ms)
+      })
+
+    try {
+      let profileUser: any = null
+      let sessionUser: any = null
+      let isLoggedIn = false
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const profileResponse = await fetch('/api/account/profile', {
+          cache: 'no-store',
+        })
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json().catch(() => null)
+          profileUser = profileData?.user || null
+          isLoggedIn = Boolean(profileUser?.id)
+          if (isLoggedIn) break
+        }
+
+        const sessionResponse = await fetch('/api/auth/session', { cache: 'no-store' })
+        if (sessionResponse.ok) {
+          const sessionData = await sessionResponse.json().catch(() => null)
+          sessionUser = sessionData?.user || null
+          isLoggedIn = Boolean(sessionUser?.id)
+          if (isLoggedIn) break
+        }
+
+        if (attempt < 2) {
+          await wait(250)
+        }
+      }
+
+      if (!isLoggedIn) {
+        return {
+          isLoggedIn: false,
+          data: input?.fallbackEmail
+            ? { email: String(input.fallbackEmail).trim().toLowerCase() }
+            : {},
+        }
+      }
+
+      const prefill: Partial<CustomerFormData> = {
+        name: String(profileUser?.name || sessionUser?.name || '').trim(),
+        email: String(
+          profileUser?.email || sessionUser?.email || input?.fallbackEmail || ''
+        )
+          .trim()
+          .toLowerCase(),
+      }
+
+      let phone = ''
+      try {
+        const addressResponse = await fetch('/api/account/addresses', {
+          cache: 'no-store',
+        })
+        if (addressResponse.ok) {
+          const addressData = await addressResponse.json().catch(() => ({}))
+          const addresses = Array.isArray(addressData?.addresses)
+            ? addressData.addresses
+            : []
+          const preferredAddress =
+            addresses.find((item: any) => item?.isDefault) || addresses[0]
+          phone = String(preferredAddress?.phone || '').trim()
+        }
+      } catch (error) {
+        console.warn('Nao foi possivel buscar telefone em enderecos:', error)
+      }
+
+      if (!phone) {
+        try {
+          const appointmentsResponse = await fetch('/api/account/appointments', {
+            cache: 'no-store',
+          })
+          if (appointmentsResponse.ok) {
+            const appointmentsData = await appointmentsResponse.json().catch(() => ({}))
+            const appointments = Array.isArray(appointmentsData?.appointments)
+              ? appointmentsData.appointments
+              : []
+            const withPhone = appointments.find(
+              (item: any) => String(item?.customerPhone || '').trim().length > 0
+            )
+            phone = String(withPhone?.customerPhone || '').trim()
+          }
+        } catch (error) {
+          console.warn('Nao foi possivel buscar telefone em agendamentos:', error)
+        }
+      }
+
+      if (phone) {
+        prefill.phone = phone
+      }
+
+      return { isLoggedIn: true, data: prefill }
+    } catch (error) {
+      console.warn('Nao foi possivel validar sessao para prefill do chatbot:', error)
+      return { isLoggedIn: false, data: {} }
+    }
+  }
+
+  const startQuestionnaireFlow = (
+    dataSnapshot: CustomerFormData,
+    introText?: string
+  ) => {
+    if (questionnaireStarted) return
+
+    let startIndex = QUESTION_FIELD_MAP.findIndex((field) => {
+      return String(dataSnapshot[field] || '').trim().length === 0
+    })
+
+    if (startIndex < 0) {
+      startIndex = 3
+    }
+
+    const question = getNextQuestion(startIndex, dataSnapshot)
+    if (!question) {
+      showDateSelection()
+      return
+    }
+
+    setQuestionnaireStarted(true)
+    setCurrentQuestionIndex(startIndex)
+    const intro = introText
+      ? `${introText}\n\n${question.question}`
+      : `Ótimo! 💕 Agora preciso de algumas informações para personalizar seu atendimento.\n\n${question.question}`
+    addMessage('bot', intro, {
+      questionOptions: question.options,
+      questionIndex: question.questionIndex,
+    })
+  }
+
+  const handleLoginPromptSelection = async () => {
+    addMessage('user', 'Entrar com minha conta', {})
+    setIsLoading(true)
+
+    try {
+      const emailInput = window.prompt(
+        'Informe seu e-mail cadastrado para preencher automaticamente os dados:',
+        customerData.email || ''
+      )
+      const email = String(emailInput || '').trim().toLowerCase()
+      if (!email) {
+        addMessage(
+          'bot',
+          'Sem e-mail informado. Você pode tentar login novamente ou continuar manualmente.',
+          { showLoginPrompt: true }
+        )
+        return
+      }
+
+      const password = window.prompt('Digite sua senha para entrar:')
+      if (!password) {
+        addMessage(
+          'bot',
+          'Login cancelado. Você pode continuar manualmente ou tentar novamente.',
+          { showLoginPrompt: true }
+        )
+        return
+      }
+
+      const loginResult = await signIn('credentials', {
+        redirect: false,
+        email,
+        password,
+      })
+
+      if (loginResult?.error) {
+        addMessage(
+          'bot',
+          'Nao foi possivel autenticar. Verifique e-mail/senha ou continue preenchendo manualmente.',
+          { showLoginPrompt: true }
+        )
+        return
+      }
+
+      const prefillResult = await fetchLoggedCustomerPrefill({ fallbackEmail: email })
+      const mergedData: CustomerFormData = {
+        ...customerData,
+        email,
+        ...prefillResult.data,
+      }
+      setCustomerData(mergedData)
+
+      const identifiedParts = [
+        mergedData.name ? `Nome: ${mergedData.name}` : '',
+        mergedData.email ? `E-mail: ${mergedData.email}` : '',
+        mergedData.phone ? `Telefone: ${mergedData.phone}` : '',
+      ].filter(Boolean)
+
+      const identifiedText =
+        identifiedParts.length > 0
+          ? `Login realizado com sucesso. Dados identificados da sua conta:\n${identifiedParts.join('\n')}`
+          : 'Login realizado com sucesso. Vamos seguir com o agendamento.'
+
+      startQuestionnaireFlow(mergedData, identifiedText)
+    } catch (error) {
+      console.error('Erro ao autenticar cliente no chatbot:', error)
+      addMessage(
+        'bot',
+        'Nao foi possivel completar o login agora. Tente novamente ou continue manualmente.',
+        { showLoginPrompt: true }
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleContinueWithoutLogin = () => {
+    addMessage('user', 'Continuar sem login', {})
+    startQuestionnaireFlow(customerData, 'Tudo bem! Vamos continuar com preenchimento manual.')
+  }
+
   const handleOptionSelect = async (option: any) => {
     addMessage('user', `Opção: ${option.name || option.size || 'Pacote'} - R$ ${option.price}`, option)
     setIsLoading(true)
     setSelectedOption(option)
     setCurrentQuestionIndex(0)
+    setQuestionnaireStarted(false)
 
-    setTimeout(() => {
-      const firstQuestion = getNextQuestion(0)
-      if (firstQuestion) {
-        addMessage('bot', 'Ótimo! 💕 Agora preciso de algumas informações para personalizar seu atendimento.\n\n' + firstQuestion.question, { 
-          questionOptions: firstQuestion.options,
-          questionIndex: 0
-        })
+    setTimeout(async () => {
+      const prefill = await fetchLoggedCustomerPrefill()
+      if (prefill.isLoggedIn) {
+        const mergedData: CustomerFormData = {
+          ...customerData,
+          ...prefill.data,
+        }
+        setCustomerData(mergedData)
+        startQuestionnaireFlow(
+          mergedData,
+          'Identifiquei sua conta e vou aproveitar seus dados cadastrados para agilizar o atendimento.'
+        )
+      } else {
+        addMessage(
+          'bot',
+          'Antes de continuar: deseja fazer login para usar seus dados já cadastrados (nome, e-mail e telefone)?',
+          { showLoginPrompt: true }
+        )
       }
       setIsLoading(false)
     }, 800)
@@ -272,6 +533,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     addMessage('user', 'Voltar às categorias', {})
     setSelectedService(null)
     setSelectedOption(null)
+    setQuestionnaireStarted(false)
 
     setTimeout(() => {
       addMessage('bot', 'Sem problemas! 💕\n\nQual tipo de serviço você está procurando?', { showCategories: true })
@@ -279,30 +541,25 @@ const Chatbot: React.FC<ChatbotProps> = ({
   }
 
   const handleNextStep = (value: string, fieldName?: string) => {
-    // Determine the field based on current question index
-    const fieldMap = [
-      'name',        // question 0
-      'phone',       // question 1
-      'email',       // question 2
-      'age',         // question 3
-      'allergies',   // question 4
-      'megaHairHistory', // question 5
-      'hairType',    // question 6
-      'hairColor',   // question 7
-      'hairState',   // question 8
-      'methods'      // question 9
-    ]
-    const field = fieldName || fieldMap[currentQuestionIndex]
-    
-    if (field) {
-      setCustomerData(prev => ({ ...prev, [field]: value }))
-    }
+    const field = fieldName || QUESTION_FIELD_MAP[currentQuestionIndex]
+
+    const nextData: CustomerFormData = field
+      ? ({ ...customerData, [field]: value } as CustomerFormData)
+      : customerData
+    setCustomerData(nextData)
     addMessage('user', value, {})
 
     setIsLoading(true)
     setTimeout(() => {
-      const nextQIndex = currentQuestionIndex + 1
-      const nextQuestion = getNextQuestion(nextQIndex)
+      let nextQIndex = currentQuestionIndex + 1
+      while (
+        nextQIndex < QUESTION_FIELD_MAP.length &&
+        String(nextData[QUESTION_FIELD_MAP[nextQIndex]] || '').trim().length > 0
+      ) {
+        nextQIndex += 1
+      }
+
+      const nextQuestion = getNextQuestion(nextQIndex, nextData)
       if (nextQuestion) {
         setCurrentQuestionIndex(nextQIndex)
         addMessage('bot', nextQuestion.question, { 
@@ -317,10 +574,13 @@ const Chatbot: React.FC<ChatbotProps> = ({
     }, 500)
   }
 
-  const getNextQuestion = (questionIndex: number = 0) => {
+  const getNextQuestion = (
+    questionIndex: number = 0,
+    dataOverride: CustomerFormData = customerData
+  ) => {
     const questions = [
       { field: 'name', question: 'Qual é o seu nome completo?' },
-      { field: 'phone', question: `Obrigada, ${customerData.name || ''}! 💕\n\nQual é o seu número de telefone com DDD?` },
+      { field: 'phone', question: `Obrigada, ${dataOverride.name || ''}! 💕\n\nQual é o seu número de telefone com DDD?` },
       { field: 'email', question: 'Perfeito! Agora me passa seu melhor e-mail:' },
       { field: 'age', question: 'Para personalizar seu atendimento, qual a sua idade?' },
       { field: 'allergies', question: selectedCategory?.id === 'extensoes' ? 'Qual é o seu tipo de cabelo?' : 'Você tem alguma alergia a produtos capilares ou químicos?' },
@@ -470,6 +730,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
       `-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-`,
       ``,
       `Por favor, revise suas informações acima.`,
+      `Para concluir, a criação/acesso da conta com senha é obrigatório.`,
       `Se tudo estiver correto, clique em Confirmar.`,
       `Se quiser alterar algo, clique em Editar.`
     ].join('\n')
@@ -477,7 +738,138 @@ const Chatbot: React.FC<ChatbotProps> = ({
     addMessage('bot', confirmationText, { showConfirmation: true })
   }
 
-  const handleBookingConfirmation = () => {
+  const readApiError = async (response: Response, fallback: string) => {
+    try {
+      const data = await response.json()
+      if (data?.error) return String(data.error)
+      if (data?.message) return String(data.message)
+    } catch {
+      // ignore parse errors
+    }
+
+    try {
+      const text = await response.text()
+      if (text) return text
+    } catch {
+      // ignore text read errors
+    }
+
+    return fallback
+  }
+
+  const ensureCustomerAccount = async () => {
+    try {
+      const sessionResponse = await fetch('/api/auth/session', { cache: 'no-store' })
+      if (sessionResponse.ok) {
+        const sessionData = await sessionResponse.json().catch(() => null)
+        if (sessionData?.user?.id) {
+          return { ok: true as const }
+        }
+      }
+    } catch (error) {
+      console.warn('Nao foi possivel validar sessao atual no chatbot:', error)
+    }
+
+    const email = String(customerData.email || '').trim().toLowerCase()
+    const name = String(customerData.name || '').trim()
+
+    if (!email || !name) {
+      return {
+        ok: false as const,
+        error: 'Informe nome e e-mail para criar sua conta antes de concluir o agendamento.',
+      }
+    }
+
+    const password = window.prompt(
+      'Para concluir o agendamento, crie sua senha de acesso (mínimo 6 caracteres).'
+    )
+
+    if (!password) {
+      return {
+        ok: false as const,
+        error: 'Cadastro cancelado. O agendamento exige criação de conta.',
+      }
+    }
+
+    if (password.length < 6) {
+      return {
+        ok: false as const,
+        error: 'A senha precisa ter pelo menos 6 caracteres.',
+      }
+    }
+
+    const confirmPassword = window.prompt('Confirme sua senha para finalizar o cadastro:')
+    if (!confirmPassword) {
+      return {
+        ok: false as const,
+        error: 'Confirmação de senha cancelada.',
+      }
+    }
+
+    if (password !== confirmPassword) {
+      return {
+        ok: false as const,
+        error: 'As senhas não conferem. Tente novamente.',
+      }
+    }
+
+    let emailAlreadyExists = false
+    let accountCreated = false
+
+    try {
+      const registerResponse = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+        }),
+      })
+
+      if (!registerResponse.ok) {
+        const registerError = await readApiError(registerResponse, 'Erro ao criar conta')
+        emailAlreadyExists =
+          registerResponse.status === 409 && registerError.toLowerCase().includes('email')
+
+        if (!emailAlreadyExists) {
+          return {
+            ok: false as const,
+            error: registerError,
+          }
+        }
+      } else {
+        accountCreated = true
+      }
+
+      const loginResult = await signIn('credentials', {
+        redirect: false,
+        email,
+        password,
+      })
+
+      if (loginResult?.error) {
+        return {
+          ok: false as const,
+          error: emailAlreadyExists
+            ? 'Este e-mail já possui conta. Informe a senha correta para concluir o agendamento.'
+            : accountCreated
+              ? 'Conta criada, mas não foi possível autenticar automaticamente. Faça login e tente novamente.'
+              : 'Não foi possível autenticar sua conta.',
+        }
+      }
+
+      return { ok: true as const }
+    } catch (error) {
+      console.error('Erro ao preparar conta da cliente no chatbot:', error)
+      return {
+        ok: false as const,
+        error: 'Erro ao criar/acessar conta. Tente novamente.',
+      }
+    }
+  }
+
+  const handleBookingConfirmation = async () => {
     const price = promoData?.price || String(selectedOption?.price || selectedService?.priceInfo?.fixedPrice || '0')
     const serviceName = promoData?.serviceName || selectedService?.name || 'Serviço'
     const date = selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR') : ''
@@ -496,14 +888,71 @@ const Chatbot: React.FC<ChatbotProps> = ({
       { label: 'Métodos Usados', value: customerData.methods || 'Nenhum' }
     ]
 
-    // Save locally to mark as booked for this session
-    const bookedSlots = JSON.parse(localStorage.getItem('booked_slots') || '[]')
-    bookedSlots.push({
-      date: selectedDate,
-      time: selectedTime,
-      expiry: Date.now() + (24 * 60 * 60 * 1000) // Keep for 24h
-    })
-    localStorage.setItem('booked_slots', JSON.stringify(bookedSlots))
+    setIsLoading(true)
+    const accountResult = await ensureCustomerAccount()
+    if (!accountResult.ok) {
+      setIsLoading(false)
+      alert(`❌ ${accountResult.error}`)
+      return
+    }
+
+    let googleCalendarUrl = ''
+    try {
+      const response = await fetch('/api/chatbot/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer: {
+            name: customerData.name,
+            phone: customerData.phone,
+            email: customerData.email,
+          },
+          service: {
+            name: serviceName,
+          },
+          scheduledDate: selectedTime || selectedDate,
+          durationMinutes: selectedService?.durationMinutes || 60,
+          totalPrice: Number(price || 0),
+          grams: selectedOption?.grams || null,
+          length: selectedOption?.size || selectedOption?.name || null,
+          paymentMethod: paymentMethod === 'pix' ? 'PIX' : 'CARD',
+          questionnaireData: {
+            name: customerData.name || '',
+            phone: customerData.phone || '',
+            email: customerData.email || '',
+            age: customerData.age || '',
+            allergies: customerData.allergies || '',
+            megaHairHistory: customerData.megaHairHistory || '',
+            hairType: customerData.hairType || '',
+            hairColor: customerData.hairColor || '',
+            hairState: customerData.hairState || '',
+            methods: customerData.methods || '',
+          },
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (response.ok) {
+        googleCalendarUrl = String(data.googleCalendarUrl || data.appointment?.googleCalendarUrl || '')
+        const bookedSlots = JSON.parse(localStorage.getItem('booked_slots') || '[]')
+        bookedSlots.push({
+          date: selectedDate,
+          time: selectedTime,
+          expiry: Date.now() + (24 * 60 * 60 * 1000),
+        })
+        localStorage.setItem('booked_slots', JSON.stringify(bookedSlots))
+      } else {
+        const backendError = String(data?.error || 'Falha ao salvar agendamento no backend')
+        console.error('Falha ao salvar agendamento no backend:', backendError)
+        alert(`❌ ${backendError}`)
+        return
+      }
+    } catch (error) {
+      console.error('Erro ao salvar agendamento no backend:', error)
+      alert('❌ Não foi possível concluir o agendamento. Tente novamente.')
+      return
+    } finally {
+      setIsLoading(false)
+    }
 
     let message = `🚀 *NOVO AGENDAMENTO - CAROLSOL STUDIO*\n\n`
     message += `*Serviço:* ${serviceName}\n`
@@ -520,12 +969,18 @@ const Chatbot: React.FC<ChatbotProps> = ({
       message += `\n*Origem:* Promoção Bio Proteína\n`
       message += `*Nota:* ${initialMessage}`
     }
+    if (googleCalendarUrl) {
+      message += `\n*Google Agenda:* ${googleCalendarUrl}`
+    }
 
     const encodedMessage = encodeURIComponent(message)
     const whatsappUrl = `https://wa.me/5514998373935?text=${encodedMessage}`
     
     window.open(whatsappUrl, '_blank')
-    alert('✅ Agendamento enviado para o WhatsApp com sucesso!')
+    if (googleCalendarUrl && confirm('Deseja adicionar este agendamento no Google Agenda?')) {
+      window.open(googleCalendarUrl, '_blank')
+    }
+    alert('✅ Agendamento concluído com conta criada/acessada com sucesso!')
     startOver()
   }
 
@@ -539,19 +994,24 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setSelectedDate('')
     setSelectedTime('')
     setPaymentMethod('pix')
-    setCustomerData({
-      name: '',
-      phone: '',
-      email: '',
-      age: '',
-      allergies: '',
-      megaHairHistory: '',
-      hairType: '',
-      hairColor: '',
-      hairState: '',
-      methods: '',
-    })
+    setCustomerData(EMPTY_CUSTOMER_DATA)
+    setQuestionnaireStarted(false)
     initializeChat()
+  }
+
+  const canAcceptFreeTextResponse = () => {
+    const lastBotMessage = messages.filter((message) => message.type === 'bot').pop()
+    if (!lastBotMessage) return false
+
+    return !lastBotMessage.data?.showCategories &&
+      !lastBotMessage.data?.services &&
+      !lastBotMessage.data?.showDetails &&
+      !lastBotMessage.data?.showOptions &&
+      !lastBotMessage.data?.showDatePicker &&
+      !lastBotMessage.data?.showTimeSlots &&
+      !lastBotMessage.data?.showPayment &&
+      !lastBotMessage.data?.showLoginPrompt &&
+      !lastBotMessage.data?.showConfirmation
   }
 
   const renderMessageData = (data: any) => {
@@ -705,6 +1165,27 @@ const Chatbot: React.FC<ChatbotProps> = ({
       )
     }
 
+    if (data.showLoginPrompt) {
+      return (
+        <div className="mt-4 space-y-3">
+          <button
+            onClick={() => {
+              void handleLoginPromptSelection()
+            }}
+            className="w-full py-3 px-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl hover:shadow-lg transition-all font-medium"
+          >
+            Entrar e usar meus dados
+          </button>
+          <button
+            onClick={handleContinueWithoutLogin}
+            className="w-full py-3 px-4 bg-white text-primary border-2 border-primary rounded-xl hover:shadow-md transition-all font-medium"
+          >
+            Continuar sem login
+          </button>
+        </div>
+      )
+    }
+
     if (data.showConfirmation) {
       return (
         <div className="mt-4 space-y-3">
@@ -712,23 +1193,13 @@ const Chatbot: React.FC<ChatbotProps> = ({
             onClick={handleBookingConfirmation}
             className="w-full py-3 px-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl hover:shadow-lg transition-all font-medium"
           >
-            Confirmar e Enviar para WhatsApp
+            Confirmar, Criar Conta e Enviar
           </button>
           <button
             onClick={() => {
               setCurrentQuestionIndex(0)
-              setCustomerData({
-                name: '',
-                phone: '',
-                email: '',
-                age: '',
-                allergies: '',
-                megaHairHistory: '',
-                hairType: '',
-                hairColor: '',
-                hairState: '',
-                methods: '',
-              })
+              setCustomerData(EMPTY_CUSTOMER_DATA)
+              setQuestionnaireStarted(false)
               setMessages(prev => {
                 const questionStartIndex = prev.findIndex(m => m.content.includes('Seu nome completo?'))
                 if (questionStartIndex > -1) {
@@ -1122,8 +1593,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && inputValue.trim() && !isLoading) {
-                const lastBotMessage = messages.filter(m => m.type === 'bot').pop()
-                if (lastBotMessage && !lastBotMessage.data?.showCategories && !lastBotMessage.data?.services && !lastBotMessage.data?.showDetails && !lastBotMessage.data?.showOptions && !lastBotMessage.data?.showDatePicker && !lastBotMessage.data?.showTimeSlots && !lastBotMessage.data?.showPayment && !lastBotMessage.data?.showConfirmation) {
+                if (canAcceptFreeTextResponse()) {
                   handleNextStep(inputValue.trim())
                   setInputValue('')
                 }
@@ -1135,7 +1605,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
           />
           <button
             onClick={() => {
-              if (inputValue.trim() && !isLoading) {
+              if (inputValue.trim() && !isLoading && canAcceptFreeTextResponse()) {
                 handleNextStep(inputValue.trim())
                 setInputValue('')
               }

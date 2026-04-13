@@ -1,6 +1,27 @@
 import { db } from '@/lib/db'
 
 export type AppointmentStatus = 'scheduled' | 'cancelled' | 'completed'
+export type AppointmentNotificationType = 'confirmation' | 'reminder' | 'cancellation'
+
+export type AppointmentQuestionnaire = {
+  name?: string
+  phone?: string
+  email?: string
+  age?: string
+  allergies?: string
+  megaHairHistory?: string
+  hairType?: string
+  hairColor?: string
+  hairState?: string
+  methods?: string
+}
+
+export type AppointmentMaintenanceEntry = {
+  id: string
+  date: string
+  notes: string
+  createdAt: string
+}
 
 export type AppointmentRecord = {
   id: string
@@ -17,7 +38,15 @@ export type AppointmentRecord = {
   paymentMethod: string | null
   paymentStatus: string
   status: AppointmentStatus
+  clientConfirmedAt: string | null
+  questionnaireData: AppointmentQuestionnaire | null
+  beforeImageUrl: string | null
+  afterImageUrl: string | null
+  maintenanceHistory: AppointmentMaintenanceEntry[]
   notes: string | null
+  confirmationSentAt: string | null
+  reminderSentAt: string | null
+  cancellationSentAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -37,7 +66,15 @@ type AppointmentRow = {
   payment_method: string | null
   payment_status: string
   status: string
+  client_confirmed_at: Date | string | null
+  questionnaire_data: unknown
+  before_image_url: string | null
+  after_image_url: string | null
+  maintenance_history: unknown
   notes: string | null
+  confirmation_sent_at: Date | string | null
+  reminder_sent_at: Date | string | null
+  cancellation_sent_at: Date | string | null
   created_at: Date | string
   updated_at: Date | string
 }
@@ -55,6 +92,7 @@ type CreateAppointmentInput = {
   lengthLabel?: string | null
   paymentMethod?: string | null
   paymentStatus?: string
+  questionnaireData?: AppointmentQuestionnaire | null
   notes?: string | null
 }
 
@@ -68,6 +106,28 @@ type ListAppointmentsFilters = {
 
 let bootstrapPromise: Promise<void> | null = null
 
+function getConfirmationDeadlineHours() {
+  const raw = Number(process.env.APPOINTMENT_CONFIRMATION_DEADLINE_HOURS || 12)
+  if (!Number.isFinite(raw)) return 12
+  return Math.min(72, Math.max(1, Math.floor(raw)))
+}
+
+export function getAppointmentConfirmationDeadline(
+  scheduledAtIso: string,
+  hoursBefore = getConfirmationDeadlineHours()
+) {
+  const scheduledAt = new Date(scheduledAtIso)
+  if (Number.isNaN(scheduledAt.getTime())) return null
+  return new Date(scheduledAt.getTime() - hoursBefore * 60 * 60 * 1000).toISOString()
+}
+
+export function getAppointmentConfirmationPolicy() {
+  const hoursBefore = getConfirmationDeadlineHours()
+  return {
+    hoursBefore,
+  }
+}
+
 function asIsoDate(value: Date | string) {
   if (value instanceof Date) return value.toISOString()
   return new Date(value).toISOString()
@@ -77,6 +137,68 @@ function asStatus(value: string): AppointmentStatus {
   if (value === 'completed') return 'completed'
   if (value === 'cancelled') return 'cancelled'
   return 'scheduled'
+}
+
+function parseJsonField<T>(value: unknown, fallback: T): T {
+  if (value === null || value === undefined) return fallback
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value) as T
+    } catch {
+      return fallback
+    }
+  }
+  if (typeof value === 'object') {
+    return value as T
+  }
+  return fallback
+}
+
+function sanitizeQuestionnaireData(
+  value: unknown
+): AppointmentQuestionnaire | null {
+  const parsed = parseJsonField<Record<string, unknown> | null>(value, null)
+  if (!parsed || typeof parsed !== 'object') return null
+
+  const questionnaire: AppointmentQuestionnaire = {
+    name: typeof parsed.name === 'string' ? parsed.name : undefined,
+    phone: typeof parsed.phone === 'string' ? parsed.phone : undefined,
+    email: typeof parsed.email === 'string' ? parsed.email : undefined,
+    age: typeof parsed.age === 'string' ? parsed.age : undefined,
+    allergies: typeof parsed.allergies === 'string' ? parsed.allergies : undefined,
+    megaHairHistory:
+      typeof parsed.megaHairHistory === 'string'
+        ? parsed.megaHairHistory
+        : undefined,
+    hairType: typeof parsed.hairType === 'string' ? parsed.hairType : undefined,
+    hairColor:
+      typeof parsed.hairColor === 'string' ? parsed.hairColor : undefined,
+    hairState:
+      typeof parsed.hairState === 'string' ? parsed.hairState : undefined,
+    methods: typeof parsed.methods === 'string' ? parsed.methods : undefined,
+  }
+
+  const hasAny = Object.values(questionnaire).some((item) => Boolean(item))
+  return hasAny ? questionnaire : null
+}
+
+function sanitizeMaintenanceHistory(value: unknown): AppointmentMaintenanceEntry[] {
+  const parsed = parseJsonField<unknown[]>(value, [])
+  if (!Array.isArray(parsed)) return []
+
+  return parsed
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null
+      const obj = item as Record<string, unknown>
+      const id = typeof obj.id === 'string' ? obj.id : `mnt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      const date = typeof obj.date === 'string' ? obj.date : ''
+      const notes = typeof obj.notes === 'string' ? obj.notes : ''
+      const createdAt =
+        typeof obj.createdAt === 'string' ? obj.createdAt : new Date().toISOString()
+      if (!date) return null
+      return { id, date, notes, createdAt } satisfies AppointmentMaintenanceEntry
+    })
+    .filter((item): item is AppointmentMaintenanceEntry => Boolean(item))
 }
 
 function mapRow(row: AppointmentRow): AppointmentRecord {
@@ -95,7 +217,21 @@ function mapRow(row: AppointmentRow): AppointmentRecord {
     paymentMethod: row.payment_method,
     paymentStatus: row.payment_status || 'pending',
     status: asStatus(row.status),
+    clientConfirmedAt: row.client_confirmed_at
+      ? asIsoDate(row.client_confirmed_at)
+      : null,
+    questionnaireData: sanitizeQuestionnaireData(row.questionnaire_data),
+    beforeImageUrl: row.before_image_url,
+    afterImageUrl: row.after_image_url,
+    maintenanceHistory: sanitizeMaintenanceHistory(row.maintenance_history),
     notes: row.notes,
+    confirmationSentAt: row.confirmation_sent_at
+      ? asIsoDate(row.confirmation_sent_at)
+      : null,
+    reminderSentAt: row.reminder_sent_at ? asIsoDate(row.reminder_sent_at) : null,
+    cancellationSentAt: row.cancellation_sent_at
+      ? asIsoDate(row.cancellation_sent_at)
+      : null,
     createdAt: asIsoDate(row.created_at),
     updatedAt: asIsoDate(row.updated_at),
   }
@@ -121,11 +257,44 @@ async function ensureAppointmentsStore() {
         "payment_method" TEXT NULL,
         "payment_status" TEXT NOT NULL DEFAULT 'pending',
         "status" TEXT NOT NULL DEFAULT 'scheduled',
+        "client_confirmed_at" TIMESTAMPTZ NULL,
+        "questionnaire_data" JSONB NULL,
+        "before_image_url" TEXT NULL,
+        "after_image_url" TEXT NULL,
+        "maintenance_history" JSONB NOT NULL DEFAULT '[]'::jsonb,
         "notes" TEXT NULL,
+        "confirmation_sent_at" TIMESTAMPTZ NULL,
+        "reminder_sent_at" TIMESTAMPTZ NULL,
+        "cancellation_sent_at" TIMESTAMPTZ NULL,
         "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `)
+
+    await db.$executeRawUnsafe(
+      `ALTER TABLE "CustomerAppointment" ADD COLUMN IF NOT EXISTS "client_confirmed_at" TIMESTAMPTZ NULL`
+    )
+    await db.$executeRawUnsafe(
+      `ALTER TABLE "CustomerAppointment" ADD COLUMN IF NOT EXISTS "questionnaire_data" JSONB NULL`
+    )
+    await db.$executeRawUnsafe(
+      `ALTER TABLE "CustomerAppointment" ADD COLUMN IF NOT EXISTS "before_image_url" TEXT NULL`
+    )
+    await db.$executeRawUnsafe(
+      `ALTER TABLE "CustomerAppointment" ADD COLUMN IF NOT EXISTS "after_image_url" TEXT NULL`
+    )
+    await db.$executeRawUnsafe(
+      `ALTER TABLE "CustomerAppointment" ADD COLUMN IF NOT EXISTS "maintenance_history" JSONB NOT NULL DEFAULT '[]'::jsonb`
+    )
+    await db.$executeRawUnsafe(
+      `ALTER TABLE "CustomerAppointment" ADD COLUMN IF NOT EXISTS "confirmation_sent_at" TIMESTAMPTZ NULL`
+    )
+    await db.$executeRawUnsafe(
+      `ALTER TABLE "CustomerAppointment" ADD COLUMN IF NOT EXISTS "reminder_sent_at" TIMESTAMPTZ NULL`
+    )
+    await db.$executeRawUnsafe(
+      `ALTER TABLE "CustomerAppointment" ADD COLUMN IF NOT EXISTS "cancellation_sent_at" TIMESTAMPTZ NULL`
+    )
 
     await db.$executeRawUnsafe(
       `CREATE INDEX IF NOT EXISTS "idx_customer_appointment_scheduled_at" ON "CustomerAppointment" ("scheduled_at")`
@@ -168,9 +337,14 @@ export async function createAppointment(input: CreateAppointmentInput) {
         "payment_method",
         "payment_status",
         "status",
+        "client_confirmed_at",
+        "questionnaire_data",
+        "before_image_url",
+        "after_image_url",
+        "maintenance_history",
         "notes"
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'scheduled',$14)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'scheduled',NULL,$14,$15,$16,$17,$18)
     `,
     id,
     input.userId || null,
@@ -185,6 +359,10 @@ export async function createAppointment(input: CreateAppointmentInput) {
     input.lengthLabel || null,
     input.paymentMethod || null,
     input.paymentStatus || 'pending',
+    input.questionnaireData ? JSON.stringify(input.questionnaireData) : null,
+    null,
+    null,
+    JSON.stringify([]),
     input.notes || null
   )
 
@@ -210,7 +388,15 @@ export async function getAppointmentById(id: string) {
         "payment_method",
         "payment_status",
         "status",
+        "client_confirmed_at",
+        "questionnaire_data",
+        "before_image_url",
+        "after_image_url",
+        "maintenance_history",
         "notes",
+        "confirmation_sent_at",
+        "reminder_sent_at",
+        "cancellation_sent_at",
         "created_at",
         "updated_at"
       FROM "CustomerAppointment"
@@ -226,6 +412,7 @@ export async function getAppointmentById(id: string) {
 
 export async function listAppointments(filters: ListAppointmentsFilters = {}) {
   await ensureAppointmentsStore()
+  await releaseExpiredUnconfirmedAppointments()
 
   const whereParts: string[] = []
   const params: unknown[] = []
@@ -274,7 +461,15 @@ export async function listAppointments(filters: ListAppointmentsFilters = {}) {
         "payment_method",
         "payment_status",
         "status",
+        "client_confirmed_at",
+        "questionnaire_data",
+        "before_image_url",
+        "after_image_url",
+        "maintenance_history",
         "notes",
+        "confirmation_sent_at",
+        "reminder_sent_at",
+        "cancellation_sent_at",
         "created_at",
         "updated_at"
       FROM "CustomerAppointment"
@@ -295,6 +490,7 @@ export async function updateAppointmentStatus(id: string, status: AppointmentSta
       UPDATE "CustomerAppointment"
       SET
         "status" = $2,
+        "client_confirmed_at" = CASE WHEN $2 = 'scheduled' THEN "client_confirmed_at" ELSE NULL END,
         "notes" = COALESCE($3, "notes"),
         "updated_at" = NOW()
       WHERE "id" = $1
@@ -307,8 +503,71 @@ export async function updateAppointmentStatus(id: string, status: AppointmentSta
   return getAppointmentById(id)
 }
 
+export async function updateAppointmentAdminDetails(input: {
+  id: string
+  status: AppointmentStatus
+  notes?: string | null
+  questionnaireData?: AppointmentQuestionnaire | null
+  beforeImageUrl?: string | null
+  afterImageUrl?: string | null
+  maintenanceHistory?: AppointmentMaintenanceEntry[]
+}) {
+  await ensureAppointmentsStore()
+  const current = await getAppointmentById(input.id)
+  if (!current) return null
+
+  const nextNotes =
+    input.notes === undefined ? current.notes : input.notes ? input.notes : null
+  const nextQuestionnaire =
+    input.questionnaireData === undefined
+      ? current.questionnaireData
+      : sanitizeQuestionnaireData(input.questionnaireData)
+  const nextBeforeImage =
+    input.beforeImageUrl === undefined
+      ? current.beforeImageUrl
+      : input.beforeImageUrl
+        ? input.beforeImageUrl
+        : null
+  const nextAfterImage =
+    input.afterImageUrl === undefined
+      ? current.afterImageUrl
+      : input.afterImageUrl
+        ? input.afterImageUrl
+        : null
+  const nextMaintenance =
+    input.maintenanceHistory === undefined
+      ? current.maintenanceHistory
+      : sanitizeMaintenanceHistory(input.maintenanceHistory)
+
+  await db.$executeRawUnsafe(
+    `
+      UPDATE "CustomerAppointment"
+      SET
+        "status" = $2,
+        "client_confirmed_at" = CASE WHEN $2 = 'scheduled' THEN "client_confirmed_at" ELSE NULL END,
+        "notes" = $3,
+        "questionnaire_data" = $4::jsonb,
+        "before_image_url" = $5,
+        "after_image_url" = $6,
+        "maintenance_history" = $7::jsonb,
+        "updated_at" = NOW()
+      WHERE "id" = $1
+    `,
+    input.id,
+    input.status,
+    nextNotes,
+    nextQuestionnaire ? JSON.stringify(nextQuestionnaire) : null,
+    nextBeforeImage,
+    nextAfterImage,
+    JSON.stringify(nextMaintenance || [])
+  )
+
+  return getAppointmentById(input.id)
+}
+
 export async function listDaySlots(dateIso: string) {
   await ensureAppointmentsStore()
+  await releaseExpiredUnconfirmedAppointments()
   const date = new Date(dateIso)
   if (Number.isNaN(date.getTime())) return []
 
@@ -334,7 +593,15 @@ export async function listDaySlots(dateIso: string) {
         "payment_method",
         "payment_status",
         "status",
+        "client_confirmed_at",
+        "questionnaire_data",
+        "before_image_url",
+        "after_image_url",
+        "maintenance_history",
         "notes",
+        "confirmation_sent_at",
+        "reminder_sent_at",
+        "cancellation_sent_at",
         "created_at",
         "updated_at"
       FROM "CustomerAppointment"
@@ -348,4 +615,131 @@ export async function listDaySlots(dateIso: string) {
   )
 
   return rows.map(mapRow)
+}
+
+export async function listAppointmentsForReminder(input: {
+  fromIso: string
+  toIso: string
+}) {
+  await ensureAppointmentsStore()
+  await releaseExpiredUnconfirmedAppointments()
+  const from = new Date(input.fromIso)
+  const to = new Date(input.toIso)
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return []
+
+  const rows = await db.$queryRawUnsafe<AppointmentRow[]>(
+    `
+      SELECT
+        "id",
+        "user_id",
+        "customer_name",
+        "customer_email",
+        "customer_phone",
+        "service_name",
+        "scheduled_at",
+        "duration_minutes",
+        "total_price",
+        "grams",
+        "length_label",
+        "payment_method",
+        "payment_status",
+        "status",
+        "client_confirmed_at",
+        "questionnaire_data",
+        "before_image_url",
+        "after_image_url",
+        "maintenance_history",
+        "notes",
+        "confirmation_sent_at",
+        "reminder_sent_at",
+        "cancellation_sent_at",
+        "created_at",
+        "updated_at"
+      FROM "CustomerAppointment"
+      WHERE "status" = 'scheduled'
+        AND "client_confirmed_at" IS NOT NULL
+        AND "scheduled_at" >= $1
+        AND "scheduled_at" <= $2
+        AND "reminder_sent_at" IS NULL
+      ORDER BY "scheduled_at" ASC
+    `,
+    from,
+    to
+  )
+
+  return rows.map(mapRow)
+}
+
+export async function confirmAppointmentByCustomer(id: string) {
+  await ensureAppointmentsStore()
+  await db.$executeRawUnsafe(
+    `
+      UPDATE "CustomerAppointment"
+      SET
+        "client_confirmed_at" = NOW(),
+        "updated_at" = NOW()
+      WHERE "id" = $1
+        AND "status" = 'scheduled'
+    `,
+    id
+  )
+
+  return getAppointmentById(id)
+}
+
+export async function releaseExpiredUnconfirmedAppointments(nowIso?: string) {
+  await ensureAppointmentsStore()
+
+  const now = nowIso ? new Date(nowIso) : new Date()
+  if (Number.isNaN(now.getTime())) return 0
+
+  const hoursBefore = getConfirmationDeadlineHours()
+  const cutoff = new Date(now.getTime() + hoursBefore * 60 * 60 * 1000)
+  const note = `Cancelado automaticamente por falta de confirmacao no prazo (${hoursBefore}h antes do horario).`
+
+  const affected = await db.$executeRawUnsafe(
+    `
+      UPDATE "CustomerAppointment"
+      SET
+        "status" = 'cancelled',
+        "notes" = CASE
+          WHEN "notes" IS NULL OR "notes" = '' THEN $2
+          WHEN POSITION($2 IN "notes") > 0 THEN "notes"
+          ELSE "notes" || E'\\n' || $2
+        END,
+        "updated_at" = NOW()
+      WHERE "status" = 'scheduled'
+        AND "client_confirmed_at" IS NULL
+        AND "scheduled_at" <= $1
+    `,
+    cutoff,
+    note
+  )
+
+  return Number(affected || 0)
+}
+
+export async function markAppointmentNotificationSent(
+  id: string,
+  type: AppointmentNotificationType
+) {
+  await ensureAppointmentsStore()
+
+  const columnByType: Record<AppointmentNotificationType, string> = {
+    confirmation: 'confirmation_sent_at',
+    reminder: 'reminder_sent_at',
+    cancellation: 'cancellation_sent_at',
+  }
+
+  const column = columnByType[type]
+  await db.$executeRawUnsafe(
+    `
+      UPDATE "CustomerAppointment"
+      SET "${column}" = NOW(), "updated_at" = NOW()
+      WHERE "id" = $1
+    `,
+    id
+  )
+
+  return getAppointmentById(id)
 }

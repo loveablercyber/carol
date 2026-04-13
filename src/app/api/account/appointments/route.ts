@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
-import { listAppointments } from '@/lib/appointments-store'
+import {
+  getAppointmentConfirmationDeadline,
+  getAppointmentConfirmationPolicy,
+  listAppointments,
+} from '@/lib/appointments-store'
+import { buildGoogleCalendarUrl } from '@/lib/appointment-calendar'
 
 export async function GET() {
   try {
@@ -28,9 +33,41 @@ export async function GET() {
       mergedMap.set(item.id, item)
     }
 
-    const appointments = Array.from(mergedMap.values()).sort((a, b) =>
-      b.scheduledAt.localeCompare(a.scheduledAt)
-    )
+    const now = Date.now()
+    const policy = getAppointmentConfirmationPolicy()
+    const appointments = Array.from(mergedMap.values())
+      .map((item) => {
+        const confirmationDeadlineAt = getAppointmentConfirmationDeadline(
+          item.scheduledAt,
+          policy.hoursBefore
+        )
+        const scheduledMs = new Date(item.scheduledAt).getTime()
+        const deadlineMs = confirmationDeadlineAt
+          ? new Date(confirmationDeadlineAt).getTime()
+          : 0
+        const canConfirmFromClient =
+          item.status === 'scheduled' &&
+          !item.clientConfirmedAt &&
+          Boolean(deadlineMs) &&
+          now <= deadlineMs
+        const canCancelFromClient = item.status === 'scheduled' && scheduledMs > now
+
+        return {
+          ...item,
+          confirmationDeadlineAt,
+          canConfirmFromClient,
+          canCancelFromClient,
+          confirmationWindowHours: policy.hoursBefore,
+          googleCalendarUrl: buildGoogleCalendarUrl({
+            serviceName: item.serviceName,
+            customerName: item.customerName,
+            scheduledAt: item.scheduledAt,
+            durationMinutes: item.durationMinutes,
+            notes: item.notes,
+          }),
+        }
+      })
+      .sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt))
 
     return NextResponse.json({
       appointments,
@@ -40,6 +77,12 @@ export async function GET() {
           (item) =>
             item.status === 'scheduled' &&
             new Date(item.scheduledAt).getTime() >= Date.now()
+        ).length,
+        confirmed: appointments.filter(
+          (item) => item.status === 'scheduled' && Boolean(item.clientConfirmedAt)
+        ).length,
+        pendingConfirmation: appointments.filter(
+          (item) => item.status === 'scheduled' && !item.clientConfirmedAt
         ).length,
         completed: appointments.filter((item) => item.status === 'completed').length,
       },
@@ -52,4 +95,3 @@ export async function GET() {
     )
   }
 }
-
