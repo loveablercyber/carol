@@ -344,7 +344,7 @@ export async function createAppointment(input: CreateAppointmentInput) {
         "maintenance_history",
         "notes"
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'scheduled',NULL,$14,$15,$16,$17,$18)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'scheduled',NULL,$14::jsonb,$15,$16,$17::jsonb,$18)
     `,
     id,
     input.userId || null,
