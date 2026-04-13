@@ -5,6 +5,7 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
+  Bell,
   User,
   ShoppingBag,
   LogOut,
@@ -13,6 +14,7 @@ import {
   Clock,
   Package,
   LayoutDashboard,
+  Search,
 } from 'lucide-react'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import AdminProducts from '@/components/admin/AdminProducts'
@@ -748,6 +750,13 @@ function AccountContent() {
     }))
   }
 
+  const sidebarButtonClass = (isActive: boolean) =>
+    `w-full py-3 px-4 rounded-xl font-semibold flex items-center gap-3 transition-all ${
+      isActive
+        ? 'bg-gradient-to-r from-[#3856da] to-[#5173ef] text-white shadow-[0_12px_24px_-16px_rgba(49,70,170,0.8)]'
+        : 'text-slate-700 hover:bg-[#eaf0ff] hover:text-[#2f46c1]'
+    }`
+
   if (!session) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white flex items-center justify-center px-4">
@@ -771,117 +780,113 @@ function AccountContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-20">
-      {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="font-semibold text-foreground">Voltar ao Site</span>
-          </Link>
-          <h1 className="font-display font-bold text-xl text-foreground">Minha Conta</h1>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-            Sair
-          </button>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-md p-6 sticky top-24">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-gradient-to-br from-[#F8B6D8] to-[#E91E63] rounded-full flex items-center justify-center">
-                  <User className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <p className="font-semibold">{session.user?.name || 'Cliente'}</p>
-                  <p className="text-sm text-muted-foreground">{session.user?.email}</p>
-                </div>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#e8f0ff_0,_#d8e3ff_45%,_#e6defd_100%)] px-2 py-3 md:px-5 md:py-5">
+      <div className="mx-auto max-w-[1500px] rounded-[28px] border border-white/70 bg-gradient-to-br from-[#d8e5ff] via-[#dbe7ff] to-[#e7dfff] p-3 shadow-[0_32px_70px_-36px_rgba(32,36,64,0.75)] md:p-4">
+        <header className="mb-4 rounded-2xl border border-white/60 bg-white/55 px-4 py-4 backdrop-blur-sm md:px-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:text-[#2f46c1]"
+              >
+                Voltar ao Site
+              </Link>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Area do Cliente
+                </p>
+                <h1 className="font-display text-xl font-bold text-slate-900">Minha Conta</h1>
               </div>
-
-              <nav className="space-y-2">
-                {session.user?.role === 'admin' && (
-                  <button
-                    onClick={() => {
-                      setActiveTab('admin')
-                      setAdminSection('dashboard')
-                    }}
-                    className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
-                      activeTab === 'admin'
-                        ? 'bg-primary text-white'
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    <LayoutDashboard className="w-5 h-5" />
-                    Painel Admin
-                  </button>
-                )}
-                <button
-                  onClick={() => setActiveTab('orders')}
-                  className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
-                    activeTab === 'orders'
-                      ? 'bg-primary text-white'
-                      : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <ShoppingBag className="w-5 h-5" />
-                  Meus Pedidos
-                </button>
-                <button
-                  onClick={() => setActiveTab('profile')}
-                  className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
-                    activeTab === 'profile'
-                      ? 'bg-primary text-white'
-                      : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <User className="w-5 h-5" />
-                  Perfil
-                </button>
-                <button
-                  onClick={() => setActiveTab('appointments')}
-                  className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
-                    activeTab === 'appointments'
-                      ? 'bg-primary text-white'
-                      : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <Clock className="w-5 h-5" />
-                  Agendamentos
-                </button>
-                <button
-                  onClick={() => setActiveTab('cards')}
-                  className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
-                    activeTab === 'cards'
-                      ? 'bg-primary text-white'
-                      : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <CreditCard className="w-5 h-5" />
-                  Cartoes salvos
-                </button>
-                <button
-                  onClick={() => setActiveTab('addresses')}
-                  className={`w-full py-3 px-4 rounded-lg font-medium flex items-center gap-3 transition-all ${
-                    activeTab === 'addresses'
-                      ? 'bg-primary text-white'
-                      : 'hover:bg-gray-100'
-                  }`}
-                >
-                  <MapPin className="w-5 h-5" />
-                  Enderecos
-                </button>
-              </nav>
+            </div>
+            <div className="flex w-full items-center gap-3 md:w-auto">
+              <div className="flex w-full items-center gap-2 rounded-full bg-white px-4 py-2 shadow-sm md:w-80">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar pedido, agendamento..."
+                  className="w-full bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                />
+              </div>
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm"
+                title="Notificacoes"
+              >
+                <Bell className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:text-[#2f46c1]"
+              >
+                <LogOut className="h-4 w-4" />
+                Sair
+              </button>
             </div>
           </div>
+        </header>
 
-          {/* Conteúdo Principal */}
-          <div className="lg:col-span-3">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
+          <aside className="rounded-2xl border border-white/70 bg-white/80 p-5 backdrop-blur-sm">
+            <div className="mb-6 rounded-xl bg-gradient-to-r from-[#3247d3] via-[#4d65e7] to-[#2995da] px-4 py-4 text-white shadow-[0_18px_35px_-24px_rgba(36,56,155,0.9)]">
+              <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/25">
+                <User className="h-5 w-5" />
+              </div>
+              <p className="text-sm font-semibold">{session.user?.name || 'Cliente'}</p>
+              <p className="truncate text-xs opacity-90">{session.user?.email}</p>
+            </div>
+
+            <nav className="space-y-2">
+              {session.user?.role === 'admin' && (
+                <button
+                  onClick={() => {
+                    setActiveTab('admin')
+                    setAdminSection('dashboard')
+                  }}
+                  className={sidebarButtonClass(activeTab === 'admin')}
+                >
+                  <LayoutDashboard className="h-5 w-5" />
+                  Painel Admin
+                </button>
+              )}
+              <button
+                onClick={() => setActiveTab('orders')}
+                className={sidebarButtonClass(activeTab === 'orders')}
+              >
+                <ShoppingBag className="h-5 w-5" />
+                Meus Pedidos
+              </button>
+              <button
+                onClick={() => setActiveTab('profile')}
+                className={sidebarButtonClass(activeTab === 'profile')}
+              >
+                <User className="h-5 w-5" />
+                Perfil
+              </button>
+              <button
+                onClick={() => setActiveTab('appointments')}
+                className={sidebarButtonClass(activeTab === 'appointments')}
+              >
+                <Clock className="h-5 w-5" />
+                Agendamentos
+              </button>
+              <button
+                onClick={() => setActiveTab('cards')}
+                className={sidebarButtonClass(activeTab === 'cards')}
+              >
+                <CreditCard className="h-5 w-5" />
+                Cartoes salvos
+              </button>
+              <button
+                onClick={() => setActiveTab('addresses')}
+                className={sidebarButtonClass(activeTab === 'addresses')}
+              >
+                <MapPin className="h-5 w-5" />
+                Enderecos
+              </button>
+            </nav>
+          </aside>
+
+          <div className="rounded-2xl border border-white/70 bg-white/70 p-4 backdrop-blur-sm md:p-5">
             {activeTab === 'orders' && (
               <>
                 {loading ? (
@@ -1723,11 +1728,60 @@ function AccountContent() {
             {activeTab === 'admin' && session.user?.role === 'admin' && (
               <div className="space-y-6">
                 {adminSection === 'dashboard' ? (
-                  <div className="bg-white rounded-2xl shadow-md p-6">
-                    <h2 className="font-display font-bold text-2xl text-foreground mb-6">
-                      Painel Administrativo
-                    </h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                  <div className="space-y-5 rounded-2xl border border-white/70 bg-white/80 p-5 shadow-[0_18px_40px_-28px_rgba(31,41,55,0.6)] md:p-6">
+                    <div className="grid gap-4 md:grid-cols-3">
+                      {[
+                        {
+                          label: 'Gestao de loja',
+                          value: '10',
+                          detail: 'modulos administrativos',
+                          color: 'from-[#4668ff] to-[#22a9e6]',
+                        },
+                        {
+                          label: 'Operacao',
+                          value: '24h',
+                          detail: 'acompanhamento de pedidos',
+                          color: 'from-[#fb5c8f] to-[#f8895d]',
+                        },
+                        {
+                          label: 'Atendimento',
+                          value: 'Ativo',
+                          detail: 'agendamentos e clientes',
+                          color: 'from-[#22b8cf] to-[#3f67f5]',
+                        },
+                      ].map((metric) => (
+                        <div
+                          key={metric.label}
+                          className="rounded-xl border border-[#d8e3ff] bg-gradient-to-b from-white to-[#f8faff] p-4"
+                        >
+                          <div className="mb-2 flex items-center gap-3">
+                            <div
+                              className={`h-10 w-10 rounded-full bg-gradient-to-br ${metric.color}`}
+                            />
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                {metric.label}
+                              </p>
+                              <p className="font-display text-2xl font-bold text-slate-800">
+                                {metric.value}
+                              </p>
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-600">{metric.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                      <h2 className="font-display text-2xl font-bold text-slate-900">
+                        Painel Administrativo
+                      </h2>
+                      <p className="text-sm text-slate-500">
+                        Visual moderno com acesso rapido as areas de gestao.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                       {[
                         {
                           key: 'products',
@@ -1783,12 +1837,12 @@ function AccountContent() {
                         <button
                           key={card.key}
                           onClick={() => setAdminSection(card.key as typeof adminSection)}
-                          className="text-left bg-white rounded-2xl shadow-md p-6 border border-pink-100 hover:border-pink-300 hover:shadow-lg transition-all"
+                          className="group text-left rounded-xl border border-[#d8e3ff] bg-gradient-to-b from-white to-[#f8faff] p-5 shadow-[0_14px_35px_-25px_rgba(31,41,55,0.55)] transition hover:-translate-y-0.5 hover:border-[#9cb3ff]"
                         >
-                          <h3 className="font-display font-bold text-lg text-foreground mb-2">
+                          <h3 className="mb-2 font-display text-lg font-bold text-slate-800">
                             {card.title}
                           </h3>
-                          <p className="text-muted-foreground">{card.description}</p>
+                          <p className="text-sm text-slate-600">{card.description}</p>
                         </button>
                       ))}
                     </div>
@@ -1796,12 +1850,12 @@ function AccountContent() {
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <h2 className="font-display font-bold text-2xl text-foreground">
+                      <h2 className="font-display font-bold text-2xl text-slate-900">
                         Painel Administrativo
                       </h2>
                       <button
                         onClick={() => setAdminSection('dashboard')}
-                        className="px-4 py-2 text-sm rounded-lg border border-pink-200 text-muted-foreground hover:border-pink-300"
+                        className="rounded-full border border-[#ccd9ff] bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:border-[#9cb3ff]"
                       >
                         Voltar ao painel
                       </button>
