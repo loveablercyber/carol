@@ -14,6 +14,14 @@ export type AppointmentQuestionnaire = {
   hairColor?: string
   hairState?: string
   methods?: string
+  primaryFlow?: string
+  primaryCategory?: string
+  maintenanceType?: string
+  maintenanceBasePrice?: string
+  hairSituation?: string
+  additionalServices?: string
+  maintenanceKit?: string
+  cleanHairObservation?: string
 }
 
 export type AppointmentMaintenanceEntry = {
@@ -176,6 +184,34 @@ function sanitizeQuestionnaireData(
     hairState:
       typeof parsed.hairState === 'string' ? parsed.hairState : undefined,
     methods: typeof parsed.methods === 'string' ? parsed.methods : undefined,
+    primaryFlow:
+      typeof parsed.primaryFlow === 'string' ? parsed.primaryFlow : undefined,
+    primaryCategory:
+      typeof parsed.primaryCategory === 'string' ? parsed.primaryCategory : undefined,
+    maintenanceType:
+      typeof parsed.maintenanceType === 'string'
+        ? parsed.maintenanceType
+        : undefined,
+    maintenanceBasePrice:
+      typeof parsed.maintenanceBasePrice === 'string'
+        ? parsed.maintenanceBasePrice
+        : undefined,
+    hairSituation:
+      typeof parsed.hairSituation === 'string'
+        ? parsed.hairSituation
+        : undefined,
+    additionalServices:
+      typeof parsed.additionalServices === 'string'
+        ? parsed.additionalServices
+        : undefined,
+    maintenanceKit:
+      typeof parsed.maintenanceKit === 'string'
+        ? parsed.maintenanceKit
+        : undefined,
+    cleanHairObservation:
+      typeof parsed.cleanHairObservation === 'string'
+        ? parsed.cleanHairObservation
+        : undefined,
   }
 
   const hasAny = Object.values(questionnaire).some((item) => Boolean(item))

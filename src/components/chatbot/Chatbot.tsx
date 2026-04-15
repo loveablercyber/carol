@@ -60,6 +60,20 @@ type CustomerFormData = {
   methods: string
 }
 
+type PrimaryFlow = 'evaluation' | 'maintenance' | 'application' | 'faq' | null
+
+type MaintenanceOption = {
+  label: string
+  value: string
+  price: number
+  priceLabel: string
+}
+
+type FAQItem = {
+  question: string
+  answer: string
+}
+
 const QUESTION_FIELD_MAP: Array<keyof CustomerFormData> = [
   'name',
   'phone',
@@ -85,6 +99,145 @@ const EMPTY_CUSTOMER_DATA: CustomerFormData = {
   hairState: '',
   methods: '',
 }
+
+const EXTENSION_CATEGORY: ServiceCategory = {
+  id: 'extensoes',
+  name: 'Extensões / Fibra Russa',
+  nameEmoji: '💖',
+  description: 'Comprimento e volume com técnicas invisíveis',
+  image: '/images/services/extensions-destaque.png',
+}
+
+const MAINTENANCE_OPTIONS: MaintenanceOption[] = [
+  {
+    label: 'Ponto Americano',
+    value: 'ponto-americano',
+    price: 260,
+    priceLabel: 'R$ 260',
+  },
+  {
+    label: 'Fita Adesiva',
+    value: 'fita-adesiva',
+    price: 290,
+    priceLabel: 'R$ 290',
+  },
+  {
+    label: 'Entrelace',
+    value: 'entrelace',
+    price: 360,
+    priceLabel: 'R$ 360',
+  },
+  {
+    label: 'Queratina',
+    value: 'queratina',
+    price: 500,
+    priceLabel: 'R$ 500 por 100 gramas',
+  },
+]
+
+const HAIR_SITUATIONS = [
+  'Vou usar o mesmo cabelo',
+  'Vou fazer manutenção com cabelo novo',
+  'Tirei o cabelo em casa e quero só fazer a aplicação',
+]
+
+const ADDITIONAL_SERVICES = [
+  'Escova',
+  'Hidratação',
+  'Botox selante',
+  'Botox progressiva',
+  'Coloração',
+]
+
+const MAINTENANCE_KIT_ITEMS = [
+  'Óleo reparador',
+  'Escova raquete',
+  'Touca de cetim',
+  'Fronha de cetim',
+  'Xuxinha de cetim',
+  'Reparador para fibra',
+]
+
+const FAQ_ITEMS: FAQItem[] = [
+  {
+    question: 'Posso agendar um horário?',
+    answer: 'Sim, mas o atendimento é realizado somente com horário marcado.',
+  },
+  {
+    question: 'Qual a textura e aparência das Fibras Russas?',
+    answer:
+      'As Fibras Russas têm textura fina e leve, proporcionando toque natural. A aparência é super natural, com fios alinhados, menos espessos, resistentes, macios e maleáveis. São produzidas com tecnologia premium para garantir beleza e qualidade.',
+  },
+  {
+    question: 'Quais são as formas de pagamento?',
+    answer:
+      'Aceitamos dinheiro e pix sem acréscimo. Cartões de débito e crédito parcelado têm acréscimo da taxa da maquininha.',
+  },
+  {
+    question: 'Qual a durabilidade?',
+    answer:
+      'A durabilidade da Fibra Russa varia de 1 a 6 meses, dependendo dos cuidados e da forma como ela é adaptada ao seu uso diário.',
+  },
+  {
+    question: 'É igual a cabelo de boneca?',
+    answer:
+      'Não. A Fibra Russa é muito mais avançada. Ela foi desenvolvida para imitar o cabelo natural com mais precisão, tanto na aparência quanto na textura.',
+  },
+  {
+    question: 'Como funciona a técnica ponto americano invisível?',
+    answer:
+      'Cada mecha é presa ao cabelo natural usando uma argolinha de metal revestida internamente com silicone para proteger o fio. É um método seguro, reutilizável, que não danifica os fios, e as mechas podem ser reaproveitadas.',
+  },
+  {
+    question: 'O que é microlink?',
+    answer:
+      'São pequenos anéis, geralmente feitos de metal ou com revestimento interno, utilizados para prender as mechas de cabelo e formar uma base para a costura da tela do mega hair.',
+  },
+  {
+    question: 'Qual é o endereço?',
+    answer:
+      'Estamos na Rua Castro Alves, 6-37, próximo à antiga CPFL (casa com portão cinza). Esperamos você no nosso espaço.',
+  },
+  {
+    question: 'A fibra russa é realmente igual ao cabelo humano?',
+    answer:
+      'Não exatamente. A fibra russa é sintética premium. Ela é de alta qualidade e tem aparência muito natural, mas não possui cutícula como o cabelo humano.',
+  },
+  {
+    question: 'Vocês fazem aplique?',
+    answer: 'Sim, fazemos aplique TIC-TAC e Ponytail (rabo de cavalo), por encomenda.',
+  },
+  {
+    question: 'Quanto tempo dura a manutenção?',
+    answer:
+      'O tempo pode variar conforme a técnica e a quantidade de cabelo, mas informamos tudo certinho no momento do agendamento.',
+  },
+  {
+    question: 'Preciso ir com o cabelo limpo?',
+    answer:
+      'Sim. Para manutenção e aplicação, orientamos que você venha com o cabelo limpo para facilitar o atendimento e garantir melhor resultado.',
+  },
+  {
+    question: 'Posso lavar normalmente depois do procedimento?',
+    answer:
+      'Sim, mas é importante seguir as orientações de cuidado e manutenção para aumentar a durabilidade e preservar a beleza do resultado.',
+  },
+  {
+    question: 'Vocês vendem kit de manutenção?',
+    answer:
+      'Sim. Temos opções de kit de manutenção com itens que ajudam a cuidar melhor do mega hair no dia a dia.',
+  },
+  {
+    question: 'Posso fazer coloração junto com o atendimento?',
+    answer:
+      'Sim. Dependendo do caso, você pode acrescentar serviços como coloração, hidratação, escova e outros adicionais no momento do agendamento.',
+  },
+  {
+    question: 'Quem faz manutenção pode usar o mesmo cabelo?',
+    answer:
+      'Sim, se o cabelo estiver em boas condições. Também atendemos quem vai colocar cabelo novo ou quem retirou em casa e quer somente a aplicação.',
+  },
+]
 
 const Chatbot: React.FC<ChatbotProps> = ({
   isOpen,
@@ -152,6 +305,11 @@ const Chatbot: React.FC<ChatbotProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategory | null>(null)
   const [selectedService, setSelectedService] = useState<Service | null>(null)
   const [selectedOption, setSelectedOption] = useState<any>(null)
+  const [primaryFlow, setPrimaryFlow] = useState<PrimaryFlow>(null)
+  const [maintenanceType, setMaintenanceType] = useState<MaintenanceOption | null>(null)
+  const [hairSituation, setHairSituation] = useState('')
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([])
+  const [selectedKitItems, setSelectedKitItems] = useState<string[]>([])
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [selectedTime, setSelectedTime] = useState<string>('')
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix')
@@ -204,15 +362,23 @@ const Chatbot: React.FC<ChatbotProps> = ({
     }
   }, [isOpen])
 
+  const showMainMenu = () => {
+    addMessage(
+      'bot',
+      'Olá, seja bem-vinda! Como posso te ajudar hoje?\nSelecione uma opção:',
+      { showMainMenu: true }
+    )
+  }
+
   const handlePromoInitiation = (msg: string) => {
     setIsLoading(true)
     setTimeout(() => {
-      addMessage('bot', 'Oi! Que maravilha que você se interessou pela nossa Bio Proteína! 😍\n\nEssa fibra é maravilhosa e vai te deixar ainda mais linda. Vamos agendar sua aplicação?')
+      addMessage(
+        'bot',
+        'Oi! Vi seu interesse e vou te ajudar a seguir pelo melhor caminho.'
+      )
       setTimeout(() => {
-        const nextQuestion = getNextQuestion(0)
-        if (nextQuestion) {
-          addMessage('bot', 'Para começar, me diz seu nome completo:')
-        }
+        showMainMenu()
         setIsLoading(false)
       }, 800)
     }, 500)
@@ -227,6 +393,16 @@ const Chatbot: React.FC<ChatbotProps> = ({
       timestamp: new Date()
     }
     setMessages(prev => [...prev, message])
+  }
+
+  const clearMessageFlag = (flag: string) => {
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.data?.[flag]
+          ? { ...message, data: { ...message.data, [flag]: false } }
+          : message
+      )
+    )
   }
 
   const clearAccountRedirectPrompt = () => {
@@ -256,16 +432,117 @@ const Chatbot: React.FC<ChatbotProps> = ({
   const initializeChat = async () => {
     setIsLoading(true)
     setTimeout(() => {
-      addMessage('bot', 'Oi, seja muito bem-vinda 💕\n\nVou te ajudar a escolher o melhor serviço pro seu cabelo.\nÉ rápido e você vê exemplos reais antes de decidir ✨')
+      addMessage(
+        'bot',
+        'Oi, seja muito bem-vinda 💕\n\nVou te ajudar a escolher o melhor caminho para o seu atendimento.'
+      )
       setTimeout(() => {
-        addMessage('bot', 'Primeiro, me conta: qual tipo de serviço você está procurando?', { showCategories: true })
+        if (preSelectedCategory) {
+          handleCategorySelect(preSelectedCategory, { silentUserMessage: true })
+        } else {
+          showMainMenu()
+        }
         setIsLoading(false)
       }, 800)
     }, 500)
   }
 
-  const handleCategorySelect = async (category: ServiceCategory) => {
-    addMessage('user', category.nameEmoji + ' ' + category.name, category)
+  const fluxoAvaliacao = () => {
+    setPrimaryFlow('evaluation')
+    setSelectedCategory(null)
+    setSelectedService({
+      id: 'avaliacao',
+      name: 'Avaliação',
+      description: 'Avaliação personalizada para entender seu cabelo e indicar o melhor serviço.',
+      durationMinutes: 15,
+      priceInfo: {
+        fixedPrice: 0,
+      },
+    })
+    setSelectedOption({ name: 'Avaliação', price: 0 })
+    addMessage('bot', 'Perfeito! A avaliação tem duração de 15 minutos.')
+    setIsLoading(true)
+    beginCustomerDataCollection()
+  }
+
+  const fluxoManutencao = () => {
+    setPrimaryFlow('maintenance')
+    setSelectedCategory(EXTENSION_CATEGORY)
+    setSelectedService({
+      id: 'manutencao-megahair',
+      name: 'Manutenção do Megahair',
+      description: 'Manutenção profissional para preservar conforto, segurança e acabamento natural.',
+      durationMinutes: 120,
+      priceInfo: {
+        fixedPrice: 0,
+      },
+    })
+    setSelectedOption(null)
+    setMaintenanceType(null)
+    setHairSituation('')
+    setSelectedAddons([])
+    setSelectedKitItems([])
+    addMessage('bot', 'Perfeito! Vamos agendar sua manutenção de mega hair.')
+    setTimeout(() => {
+      addMessage('bot', 'Selecione o tipo de manutenção:', {
+        showMaintenanceTypes: true,
+      })
+    }, 500)
+  }
+
+  const fluxoAplicacao = async () => {
+    setPrimaryFlow('application')
+    setMaintenanceType(null)
+    setHairSituation('')
+    setSelectedAddons([])
+    setSelectedKitItems([])
+    addMessage('bot', 'Perfeito! Vamos seguir com sua aplicação de mega hair.')
+    await handleCategorySelect(EXTENSION_CATEGORY, {
+      silentUserMessage: true,
+      introText: 'Escolha a técnica de aplicação que deseja conhecer e agendar:',
+    })
+  }
+
+  const fluxoFAQ = () => {
+    setPrimaryFlow('faq')
+    addMessage('bot', 'Claro. Escolha uma pergunta abaixo para ver a resposta:', {
+      showFAQ: true,
+    })
+  }
+
+  const handleMainOptionSelect = (option: PrimaryFlow) => {
+    clearMessageFlag('showMainMenu')
+    if (option === 'evaluation') {
+      addMessage('user', 'Agendar avaliação', {})
+      fluxoAvaliacao()
+      return
+    }
+
+    if (option === 'maintenance') {
+      addMessage('user', 'Manutenção do Megahair', {})
+      fluxoManutencao()
+      return
+    }
+
+    if (option === 'application') {
+      addMessage('user', 'Aplicação do Megahair', {})
+      void fluxoAplicacao()
+      return
+    }
+
+    if (option === 'faq') {
+      addMessage('user', 'Perguntas e Respostas', {})
+      fluxoFAQ()
+    }
+  }
+
+  const handleCategorySelect = async (
+    category: ServiceCategory,
+    options: { silentUserMessage?: boolean; introText?: string } = {}
+  ) => {
+    if (!options.silentUserMessage) {
+      addMessage('user', category.nameEmoji + ' ' + category.name, category)
+    }
     setIsLoading(true)
     setSelectedCategory(category)
 
@@ -274,7 +551,11 @@ const Chatbot: React.FC<ChatbotProps> = ({
       const data = await response.json()
 
       setTimeout(() => {
-        addMessage('bot', 'Perfeito! Aqui estão os serviços disponíveis nessa categoria:', { services: data.services })
+        addMessage(
+          'bot',
+          options.introText || 'Perfeito! Aqui estão os serviços disponíveis nessa categoria:',
+          { services: data.services }
+        )
         setIsLoading(false)
       }, 800)
     } catch (error) {
@@ -523,10 +804,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     startQuestionnaireFlow(customerData, 'Tudo bem! Vamos continuar com preenchimento manual.')
   }
 
-  const handleOptionSelect = async (option: any) => {
-    addMessage('user', `Opção: ${option.name || option.size || 'Pacote'} - R$ ${option.price}`, option)
-    setIsLoading(true)
-    setSelectedOption(option)
+  const beginCustomerDataCollection = (delayMs = 800) => {
     setCurrentQuestionIndex(0)
     setQuestionnaireStarted(false)
 
@@ -550,7 +828,130 @@ const Chatbot: React.FC<ChatbotProps> = ({
         )
       }
       setIsLoading(false)
-    }, 800)
+    }, delayMs)
+  }
+
+  const handleOptionSelect = async (option: any) => {
+    addMessage('user', `Opção: ${option.name || option.size || 'Pacote'} - R$ ${option.price}`, option)
+    setIsLoading(true)
+    setSelectedOption(option)
+
+    if (primaryFlow === 'application') {
+      setTimeout(() => {
+        addMessage(
+          'bot',
+          'Observação importante: para o atendimento, venha com o cabelo limpo.'
+        )
+        showAdditionalServicesOffer()
+        setIsLoading(false)
+      }, 700)
+      return
+    }
+
+    beginCustomerDataCollection()
+  }
+
+  const showAdditionalServicesOffer = () => {
+    setTimeout(() => {
+      addMessage('bot', 'Quer acrescentar mais algum serviço ao seu atendimento?', {
+        showAdditionalServices: true,
+      })
+    }, 400)
+  }
+
+  const handleMaintenanceTypeSelect = (option: MaintenanceOption) => {
+    clearMessageFlag('showMaintenanceTypes')
+    setMaintenanceType(option)
+    setSelectedOption({
+      name: option.label,
+      price: option.price,
+      size: option.priceLabel,
+    })
+    addMessage('user', `${option.label} - ${option.priceLabel}`, {})
+    addMessage('bot', 'Agora me informe qual é a sua situação:', {
+      showHairSituations: true,
+    })
+  }
+
+  const handleHairSituationSelect = (situation: string) => {
+    clearMessageFlag('showHairSituations')
+    setHairSituation(situation)
+    addMessage('user', situation, {})
+    addMessage('bot', 'Observação importante: para o atendimento, venha com o cabelo limpo.')
+    showAdditionalServicesOffer()
+  }
+
+  const toggleAdditionalService = (service: string) => {
+    setSelectedAddons((prev) =>
+      prev.includes(service)
+        ? prev.filter((item) => item !== service)
+        : [...prev, service]
+    )
+  }
+
+  const handleNoAdditionalServices = () => {
+    clearMessageFlag('showAdditionalServices')
+    setSelectedAddons([])
+    addMessage('user', 'Não quero acrescentar serviços', {})
+    showKitOffer()
+  }
+
+  const handleAdditionalServicesContinue = () => {
+    clearMessageFlag('showAdditionalServices')
+    addMessage(
+      'user',
+      selectedAddons.length > 0
+        ? `Serviços adicionais: ${selectedAddons.join(', ')}`
+        : 'Não quero acrescentar serviços',
+      {}
+    )
+    showKitOffer()
+  }
+
+  const showKitOffer = () => {
+    addMessage('bot', 'Deseja incluir também um kit de manutenção?', {
+      showKitOffer: true,
+    })
+  }
+
+  const handleKitOfferSelect = (includeKit: boolean) => {
+    clearMessageFlag('showKitOffer')
+    addMessage('user', includeKit ? 'Sim, quero incluir o kit' : 'Não, obrigado', {})
+    if (includeKit) {
+      setSelectedKitItems([])
+      addMessage('bot', 'Selecione os itens do kit:', {
+        showKitItems: true,
+      })
+      return
+    }
+
+    setSelectedKitItems([])
+    beginCustomerDataCollection(500)
+  }
+
+  const toggleKitItem = (item: string) => {
+    setSelectedKitItems((prev) =>
+      prev.includes(item)
+        ? prev.filter((current) => current !== item)
+        : [...prev, item]
+    )
+  }
+
+  const handleKitItemsContinue = () => {
+    clearMessageFlag('showKitItems')
+    addMessage(
+      'user',
+      selectedKitItems.length > 0
+        ? `Kit de manutenção: ${selectedKitItems.join(', ')}`
+        : 'Kit sem itens selecionados',
+      {}
+    )
+    beginCustomerDataCollection(500)
+  }
+
+  const handleFAQSelect = (item: FAQItem) => {
+    addMessage('user', item.question, {})
+    addMessage('bot', item.answer, { showFAQ: true })
   }
 
   const handleBackToCategories = () => {
@@ -602,18 +1003,18 @@ const Chatbot: React.FC<ChatbotProps> = ({
     questionIndex: number = 0,
     dataOverride: CustomerFormData = customerData
   ) => {
-    const questions = [
-      { field: 'name', question: 'Qual é o seu nome completo?' },
-      { field: 'phone', question: `Obrigada, ${dataOverride.name || ''}! 💕\n\nQual é o seu número de telefone com DDD?` },
-      { field: 'email', question: 'Perfeito! Agora me passa seu melhor e-mail:' },
-      { field: 'age', question: 'Para personalizar seu atendimento, qual a sua idade?' },
-      { field: 'allergies', question: selectedCategory?.id === 'extensoes' ? 'Qual é o seu tipo de cabelo?' : 'Você tem alguma alergia a produtos capilares ou químicos?' },
-      { field: 'hairType', question: selectedCategory?.id === 'extensoes' ? 'Já fez mega hair antes? Se sim, conta um pouco sobre sua experiência:' : 'Qual é o seu tipo de cabelo (liso, ondulado, cacheado, crespo)?' },
-      { field: 'megaHairHistory', question: 'Qual é a cor natural do seu cabelo?' },
-      { field: 'hairColor', question: 'Como está o estado atual do seu cabelo (saudável, ressecado, com pontas duplas, quimicamente tratado)?' },
-      { field: 'hairState', question: 'Quais métodos você já usou nos últimos 6 meses (progressiva, botox, tintura, alisamentos)?' },
-      { field: 'methods', question: 'Obrigado! Próxima etapa.' }
-    ]
+	    const questions = [
+	      { field: 'name', question: 'Qual é o seu nome completo?' },
+	      { field: 'phone', question: `Obrigada, ${dataOverride.name || ''}! 💕\n\nQual é o seu número de telefone com DDD?` },
+	      { field: 'email', question: 'Perfeito! Agora me passa seu melhor e-mail:' },
+	      { field: 'age', question: 'Para personalizar seu atendimento, qual a sua idade?' },
+	      { field: 'allergies', question: 'Você tem alguma alergia a produtos capilares ou químicos?' },
+	      { field: 'megaHairHistory', question: 'Já fez mega hair antes? Se sim, conta um pouco sobre sua experiência:' },
+	      { field: 'hairType', question: 'Qual é o seu tipo de cabelo (liso, ondulado, cacheado, crespo)?' },
+	      { field: 'hairColor', question: 'Qual é a cor natural do seu cabelo?' },
+	      { field: 'hairState', question: 'Como está o estado atual do seu cabelo (saudável, ressecado, com pontas duplas, quimicamente tratado)?' },
+	      { field: 'methods', question: 'Quais métodos você já usou nos últimos 6 meses (progressiva, botox, tintura, alisamentos)?' }
+	    ]
 
     if (questionIndex < questions.length) {
       const q = questions[questionIndex]
@@ -696,6 +1097,13 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setSelectedTime(timeSlot.time)
 
     setTimeout(() => {
+      if (primaryFlow === 'evaluation') {
+        setPaymentMethod('pix')
+        showConfirmation()
+        setIsLoading(false)
+        return
+      }
+
       addMessage('bot', 'Perfeito! 💕\n\nQual forma de pagamento você prefere?', { showPayment: true })
       setIsLoading(false)
     }, 800)
@@ -712,9 +1120,41 @@ const Chatbot: React.FC<ChatbotProps> = ({
     }, 800)
   }
 
+  const parsePrice = (value: unknown) => {
+    const normalized = String(value ?? '0')
+      .replace(/[^\d,.-]/g, '')
+      .replace(',', '.')
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+
+  const getServiceName = () => {
+    if (primaryFlow === 'evaluation') return 'Avaliação'
+    if (primaryFlow === 'maintenance') return 'Manutenção do Megahair'
+    if (primaryFlow === 'application') return selectedService?.name || 'Aplicação do Megahair'
+    return promoData?.serviceName || selectedService?.name || 'Serviço'
+  }
+
+  const getDurationMinutes = () => {
+    if (primaryFlow === 'evaluation') return 15
+    return selectedService?.durationMinutes || 60
+  }
+
+  const getBasePrice = () => {
+    if (primaryFlow === 'evaluation') return 0
+    if (primaryFlow === 'maintenance') return maintenanceType?.price || selectedOption?.price || 0
+    if (primaryFlow === 'application') {
+      return parsePrice(selectedOption?.price || selectedService?.priceInfo?.fixedPrice || 0)
+    }
+    return parsePrice(promoData?.price || selectedOption?.price || selectedService?.priceInfo?.fixedPrice || 0)
+  }
+
+  const formatList = (items: string[], emptyText: string) =>
+    items.length > 0 ? items.join(', ') : emptyText
+
   const showConfirmation = () => {
-    const price = promoData?.price || String(selectedOption?.price || selectedService?.priceInfo?.fixedPrice || '0')
-    const serviceName = promoData?.serviceName || selectedService?.name || 'Serviço'
+    const price = getBasePrice()
+    const serviceName = getServiceName()
     // Adjust date for display to avoid timezone issues
     const date = selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR') : ''
     const time = selectedTime ? new Date(selectedTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''
@@ -739,12 +1179,36 @@ const Chatbot: React.FC<ChatbotProps> = ({
     const confirmationText = [
       `🎉 RESUMO DO SEU AGENDAMENTO 🎉`,
       ``,
-      `Serviço: ${serviceName}`,
-      `Valor: R$ ${price}`,
+      `Serviço principal: ${serviceName}`,
+      `Duração: ${getDurationMinutes()} minutos`,
+      ...(primaryFlow === 'maintenance'
+        ? [
+            `Tipo: ${maintenanceType?.label || 'Não informado'}`,
+            `Valor base: ${maintenanceType?.priceLabel || `R$ ${price}`}`,
+            `Situação do cabelo: ${hairSituation || 'Não informado'}`,
+          ]
+        : []),
+      ...(primaryFlow === 'application'
+        ? [
+            `Serviços adicionais: ${formatList(selectedAddons, 'Nenhum')}`,
+            `Kit de manutenção: ${formatList(selectedKitItems, 'Não incluído')}`,
+            `Observação: Cliente orientada a vir com cabelo limpo`,
+          ]
+        : []),
+      ...(primaryFlow === 'maintenance'
+        ? [
+            `Serviços adicionais: ${formatList(selectedAddons, 'Nenhum')}`,
+            `Kit de manutenção: ${formatList(selectedKitItems, 'Não incluído')}`,
+            `Observação: Cliente orientada a vir com cabelo limpo`,
+          ]
+        : []),
+      `Valor: R$ ${price.toFixed(2).replace('.', ',')}`,
       ``,
       `Data: ${date}`,
       `Horário: ${time}`,
-      `Pagamento: ${paymentMethod === 'pix' ? 'PIX' : 'Cartão de Crédito/Débito'}`,
+      ...(primaryFlow === 'evaluation'
+        ? []
+        : [`Pagamento: ${paymentMethod === 'pix' ? 'PIX' : 'Cartão de Crédito/Débito'}`]),
       ``,
       `-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-`,
       ``,
@@ -755,8 +1219,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
       ``,
       `Por favor, revise suas informações acima.`,
       `Para concluir, a criação/acesso da conta com senha é obrigatório.`,
-      `Se tudo estiver correto, clique em Confirmar.`,
-      `Se quiser alterar algo, clique em Editar.`
+      `Deseja confirmar seu agendamento?`,
+      `Se quiser alterar algo, clique em Alterar informações.`
     ].join('\n')
 
     addMessage('bot', confirmationText, { showConfirmation: true })
@@ -894,8 +1358,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
   }
 
   const handleBookingConfirmation = async () => {
-    const price = promoData?.price || String(selectedOption?.price || selectedService?.priceInfo?.fixedPrice || '0')
-    const serviceName = promoData?.serviceName || selectedService?.name || 'Serviço'
+    const price = getBasePrice()
+    const serviceName = getServiceName()
     const date = selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR') : ''
     const time = selectedTime ? new Date(selectedTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''
     
@@ -935,8 +1399,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
             name: serviceName,
           },
           scheduledDate: selectedTime || selectedDate,
-          durationMinutes: selectedService?.durationMinutes || 60,
-          totalPrice: Number(price || 0),
+          durationMinutes: getDurationMinutes(),
+          totalPrice: price,
           grams: selectedOption?.grams || null,
           length: selectedOption?.size || selectedOption?.name || null,
           paymentMethod: paymentMethod === 'pix' ? 'PIX' : 'CARD',
@@ -951,6 +1415,24 @@ const Chatbot: React.FC<ChatbotProps> = ({
             hairColor: customerData.hairColor || '',
             hairState: customerData.hairState || '',
             methods: customerData.methods || '',
+            primaryFlow: primaryFlow || '',
+            primaryCategory:
+              primaryFlow === 'evaluation'
+                ? 'Agendar avaliação'
+                : primaryFlow === 'maintenance'
+                  ? 'Manutenção do Megahair'
+                  : primaryFlow === 'application'
+                    ? 'Aplicação do Megahair'
+                    : '',
+            maintenanceType: maintenanceType?.label || '',
+            maintenanceBasePrice: maintenanceType?.priceLabel || '',
+            hairSituation: hairSituation || '',
+            additionalServices: selectedAddons.join(', '),
+            maintenanceKit: selectedKitItems.join(', '),
+            cleanHairObservation:
+              primaryFlow === 'maintenance' || primaryFlow === 'application'
+                ? 'Cliente orientada a vir com cabelo limpo'
+                : '',
           },
         }),
       })
@@ -980,7 +1462,17 @@ const Chatbot: React.FC<ChatbotProps> = ({
 
     let message = `🚀 *NOVO AGENDAMENTO - CAROLSOL STUDIO*\n\n`
     message += `*Serviço:* ${serviceName}\n`
-    message += `*Valor:* R$ ${price}\n`
+    message += `*Duração:* ${getDurationMinutes()} minutos\n`
+    if (primaryFlow === 'maintenance') {
+      message += `*Tipo de manutenção:* ${maintenanceType?.label || 'Não informado'}\n`
+      message += `*Situação do cabelo:* ${hairSituation || 'Não informado'}\n`
+    }
+    if (primaryFlow === 'maintenance' || primaryFlow === 'application') {
+      message += `*Serviços adicionais:* ${formatList(selectedAddons, 'Nenhum')}\n`
+      message += `*Kit de manutenção:* ${formatList(selectedKitItems, 'Não incluído')}\n`
+      message += `*Observação:* Cliente orientada a vir com cabelo limpo\n`
+    }
+    message += `*Valor:* R$ ${price.toFixed(2).replace('.', ',')}\n`
     message += `*Data:* ${date}\n`
     message += `*Horário:* ${time}\n`
     message += `*Pagamento:* ${paymentMethod === 'pix' ? 'PIX' : 'Cartão'}\n\n`
@@ -1028,6 +1520,11 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setSelectedCategory(null)
     setSelectedService(null)
     setSelectedOption(null)
+    setPrimaryFlow(null)
+    setMaintenanceType(null)
+    setHairSituation('')
+    setSelectedAddons([])
+    setSelectedKitItems([])
     setSelectedDate('')
     setSelectedTime('')
     setPaymentMethod('pix')
@@ -1049,11 +1546,185 @@ const Chatbot: React.FC<ChatbotProps> = ({
       !lastBotMessage.data?.showPayment &&
       !lastBotMessage.data?.showLoginPrompt &&
       !lastBotMessage.data?.showConfirmation &&
-      !lastBotMessage.data?.showAccountRedirect
+      !lastBotMessage.data?.showAccountRedirect &&
+      !lastBotMessage.data?.showMainMenu &&
+      !lastBotMessage.data?.showMaintenanceTypes &&
+      !lastBotMessage.data?.showHairSituations &&
+      !lastBotMessage.data?.showAdditionalServices &&
+      !lastBotMessage.data?.showKitOffer &&
+      !lastBotMessage.data?.showKitItems &&
+      !lastBotMessage.data?.showFAQ
   }
 
   const renderMessageData = (data: any) => {
     if (!data) return null
+
+    if (data.showMainMenu) {
+      return (
+        <div className="mt-4 grid grid-cols-1 gap-3">
+          {[
+            { label: 'Agendar avaliação', flow: 'evaluation' as PrimaryFlow },
+            { label: 'Manutenção do Megahair', flow: 'maintenance' as PrimaryFlow },
+            { label: 'Aplicação do Megahair', flow: 'application' as PrimaryFlow },
+            { label: 'Perguntas e Respostas', flow: 'faq' as PrimaryFlow },
+          ].map((option) => (
+            <button
+              key={option.flow}
+              onClick={() => handleMainOptionSelect(option.flow)}
+              className="w-full py-3 px-4 bg-white text-primary border-2 border-primary rounded-xl hover:shadow-md transition-all font-medium text-left"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )
+    }
+
+    if (data.showMaintenanceTypes) {
+      return (
+        <div className="mt-4 space-y-3">
+          {MAINTENANCE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => handleMaintenanceTypeSelect(option)}
+              className="w-full p-4 bg-gradient-to-r from-[#FFF0F5] to-white rounded-xl hover:shadow-md transition-all border border-pink-200 text-left"
+            >
+              <div className="flex justify-between gap-3">
+                <span className="font-display font-semibold text-lg text-foreground">
+                  {option.label}
+                </span>
+                <span className="font-bold text-primary">{option.priceLabel}</span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )
+    }
+
+    if (data.showHairSituations) {
+      return (
+        <div className="mt-4 space-y-2">
+          {HAIR_SITUATIONS.map((situation) => (
+            <button
+              key={situation}
+              onClick={() => handleHairSituationSelect(situation)}
+              className="w-full py-3 px-4 bg-gradient-to-r from-[#FFF0F5] to-white border border-pink-200 rounded-lg hover:bg-primary hover:text-white transition-all text-sm font-medium text-left"
+            >
+              {situation}
+            </button>
+          ))}
+        </div>
+      )
+    }
+
+    if (data.showAdditionalServices) {
+      return (
+        <div className="mt-4 space-y-3">
+          <div className="grid grid-cols-1 gap-2">
+            {ADDITIONAL_SERVICES.map((service) => {
+              const selected = selectedAddons.includes(service)
+              return (
+                <button
+                  key={service}
+                  onClick={() => toggleAdditionalService(service)}
+                  className={`w-full py-3 px-4 rounded-lg border transition-all text-sm font-medium text-left ${
+                    selected
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-white border-pink-200 text-foreground hover:border-pink-400'
+                  }`}
+                >
+                  {selected ? '✓ ' : ''}{service}
+                </button>
+              )
+            })}
+          </div>
+          <button
+            onClick={handleAdditionalServicesContinue}
+            className="w-full py-3 px-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl hover:shadow-lg transition-all font-medium"
+          >
+            Continuar
+          </button>
+          <button
+            onClick={handleNoAdditionalServices}
+            className="w-full py-3 px-4 bg-white text-primary border-2 border-primary rounded-xl hover:shadow-md transition-all font-medium"
+          >
+            Não quero acrescentar serviços
+          </button>
+        </div>
+      )
+    }
+
+    if (data.showKitOffer) {
+      return (
+        <div className="mt-4 space-y-3">
+          <button
+            onClick={() => handleKitOfferSelect(true)}
+            className="w-full py-3 px-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl hover:shadow-lg transition-all font-medium"
+          >
+            Sim, quero incluir o kit
+          </button>
+          <button
+            onClick={() => handleKitOfferSelect(false)}
+            className="w-full py-3 px-4 bg-white text-primary border-2 border-primary rounded-xl hover:shadow-md transition-all font-medium"
+          >
+            Não, obrigado
+          </button>
+        </div>
+      )
+    }
+
+    if (data.showKitItems) {
+      return (
+        <div className="mt-4 space-y-3">
+          <div className="grid grid-cols-1 gap-2">
+            {MAINTENANCE_KIT_ITEMS.map((item) => {
+              const selected = selectedKitItems.includes(item)
+              return (
+                <button
+                  key={item}
+                  onClick={() => toggleKitItem(item)}
+                  className={`w-full py-3 px-4 rounded-lg border transition-all text-sm font-medium text-left ${
+                    selected
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-white border-pink-200 text-foreground hover:border-pink-400'
+                  }`}
+                >
+                  {selected ? '✓ ' : ''}{item}
+                </button>
+              )
+            })}
+          </div>
+          <button
+            onClick={handleKitItemsContinue}
+            className="w-full py-3 px-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl hover:shadow-lg transition-all font-medium"
+          >
+            Continuar
+          </button>
+        </div>
+      )
+    }
+
+    if (data.showFAQ) {
+      return (
+        <div className="mt-4 space-y-2">
+          {FAQ_ITEMS.map((item, index) => (
+            <button
+              key={item.question}
+              onClick={() => handleFAQSelect(item)}
+              className="w-full py-3 px-4 bg-white border border-pink-200 rounded-lg hover:border-pink-400 hover:shadow-sm transition-all text-sm font-medium text-left"
+            >
+              {index + 1}. {item.question}
+            </button>
+          ))}
+          <button
+            onClick={showMainMenu}
+            className="w-full py-3 px-4 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:shadow-md transition-all font-medium"
+          >
+            Voltar ao menu principal
+          </button>
+        </div>
+      )
+    }
 
     if (data.showCategories) {
       return (
@@ -1231,7 +1902,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
             onClick={handleBookingConfirmation}
             className="w-full py-3 px-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl hover:shadow-lg transition-all font-medium"
           >
-            Confirmar, Criar Conta e Enviar
+            Confirmar
           </button>
           <button
             onClick={() => {
@@ -1251,7 +1922,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
             }}
             className="w-full py-3 px-4 bg-white text-primary border-2 border-primary rounded-xl hover:shadow-md transition-all font-medium"
           >
-            Editar Respostas
+            Alterar informações
           </button>
           <button
             onClick={startOver}

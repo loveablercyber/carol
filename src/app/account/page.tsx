@@ -81,10 +81,18 @@ interface AppointmentHistory {
     allergies?: string
     megaHairHistory?: string
     hairType?: string
-    hairColor?: string
-    hairState?: string
-    methods?: string
-  } | null
+	    hairColor?: string
+	    hairState?: string
+	    methods?: string
+	    primaryFlow?: string
+	    primaryCategory?: string
+	    maintenanceType?: string
+	    maintenanceBasePrice?: string
+	    hairSituation?: string
+	    additionalServices?: string
+	    maintenanceKit?: string
+	    cleanHairObservation?: string
+	  } | null
   beforeImageUrl?: string | null
   afterImageUrl?: string | null
   maintenanceHistory?: Array<{
@@ -1383,12 +1391,47 @@ function AccountContent() {
                                   {appointment.questionnaireData.hairState ||
                                     'Nao informado'}
                                 </p>
-                                <p>
-                                  <span className="font-semibold">Metodos usados:</span>{' '}
-                                  {appointment.questionnaireData.methods ||
-                                    'Nao informado'}
-                                </p>
-                              </div>
+	                                <p>
+	                                  <span className="font-semibold">Metodos usados:</span>{' '}
+	                                  {appointment.questionnaireData.methods ||
+	                                    'Nao informado'}
+	                                </p>
+	                                <p>
+	                                  <span className="font-semibold">Categoria principal:</span>{' '}
+	                                  {appointment.questionnaireData.primaryCategory ||
+	                                    'Nao informado'}
+	                                </p>
+	                                <p>
+	                                  <span className="font-semibold">Tipo de manutencao:</span>{' '}
+	                                  {appointment.questionnaireData.maintenanceType ||
+	                                    'Nao informado'}
+	                                </p>
+	                                <p>
+	                                  <span className="font-semibold">Valor base manutencao:</span>{' '}
+	                                  {appointment.questionnaireData.maintenanceBasePrice ||
+	                                    'Nao informado'}
+	                                </p>
+	                                <p>
+	                                  <span className="font-semibold">Situacao do cabelo:</span>{' '}
+	                                  {appointment.questionnaireData.hairSituation ||
+	                                    'Nao informado'}
+	                                </p>
+	                                <p>
+	                                  <span className="font-semibold">Servicos adicionais:</span>{' '}
+	                                  {appointment.questionnaireData.additionalServices ||
+	                                    'Nenhum'}
+	                                </p>
+	                                <p>
+	                                  <span className="font-semibold">Kit de manutencao:</span>{' '}
+	                                  {appointment.questionnaireData.maintenanceKit ||
+	                                    'Nao incluido'}
+	                                </p>
+	                                <p>
+	                                  <span className="font-semibold">Observacao:</span>{' '}
+	                                  {appointment.questionnaireData.cleanHairObservation ||
+	                                    'Nao informado'}
+	                                </p>
+	                              </div>
                             ) : (
                               <p className="text-sm text-muted-foreground">
                                 Sem respostas detalhadas registradas.

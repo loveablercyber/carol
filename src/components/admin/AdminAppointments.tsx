@@ -17,6 +17,14 @@ type AppointmentQuestionnaire = {
   hairColor?: string
   hairState?: string
   methods?: string
+  primaryFlow?: string
+  primaryCategory?: string
+  maintenanceType?: string
+  maintenanceBasePrice?: string
+  hairSituation?: string
+  additionalServices?: string
+  maintenanceKit?: string
+  cleanHairObservation?: string
 }
 
 type AppointmentMaintenanceEntry = {
@@ -78,6 +86,14 @@ const emptyQuestionnaire: AppointmentQuestionnaire = {
   hairColor: '',
   hairState: '',
   methods: '',
+  primaryFlow: '',
+  primaryCategory: '',
+  maintenanceType: '',
+  maintenanceBasePrice: '',
+  hairSituation: '',
+  additionalServices: '',
+  maintenanceKit: '',
+  cleanHairObservation: '',
 }
 
 function normalizeQuestionnaireData(
@@ -420,6 +436,13 @@ export default function AdminAppointments() {
             ['hairColor', 'Cor do cabelo'],
             ['hairState', 'Estado do cabelo'],
             ['methods', 'Metodos usados'],
+            ['primaryCategory', 'Categoria principal'],
+            ['maintenanceType', 'Tipo de manutencao'],
+            ['maintenanceBasePrice', 'Valor base manutencao'],
+            ['hairSituation', 'Situacao do cabelo'],
+            ['additionalServices', 'Servicos adicionais'],
+            ['maintenanceKit', 'Kit de manutencao'],
+            ['cleanHairObservation', 'Observacao cabelo limpo'],
           ] as Array<[keyof AppointmentQuestionnaire, string]>
         ).map(([field, label]) => (
           <div key={field}>
