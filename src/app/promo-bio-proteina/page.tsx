@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, ShoppingBag, Heart, CheckCircle2, Info, Star, X } from 'lucide-react'
 import Chatbot from '@/components/chatbot/Chatbot'
+import UniqueVisitCounter from '@/components/UniqueVisitCounter'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getDefaultInternalPage } from '@/lib/internal-pages-defaults'
 import {
@@ -272,10 +273,16 @@ export default function PromoPage() {
         )}
       </AnimatePresence>
 
-      <footer className="mt-12 py-8 text-center text-muted-foreground">
-        <div className="flex items-center justify-center gap-2 text-sm">
-          <Heart className="w-4 h-4 text-primary fill-current" />
-          <span>{promoFooterText}</span>
+      <footer className="mt-12 py-8 text-muted-foreground">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 items-center gap-2 px-4 text-sm">
+          <div className="hidden md:block" />
+          <div className="flex items-center justify-center gap-2 text-center">
+            <Heart className="w-4 h-4 text-primary fill-current" />
+            <span>{promoFooterText}</span>
+          </div>
+          <div className="flex justify-center md:justify-end">
+            <UniqueVisitCounter />
+          </div>
         </div>
       </footer>
     </div>

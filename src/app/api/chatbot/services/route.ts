@@ -4,7 +4,7 @@ const SERVICES_DATA = {
   categories: [
     {
       id: 'extensoes',
-      name: 'Extensões / Mega Hair',
+      name: 'Extensões / Fibra Russa',
       nameEmoji: '💖',
       description: 'Comprimento e volume com técnicas invisíveis',
       image: '/images/extensions-destaque.png',

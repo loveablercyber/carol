@@ -25,13 +25,20 @@ interface ServiceCategory {
 
 function normalizeCategories(rawValue: unknown, fallback: ServiceCategory[]) {
   const parsed = asObjectArray<Record<string, unknown>>(rawValue, [])
-    .map((category, index) => ({
-      id: asString(category.id, `categoria-${index + 1}`),
-      name: asString(category.name),
-      nameEmoji: asString(category.nameEmoji, '✨'),
-      description: asString(category.description),
-      image: asString(category.image),
-    }))
+    .map((category, index) => {
+      const id = asString(category.id, `categoria-${index + 1}`)
+      const name = asString(category.name)
+      return {
+        id,
+        name:
+          id === 'extensoes' && /mega hair/i.test(name)
+            ? 'Extensoes / Fibra Russa'
+            : name,
+        nameEmoji: asString(category.nameEmoji, '✨'),
+        description: asString(category.description),
+        image: asString(category.image),
+      }
+    })
     .filter((category) => category.name && category.description && category.image)
 
   return parsed.length > 0 ? parsed : fallback
@@ -143,4 +150,3 @@ export default function ServicesPage() {
     </div>
   )
 }
-

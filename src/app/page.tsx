@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
 } from 'lucide-react'
 import Chatbot from '@/components/chatbot/Chatbot'
+import UniqueVisitCounter from '@/components/UniqueVisitCounter'
 import {
   DEFAULT_HOME_MODULES,
   HomeIconName,
@@ -277,10 +278,16 @@ export default function Home() {
       <Chatbot isOpen={isChatbotOpen} onClose={() => setIsChatbotOpen(false)} />
 
       <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm shadow-[0_-4px_20px_rgba(233,30,99,0.1)] py-4 px-4 z-50">
-        <div className="max-w-lg mx-auto flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <Heart className="w-4 h-4 text-primary fill-current" />
-          <span>CarolSol Studio - Transformando com Amor</span>
-          <Heart className="w-4 h-4 text-primary fill-current" />
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 items-center gap-2 text-sm text-muted-foreground">
+          <div className="hidden md:block" />
+          <div className="flex items-center justify-center gap-2">
+            <Heart className="w-4 h-4 text-primary fill-current" />
+            <span>CarolSol Studio - Transformando com Amor</span>
+            <Heart className="w-4 h-4 text-primary fill-current" />
+          </div>
+          <div className="flex justify-center md:justify-end">
+            <UniqueVisitCounter />
+          </div>
         </div>
       </footer>
     </main>

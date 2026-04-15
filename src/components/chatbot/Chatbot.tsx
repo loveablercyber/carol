@@ -1059,7 +1059,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
       return (
         <div className="mt-4 grid grid-cols-1 gap-3">
           {[
-            { id: 'extensoes', name: 'Extensões / Mega Hair', nameEmoji: '💖', description: 'Comprimento e volume com técnicas invisíveis', color: 'from-rose-100 to-rose-50', image: '/images/services/extensions-destaque.png' },
+            { id: 'extensoes', name: 'Extensões / Fibra Russa', nameEmoji: '💖', description: 'Comprimento e volume com técnicas invisíveis', color: 'from-rose-100 to-rose-50', image: '/images/services/extensions-destaque.png' },
             { id: 'tratamentos', name: 'Tratamentos e Alinhamento', nameEmoji: '✨', description: 'Tratamentos que restauram a saúde do seu cabelo', color: 'from-purple-100 to-purple-50', image: '/images/services/tratamentos-destaque.png' },
             { id: 'alisamento', name: 'Alisamento', nameEmoji: '💇‍♀️', description: 'Alinhamento suave e natural para seu cabelo', color: 'from-pink-100 to-pink-50', image: '/images/services/alisamento-destaque.png' },
             { id: 'cronograma', name: 'Cronograma Capilar', nameEmoji: '🌸', description: 'Tratamento completo com acompanhamento semanal', color: 'from-fuchsia-100 to-fuchsia-50', image: '/images/services/cronograma-destaque.png' }

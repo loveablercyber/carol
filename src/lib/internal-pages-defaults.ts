@@ -47,7 +47,7 @@ export const DEFAULT_INTERNAL_PAGES: InternalPageConfig[] = [
       categories: [
         {
           id: 'extensoes',
-          name: 'Extensoes / Mega Hair',
+          name: 'Extensoes / Fibra Russa',
           nameEmoji: '💖',
           description: 'Comprimento e volume com tecnicas invisiveis',
           image: '/images/services/extensions-destaque.png',
@@ -239,4 +239,3 @@ const internalPagesBySlug = new Map(DEFAULT_INTERNAL_PAGES.map((page) => [page.s
 export function getDefaultInternalPage(slug: string) {
   return internalPagesBySlug.get(slug as InternalPageSlug)
 }
-
