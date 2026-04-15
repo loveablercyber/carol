@@ -950,8 +950,20 @@ const Chatbot: React.FC<ChatbotProps> = ({
   }
 
   const handleFAQSelect = (item: FAQItem) => {
+    clearMessageFlag('showFAQ')
     addMessage('user', item.question, {})
-    addMessage('bot', item.answer, { showFAQ: true })
+    addMessage('bot', item.answer, { showFAQAnswerActions: true })
+  }
+
+  const handleShowFAQAgain = () => {
+    clearMessageFlag('showFAQAnswerActions')
+    addMessage('bot', 'Escolha outra pergunta:', { showFAQ: true })
+  }
+
+  const handleBackToMainMenuFromFAQ = () => {
+    clearMessageFlag('showFAQ')
+    clearMessageFlag('showFAQAnswerActions')
+    showMainMenu()
   }
 
   const handleBackToCategories = () => {
@@ -1553,7 +1565,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
       !lastBotMessage.data?.showAdditionalServices &&
       !lastBotMessage.data?.showKitOffer &&
       !lastBotMessage.data?.showKitItems &&
-      !lastBotMessage.data?.showFAQ
+      !lastBotMessage.data?.showFAQ &&
+      !lastBotMessage.data?.showFAQAnswerActions
   }
 
   const renderMessageData = (data: any) => {
@@ -1717,7 +1730,26 @@ const Chatbot: React.FC<ChatbotProps> = ({
             </button>
           ))}
           <button
-            onClick={showMainMenu}
+            onClick={handleBackToMainMenuFromFAQ}
+            className="w-full py-3 px-4 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:shadow-md transition-all font-medium"
+          >
+            Voltar ao menu principal
+          </button>
+        </div>
+      )
+    }
+
+    if (data.showFAQAnswerActions) {
+      return (
+        <div className="mt-4 space-y-2">
+          <button
+            onClick={handleShowFAQAgain}
+            className="w-full py-3 px-4 bg-white text-primary border-2 border-primary rounded-xl hover:shadow-md transition-all font-medium"
+          >
+            Ver outras perguntas
+          </button>
+          <button
+            onClick={handleBackToMainMenuFromFAQ}
             className="w-full py-3 px-4 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 rounded-xl hover:shadow-md transition-all font-medium"
           >
             Voltar ao menu principal
