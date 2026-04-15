@@ -182,6 +182,13 @@ function AccountContent() {
     isDefault: false,
   })
 
+  useEffect(() => {
+    const tab = new URLSearchParams(window.location.search).get('tab')
+    if (tab === 'appointments') {
+      setActiveTab('appointments')
+    }
+  }, [])
+
   // Buscar pedidos do usuário
   useEffect(() => {
     const fetchOrders = async () => {

@@ -229,6 +229,30 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setMessages(prev => [...prev, message])
   }
 
+  const clearAccountRedirectPrompt = () => {
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.data?.showAccountRedirect
+          ? { ...message, data: { ...message.data, showAccountRedirect: false } }
+          : message
+      )
+    )
+  }
+
+  const handleAccountRedirect = (accountUrl = '/account?tab=appointments') => {
+    clearAccountRedirectPrompt()
+    window.location.href = accountUrl
+  }
+
+  const handleSkipAccountRedirect = () => {
+    clearAccountRedirectPrompt()
+    addMessage('user', 'Agora não')
+    addMessage(
+      'bot',
+      'Tudo certo. Quando quiser conferir seus serviços agendados, acesse o painel do cliente pelo menu Minha Conta.'
+    )
+  }
+
   const initializeChat = async () => {
     setIsLoading(true)
     setTimeout(() => {
@@ -980,8 +1004,21 @@ const Chatbot: React.FC<ChatbotProps> = ({
     if (googleCalendarUrl && confirm('Deseja adicionar este agendamento no Google Agenda?')) {
       window.open(googleCalendarUrl, '_blank')
     }
-    alert('✅ Agendamento concluído com conta criada/acessada com sucesso!')
-    startOver()
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.data?.showConfirmation
+          ? { ...message, data: { ...message.data, showConfirmation: false } }
+          : message
+      )
+    )
+    addMessage(
+      'bot',
+      'Obrigada! Seu agendamento foi registrado com sucesso.\n\nDeseja ser redirecionada para o painel do cliente para verificar seus serviços agendados?',
+      {
+        showAccountRedirect: true,
+        accountUrl: '/account?tab=appointments',
+      }
+    )
   }
 
   const startOver = () => {
@@ -1011,7 +1048,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
       !lastBotMessage.data?.showTimeSlots &&
       !lastBotMessage.data?.showPayment &&
       !lastBotMessage.data?.showLoginPrompt &&
-      !lastBotMessage.data?.showConfirmation
+      !lastBotMessage.data?.showConfirmation &&
+      !lastBotMessage.data?.showAccountRedirect
   }
 
   const renderMessageData = (data: any) => {
@@ -1226,6 +1264,25 @@ const Chatbot: React.FC<ChatbotProps> = ({
             className="w-full py-3 px-4 bg-white text-gray-700 border-2 border-gray-300 rounded-xl hover:shadow-md transition-all font-medium"
           >
             Fechar
+          </button>
+        </div>
+      )
+    }
+
+    if (data.showAccountRedirect) {
+      return (
+        <div className="mt-4 space-y-3">
+          <button
+            onClick={() => handleAccountRedirect(data.accountUrl)}
+            className="w-full py-3 px-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl hover:shadow-lg transition-all font-medium"
+          >
+            Sim, abrir painel do cliente
+          </button>
+          <button
+            onClick={handleSkipAccountRedirect}
+            className="w-full py-3 px-4 bg-white text-primary border-2 border-primary rounded-xl hover:shadow-md transition-all font-medium"
+          >
+            Agora não
           </button>
         </div>
       )
