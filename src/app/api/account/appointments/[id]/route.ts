@@ -25,11 +25,13 @@ function withPresentation(appointment: Awaited<ReturnType<typeof getAppointmentB
   const deadlineMs = deadlineAt ? new Date(deadlineAt).getTime() : 0
   const scheduledMs = new Date(appointment.scheduledAt).getTime()
   const canConfirm =
-    appointment.status === 'scheduled' &&
+    ['pending', 'scheduled'].includes(appointment.status) &&
     !appointment.clientConfirmedAt &&
     Boolean(deadlineMs) &&
     now <= deadlineMs
-  const canCancel = appointment.status === 'scheduled' && scheduledMs > now
+  const canCancel =
+    ['pending', 'scheduled', 'confirmed'].includes(appointment.status) &&
+    scheduledMs > now
 
   return {
     ...appointment,
@@ -86,10 +88,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
     }
 
-    if (current.status !== 'scheduled') {
+    if (!['pending', 'scheduled', 'confirmed'].includes(current.status)) {
       return NextResponse.json(
         {
-          error: 'Somente agendamentos com status "agendado" podem ser alterados.',
+          error: 'Somente agendamentos ativos podem ser alterados.',
           appointment: withPresentation(current),
         },
         { status: 409 }

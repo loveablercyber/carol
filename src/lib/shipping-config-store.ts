@@ -126,7 +126,7 @@ function mapConfig(row: ShippingConfigRow) {
   }
 }
 
-function mapRule(row: ShippingRuleRow) {
+function mapRule(row: ShippingRuleRow): ShippingSettings['rules'][number] {
   return {
     id: row.id,
     scope: row.scope === 'PRODUCT' ? 'PRODUCT' : 'CATEGORY',

@@ -46,11 +46,13 @@ export async function GET() {
           ? new Date(confirmationDeadlineAt).getTime()
           : 0
         const canConfirmFromClient =
-          item.status === 'scheduled' &&
+          ['pending', 'scheduled'].includes(item.status) &&
           !item.clientConfirmedAt &&
           Boolean(deadlineMs) &&
           now <= deadlineMs
-        const canCancelFromClient = item.status === 'scheduled' && scheduledMs > now
+        const canCancelFromClient =
+          ['pending', 'scheduled', 'confirmed'].includes(item.status) &&
+          scheduledMs > now
 
         return {
           ...item,
@@ -75,14 +77,16 @@ export async function GET() {
         total: appointments.length,
         upcoming: appointments.filter(
           (item) =>
-            item.status === 'scheduled' &&
+            ['pending', 'scheduled', 'confirmed'].includes(item.status) &&
             new Date(item.scheduledAt).getTime() >= Date.now()
         ).length,
         confirmed: appointments.filter(
-          (item) => item.status === 'scheduled' && Boolean(item.clientConfirmedAt)
+          (item) => item.status === 'confirmed' || Boolean(item.clientConfirmedAt)
         ).length,
         pendingConfirmation: appointments.filter(
-          (item) => item.status === 'scheduled' && !item.clientConfirmedAt
+          (item) =>
+            ['pending', 'scheduled'].includes(item.status) &&
+            !item.clientConfirmedAt
         ).length,
         completed: appointments.filter((item) => item.status === 'completed').length,
       },

@@ -23,6 +23,7 @@ import AdminOrders from '@/components/admin/AdminOrders'
 import AdminCustomers from '@/components/admin/AdminCustomers'
 import AdminHomeModules from '@/components/admin/AdminHomeModules'
 import AdminInternalPages from '@/components/admin/AdminInternalPages'
+import AdminChatbotConfig from '@/components/admin/AdminChatbotConfig'
 import AdminAppointments from '@/components/admin/AdminAppointments'
 import AdminShipping from '@/components/admin/AdminShipping'
 import AdminReviews from '@/components/admin/AdminReviews'
@@ -67,7 +68,7 @@ interface AppointmentHistory {
   totalPrice: number
   customerPhone?: string | null
   paymentMethod?: string | null
-  status: 'scheduled' | 'completed' | 'cancelled'
+  status: 'pending' | 'scheduled' | 'confirmed' | 'completed' | 'cancelled'
   clientConfirmedAt?: string | null
   confirmationDeadlineAt?: string | null
   canConfirmFromClient?: boolean
@@ -142,6 +143,7 @@ function AccountContent() {
     | 'customers'
     | 'homeModules'
     | 'internalPages'
+    | 'chatbotConfig'
     | 'appointments'
     | 'shipping'
     | 'reviews'
@@ -724,7 +726,9 @@ function AccountContent() {
 
   const getAppointmentStatusText = (status: AppointmentHistory['status']) => {
     const statusMap = {
+      pending: 'Pendente',
       scheduled: 'Agendado',
+      confirmed: 'Confirmado',
       completed: 'Concluido',
       cancelled: 'Cancelado',
     }
@@ -734,11 +738,13 @@ function AccountContent() {
   const getAppointmentStatusColor = (status: AppointmentHistory['status']) => {
     if (status === 'completed') return 'bg-green-100 text-green-700'
     if (status === 'cancelled') return 'bg-red-100 text-red-700'
+    if (status === 'confirmed') return 'bg-emerald-100 text-emerald-700'
+    if (status === 'pending') return 'bg-amber-100 text-amber-700'
     return 'bg-blue-100 text-blue-700'
   }
 
   const getAppointmentConfirmationText = (appointment: AppointmentHistory) => {
-    if (appointment.status !== 'scheduled') return null
+    if (!['pending', 'scheduled', 'confirmed'].includes(appointment.status)) return null
     if (appointment.clientConfirmedAt) {
       return `Presenca confirmada em ${new Date(
         appointment.clientConfirmedAt
@@ -1864,6 +1870,11 @@ function AccountContent() {
                           description: 'Edite promocoes, servicos e paginas de conteudo.',
                         },
                         {
+                          key: 'chatbotConfig',
+                          title: 'Chatbot e Agenda',
+                          description: 'Configure fluxos, servicos, FAQ, midias e horarios.',
+                        },
+                        {
                           key: 'appointments',
                           title: 'Agendamentos',
                           description: 'Gerencie horarios, confirmacoes e cancelamentos.',
@@ -1916,6 +1927,7 @@ function AccountContent() {
                     {adminSection === 'customers' && <AdminCustomers />}
                     {adminSection === 'homeModules' && <AdminHomeModules />}
                     {adminSection === 'internalPages' && <AdminInternalPages />}
+                    {adminSection === 'chatbotConfig' && <AdminChatbotConfig />}
                     {adminSection === 'appointments' && <AdminAppointments />}
                     {adminSection === 'shipping' && <AdminShipping />}
                     {adminSection === 'reviews' && <AdminReviews />}

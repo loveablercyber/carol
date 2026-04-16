@@ -7,6 +7,7 @@ import {
   Layers3,
   MessageSquare,
   Package,
+  Settings2,
   ShoppingCart,
   Truck,
   Users,
@@ -70,6 +71,12 @@ export default function AdminPage() {
       description: 'Edite promocoes, servicos, clube e conteudo.',
       href: '/admin/internal-pages',
       icon: FilePenLine,
+    },
+    {
+      title: 'Chatbot e Agenda',
+      description: 'Configure fluxos, servicos, FAQ, midias e horarios.',
+      href: '/admin/chatbot-config',
+      icon: Settings2,
     },
     {
       title: 'Agendamentos',

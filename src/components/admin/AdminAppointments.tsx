@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from '@/hooks/use-toast'
 
-type AppointmentStatus = 'scheduled' | 'completed' | 'cancelled'
+type AppointmentStatus =
+  | 'pending'
+  | 'scheduled'
+  | 'confirmed'
+  | 'completed'
+  | 'cancelled'
 type AdminTab = 'general' | 'beforeAfter' | 'maintenance' | 'chatbotData'
 
 type AppointmentQuestionnaire = {
@@ -41,6 +46,7 @@ type Appointment = {
   customerPhone: string
   serviceName: string
   scheduledAt: string
+  durationMinutes?: number
   totalPrice: number
   paymentMethod: string | null
   status: AppointmentStatus
@@ -53,6 +59,8 @@ type Appointment = {
 
 type AppointmentUpdate = {
   status: AppointmentStatus
+  scheduledAt: string
+  durationMinutes: number
   notes: string
   beforeImageUrl: string
   afterImageUrl: string
@@ -64,13 +72,17 @@ type AppointmentUpdate = {
 }
 
 const statusLabel: Record<AppointmentStatus, string> = {
+  pending: 'Pendente',
   scheduled: 'Agendado',
+  confirmed: 'Confirmado',
   completed: 'Concluido',
   cancelled: 'Cancelado',
 }
 
 const statusColor: Record<AppointmentStatus, string> = {
+  pending: 'bg-amber-100 text-amber-700',
   scheduled: 'bg-blue-100 text-blue-700',
+  confirmed: 'bg-emerald-100 text-emerald-700',
   completed: 'bg-green-100 text-green-700',
   cancelled: 'bg-red-100 text-red-700',
 }
@@ -105,22 +117,44 @@ function normalizeQuestionnaireData(
   }
 }
 
+function toDateTimeInput(value: string) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const offset = date.getTimezoneOffset()
+  const local = new Date(date.getTime() - offset * 60 * 1000)
+  return local.toISOString().slice(0, 16)
+}
+
 export default function AdminAppointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<'all' | AppointmentStatus>('all')
+  const [search, setSearch] = useState('')
+  const [dateFilter, setDateFilter] = useState('')
+  const [serviceFilter, setServiceFilter] = useState('')
+  const [phoneFilter, setPhoneFilter] = useState('')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [savingId, setSavingId] = useState<string | null>(null)
   const [updates, setUpdates] = useState<Record<string, AppointmentUpdate>>({})
 
   const fetchAppointments = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/admin/appointments?status=${filter}`)
+      const params = new URLSearchParams()
+      params.set('status', filter)
+      if (search.trim()) params.set('q', search.trim())
+      if (dateFilter) params.set('date', dateFilter)
+      if (serviceFilter.trim()) params.set('service', serviceFilter.trim())
+      if (phoneFilter.trim()) params.set('phone', phoneFilter.trim())
+
+      const response = await fetch(`/api/admin/appointments?${params.toString()}`)
       const data = await response.json()
       if (!response.ok) {
         throw new Error(data.error || 'Erro ao buscar agendamentos')
       }
       setAppointments(data.appointments || [])
+      setSelectedIds([])
     } catch (error: any) {
       toast({
         title: 'Erro ao carregar agendamentos',
@@ -134,7 +168,7 @@ export default function AdminAppointments() {
 
   useEffect(() => {
     void fetchAppointments()
-  }, [filter])
+  }, [filter, search, dateFilter, serviceFilter, phoneFilter])
 
   const grouped = useMemo(() => {
     const today = new Date()
@@ -142,16 +176,20 @@ export default function AdminAppointments() {
     return {
       upcoming: appointments.filter(
         (item) =>
-          item.status === 'scheduled' &&
+          ['pending', 'scheduled', 'confirmed'].includes(item.status) &&
           new Date(item.scheduledAt).getTime() >= today.getTime()
       ),
-      done: appointments.filter((item) => item.status !== 'scheduled'),
+      done: appointments.filter(
+        (item) => !['pending', 'scheduled', 'confirmed'].includes(item.status)
+      ),
     }
   }, [appointments])
 
   const getUpdate = (appointment: Appointment): AppointmentUpdate =>
     updates[appointment.id] || {
       status: appointment.status,
+      scheduledAt: toDateTimeInput(appointment.scheduledAt),
+      durationMinutes: Number(appointment.durationMinutes || 60),
       notes: appointment.notes || '',
       beforeImageUrl: appointment.beforeImageUrl || '',
       afterImageUrl: appointment.afterImageUrl || '',
@@ -220,6 +258,10 @@ export default function AdminAppointments() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           status: payload.status,
+          scheduledAt: payload.scheduledAt
+            ? new Date(payload.scheduledAt).toISOString()
+            : appointment.scheduledAt,
+          durationMinutes: payload.durationMinutes,
           notes: payload.notes,
           beforeImageUrl: payload.beforeImageUrl || null,
           afterImageUrl: payload.afterImageUrl || null,
@@ -251,6 +293,94 @@ export default function AdminAppointments() {
     }
   }
 
+  const deleteAppointment = async (appointment: Appointment) => {
+    if (!confirm(`Remover o agendamento de ${appointment.customerName}?`)) return
+    setSavingId(appointment.id)
+    try {
+      const response = await fetch(`/api/admin/appointments/${appointment.id}`, {
+        method: 'DELETE',
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao remover agendamento')
+      }
+      setAppointments((prev) => prev.filter((item) => item.id !== appointment.id))
+      setSelectedIds((prev) => prev.filter((id) => id !== appointment.id))
+      toast({ title: 'Agendamento removido' })
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao remover',
+        description: error?.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const deleteSelected = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`Remover ${selectedIds.length} agendamento(s) selecionado(s)?`)) return
+    setSavingId('bulk')
+    try {
+      const response = await fetch('/api/admin/appointments', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: selectedIds }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao remover agendamentos')
+      }
+      setAppointments((prev) => prev.filter((item) => !selectedIds.includes(item.id)))
+      setSelectedIds([])
+      toast({ title: 'Agendamentos removidos' })
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao remover em lote',
+        description: error?.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const uploadAppointmentImage = async (
+    appointment: Appointment,
+    field: 'beforeImageUrl' | 'afterImageUrl',
+    file?: File
+  ) => {
+    if (!file) return
+    const uploadKey = `${appointment.id}-${field}`
+    setSavingId(uploadKey)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await fetch('/api/admin/media', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro no upload')
+      }
+      updateDraft(appointment.id, (draft) => ({
+        ...draft,
+        [field]: data.url || '',
+      }))
+      toast({ title: 'Imagem enviada' })
+    } catch (error: any) {
+      toast({
+        title: 'Falha no upload',
+        description: error?.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
   const renderGeneralTab = (appointment: Appointment, update: AppointmentUpdate) => (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -266,7 +396,9 @@ export default function AdminAppointments() {
             }
             className="w-full px-3 py-2 border border-pink-200 rounded-lg"
           >
+            <option value="pending">Pendente</option>
             <option value="scheduled">Agendado</option>
+            <option value="confirmed">Confirmado</option>
             <option value="completed">Concluido</option>
             <option value="cancelled">Cancelado</option>
           </select>
@@ -277,6 +409,38 @@ export default function AdminAppointments() {
             disabled
             value={appointment.paymentMethod || 'Nao informado'}
             className="w-full px-3 py-2 border border-pink-100 rounded-lg bg-pink-50 text-muted-foreground"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-semibold mb-2">Data e horario</label>
+          <input
+            type="datetime-local"
+            value={update.scheduledAt}
+            onChange={(event) =>
+              updateDraft(appointment.id, (draft) => ({
+                ...draft,
+                scheduledAt: event.target.value,
+              }))
+            }
+            className="w-full px-3 py-2 border border-pink-200 rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold mb-2">Duracao em minutos</label>
+          <input
+            type="number"
+            min={15}
+            value={update.durationMinutes}
+            onChange={(event) =>
+              updateDraft(appointment.id, (draft) => ({
+                ...draft,
+                durationMinutes: Number(event.target.value || 60),
+              }))
+            }
+            className="w-full px-3 py-2 border border-pink-200 rounded-lg"
           />
         </div>
       </div>
@@ -302,7 +466,19 @@ export default function AdminAppointments() {
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="block text-xs font-semibold">Imagem antes (URL)</label>
+          <label className="block text-xs font-semibold">Imagem antes</label>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={(event) =>
+              uploadAppointmentImage(
+                appointment,
+                'beforeImageUrl',
+                event.target.files?.[0]
+              )
+            }
+            className="w-full px-3 py-2 border border-pink-200 rounded-lg"
+          />
           <input
             value={update.beforeImageUrl}
             onChange={(event) =>
@@ -311,7 +487,7 @@ export default function AdminAppointments() {
                 beforeImageUrl: event.target.value,
               }))
             }
-            placeholder="https://..."
+            placeholder="URL antiga ou caminho do upload"
             className="w-full px-3 py-2 border border-pink-200 rounded-lg"
           />
           {update.beforeImageUrl ? (
@@ -323,7 +499,19 @@ export default function AdminAppointments() {
           ) : null}
         </div>
         <div className="space-y-2">
-          <label className="block text-xs font-semibold">Imagem depois (URL)</label>
+          <label className="block text-xs font-semibold">Imagem depois</label>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={(event) =>
+              uploadAppointmentImage(
+                appointment,
+                'afterImageUrl',
+                event.target.files?.[0]
+              )
+            }
+            className="w-full px-3 py-2 border border-pink-200 rounded-lg"
+          />
           <input
             value={update.afterImageUrl}
             onChange={(event) =>
@@ -332,7 +520,7 @@ export default function AdminAppointments() {
                 afterImageUrl: event.target.value,
               }))
             }
-            placeholder="https://..."
+            placeholder="URL antiga ou caminho do upload"
             className="w-full px-3 py-2 border border-pink-200 rounded-lg"
           />
           {update.afterImageUrl ? (
@@ -474,7 +662,20 @@ export default function AdminAppointments() {
         className="rounded-xl border border-pink-100 bg-white p-4 space-y-4"
       >
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-          <div>
+          <div className="flex gap-3">
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(appointment.id)}
+              onChange={(event) =>
+                setSelectedIds((prev) =>
+                  event.target.checked
+                    ? [...prev, appointment.id]
+                    : prev.filter((id) => id !== appointment.id)
+                )
+              }
+              className="mt-1 h-4 w-4 accent-primary"
+            />
+            <div>
             <p className="font-semibold text-foreground">{appointment.customerName}</p>
             <p className="text-sm text-muted-foreground">
               {appointment.customerEmail} • {appointment.customerPhone}
@@ -484,14 +685,26 @@ export default function AdminAppointments() {
               {appointment.totalPrice.toFixed(2).replace('.', ',')}
             </p>
             <p className="text-sm text-muted-foreground">
-              {new Date(appointment.scheduledAt).toLocaleString('pt-BR')}
+              {new Date(appointment.scheduledAt).toLocaleString('pt-BR')} •{' '}
+              {appointment.durationMinutes || 60} min
             </p>
+            </div>
           </div>
-          <span
-            className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${statusColor[appointment.status]}`}
-          >
-            {statusLabel[appointment.status]}
-          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${statusColor[appointment.status]}`}
+            >
+              {statusLabel[appointment.status]}
+            </span>
+            <button
+              type="button"
+              onClick={() => deleteAppointment(appointment)}
+              disabled={savingId === appointment.id}
+              className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 disabled:opacity-60"
+            >
+              Excluir
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -589,16 +802,58 @@ export default function AdminAppointments() {
               Historico completo do atendimento, antes/depois e manutencoes.
             </p>
           </div>
-          <select
-            value={filter}
-            onChange={(event) => setFilter(event.target.value as 'all' | AppointmentStatus)}
-            className="w-full md:w-56 px-4 py-2 border border-pink-200 rounded-lg"
-          >
-            <option value="all">Todos</option>
-            <option value="scheduled">Agendados</option>
-            <option value="completed">Concluidos</option>
-            <option value="cancelled">Cancelados</option>
-          </select>
+          <div className="flex flex-col gap-2 md:items-end">
+            <select
+              value={filter}
+              onChange={(event) => setFilter(event.target.value as 'all' | AppointmentStatus)}
+              className="w-full md:w-56 px-4 py-2 border border-pink-200 rounded-lg"
+            >
+              <option value="all">Todos</option>
+              <option value="pending">Pendentes</option>
+              <option value="scheduled">Agendados</option>
+              <option value="confirmed">Confirmados</option>
+              <option value="completed">Concluidos</option>
+              <option value="cancelled">Cancelados</option>
+            </select>
+            {selectedIds.length > 0 ? (
+              <button
+                type="button"
+                onClick={deleteSelected}
+                disabled={savingId === 'bulk'}
+                className="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 disabled:opacity-60"
+              >
+                {savingId === 'bulk'
+                  ? 'Removendo...'
+                  : `Excluir selecionados (${selectedIds.length})`}
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Buscar por cliente, email ou servico"
+            className="px-4 py-2 border border-pink-200 rounded-lg"
+          />
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={(event) => setDateFilter(event.target.value)}
+            className="px-4 py-2 border border-pink-200 rounded-lg"
+          />
+          <input
+            value={serviceFilter}
+            onChange={(event) => setServiceFilter(event.target.value)}
+            placeholder="Filtrar por servico"
+            className="px-4 py-2 border border-pink-200 rounded-lg"
+          />
+          <input
+            value={phoneFilter}
+            onChange={(event) => setPhoneFilter(event.target.value)}
+            placeholder="Filtrar por telefone"
+            className="px-4 py-2 border border-pink-200 rounded-lg"
+          />
         </div>
       </div>
 

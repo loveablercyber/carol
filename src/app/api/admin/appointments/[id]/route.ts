@@ -4,10 +4,18 @@ import { authOptions } from '@/lib/auth-options'
 import {
   AppointmentMaintenanceEntry,
   AppointmentQuestionnaire,
+  AppointmentStatus,
+  deleteAppointment,
   getAppointmentById,
+  hasAppointmentConflict,
   updateAppointmentAdminDetails,
 } from '@/lib/appointments-store'
 import { dispatchAppointmentNotification } from '@/lib/appointment-notifications'
+import { getAdminOperationalConfig } from '@/lib/admin-config-store'
+import {
+  normalizeDurationMinutes,
+  validateScheduleWindow,
+} from '@/lib/scheduling-availability'
 
 async function ensureAdmin() {
   const session = await getServerSession(authOptions)
@@ -31,6 +39,14 @@ export async function PUT(
     const body = await request.json().catch(() => ({}))
     const status = String(body?.status || '').toLowerCase()
     const notes = typeof body?.notes === 'string' ? body.notes : undefined
+    const scheduledAt =
+      typeof body?.scheduledAt === 'string' && body.scheduledAt
+        ? body.scheduledAt
+        : undefined
+    const durationMinutes =
+      body?.durationMinutes === null || body?.durationMinutes === undefined
+        ? undefined
+        : Number(body.durationMinutes)
     const beforeImageUrl =
       body?.beforeImageUrl === null
         ? null
@@ -56,7 +72,7 @@ export async function PUT(
           ? (body.maintenanceHistory as AppointmentMaintenanceEntry[])
           : undefined
 
-    if (!['scheduled', 'completed', 'cancelled'].includes(status)) {
+    if (!['pending', 'scheduled', 'confirmed', 'completed', 'cancelled'].includes(status)) {
       return NextResponse.json(
         { error: 'Status invalido' },
         { status: 400 }
@@ -64,10 +80,54 @@ export async function PUT(
     }
 
     const previous = await getAppointmentById(id)
+    if (!previous) {
+      return NextResponse.json(
+        { error: 'Agendamento nao encontrado' },
+        { status: 404 }
+      )
+    }
+
+    const nextScheduledAt = scheduledAt || previous.scheduledAt
+    const nextDuration = normalizeDurationMinutes(
+      durationMinutes,
+      previous.durationMinutes
+    )
+
+    if (['pending', 'scheduled', 'confirmed'].includes(status)) {
+      const config = await getAdminOperationalConfig()
+      const scheduleWindow = validateScheduleWindow({
+        start: new Date(nextScheduledAt),
+        durationMinutes: nextDuration,
+        settings: config.schedulingSettings,
+      })
+
+      if (!scheduleWindow.available) {
+        return NextResponse.json(
+          { error: scheduleWindow.reason || 'Horario indisponivel' },
+          { status: 409 }
+        )
+      }
+
+      const hasConflict = await hasAppointmentConflict({
+        scheduledAt: nextScheduledAt,
+        durationMinutes: nextDuration,
+        excludeId: id,
+      })
+
+      if (hasConflict) {
+        return NextResponse.json(
+          { error: 'Existe outro agendamento conflitante neste horario.' },
+          { status: 409 }
+        )
+      }
+    }
+
     const appointment = await updateAppointmentAdminDetails({
       id,
-      status: status as 'scheduled' | 'completed' | 'cancelled',
+      status: status as AppointmentStatus,
       notes,
+      scheduledAt: nextScheduledAt,
+      durationMinutes: nextDuration,
       beforeImageUrl,
       afterImageUrl,
       questionnaireData,
@@ -91,7 +151,7 @@ export async function PUT(
         })
       }
 
-      if (appointment.status === 'scheduled') {
+      if (appointment.status === 'scheduled' || appointment.status === 'confirmed') {
         await dispatchAppointmentNotification({
           appointment,
           type: 'confirmation',
@@ -106,6 +166,36 @@ export async function PUT(
     console.error('Erro ao atualizar agendamento:', error)
     return NextResponse.json(
       { error: 'Erro ao atualizar agendamento' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await ensureAdmin()
+    if (!session) {
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 })
+    }
+
+    const { id } = await params
+    const deleted = await deleteAppointment(id)
+
+    if (!deleted) {
+      return NextResponse.json(
+        { error: 'Agendamento nao encontrado' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({ deleted })
+  } catch (error) {
+    console.error('Erro ao remover agendamento:', error)
+    return NextResponse.json(
+      { error: 'Erro ao remover agendamento' },
       { status: 500 }
     )
   }

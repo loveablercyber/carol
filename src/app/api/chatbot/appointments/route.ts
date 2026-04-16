@@ -3,10 +3,17 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import {
   createAppointment,
+  hasAppointmentConflict,
   listDaySlots,
 } from '@/lib/appointments-store'
 import { dispatchAppointmentNotification } from '@/lib/appointment-notifications'
 import { buildGoogleCalendarUrl } from '@/lib/appointment-calendar'
+import { getAdminOperationalConfig } from '@/lib/admin-config-store'
+import {
+  buildAvailableSlots,
+  normalizeDurationMinutes,
+  validateScheduleWindow,
+} from '@/lib/scheduling-availability'
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,14 +49,51 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const config = await getAdminOperationalConfig()
+    const safeDuration = normalizeDurationMinutes(
+      durationMinutes,
+      config.schedulingSettings.defaultDurationMinutes
+    )
+    const scheduledAt = new Date(scheduledDate)
+    const scheduleWindow = validateScheduleWindow({
+      start: scheduledAt,
+      durationMinutes: safeDuration,
+      settings: config.schedulingSettings,
+    })
+
+    if (!scheduleWindow.available) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: scheduleWindow.reason || 'Horario indisponivel para agendamento',
+        },
+        { status: 409 }
+      )
+    }
+
+    const hasConflict = await hasAppointmentConflict({
+      scheduledAt: scheduledAt.toISOString(),
+      durationMinutes: safeDuration,
+    })
+
+    if (hasConflict) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Este horario ja esta ocupado para a duracao do servico escolhido.',
+        },
+        { status: 409 }
+      )
+    }
+
     const appointment = await createAppointment({
       userId: session.user.id,
       customerName: String(customer.name || '').trim(),
       customerEmail: String(customer.email || '').trim(),
       customerPhone: String(customer.phone || '').trim(),
       serviceName: String(service.name || service.title || service.serviceName || service || '').trim(),
-      scheduledAt: new Date(scheduledDate).toISOString(),
-      durationMinutes: Number(durationMinutes || 60),
+      scheduledAt: scheduledAt.toISOString(),
+      durationMinutes: safeDuration,
       grams: grams ? String(grams) : null,
       lengthLabel: length ? String(length) : null,
       totalPrice: Number(totalPrice || 0),
@@ -120,6 +164,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')
+  const durationMinutes = searchParams.get('durationMinutes')
 
   if (!date) {
     return NextResponse.json(
@@ -129,40 +174,17 @@ export async function GET(request: NextRequest) {
   }
 
   const selectedDate = new Date(date)
-  const now = new Date()
-  const isToday = selectedDate.toDateString() === now.toDateString()
-
-  const availableSlots: any[] = []
-  const startHour = 9
-  const endHour = 19
+  const config = await getAdminOperationalConfig()
   const scheduled = await listDaySlots(selectedDate.toISOString())
-  const taken = new Set(
-    scheduled.map((item) => new Date(item.scheduledAt).toTimeString().slice(0, 5))
-  )
-
-  for (let hour = startHour; hour < endHour; hour++) {
-    for (const minute of ['00']) {
-      const slotTime = new Date(selectedDate)
-      slotTime.setHours(hour, parseInt(minute), 0, 0)
-
-      if (isToday && slotTime <= now) {
-        continue
-      }
-
-      const dayOfWeek = slotTime.getDay()
-      if (dayOfWeek === 0) {
-        continue
-      }
-
-      const isTaken = taken.has(`${hour.toString().padStart(2, '0')}:${minute}`)
-
-      availableSlots.push({
-        time: slotTime.toISOString(),
-        displayTime: `${hour.toString().padStart(2, '0')}:${minute}`,
-        available: !isTaken
-      })
-    }
-  }
+  const availableSlots = buildAvailableSlots({
+    date: selectedDate,
+    durationMinutes: normalizeDurationMinutes(
+      durationMinutes,
+      config.schedulingSettings.defaultDurationMinutes
+    ),
+    settings: config.schedulingSettings,
+    appointments: scheduled,
+  })
   
   return NextResponse.json({
     success: true,

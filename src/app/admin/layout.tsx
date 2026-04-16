@@ -54,6 +54,7 @@ export default async function AdminLayout({
     { href: '/admin/categories', label: 'Categorias', icon: Layers3 },
     { href: '/admin/home-modules', label: 'Pagina Inicial', icon: Home },
     { href: '/admin/internal-pages', label: 'Paginas Internas', icon: FilePenLine },
+    { href: '/admin/chatbot-config', label: 'Chatbot e Agenda', icon: Settings2 },
     { href: '/admin/appointments', label: 'Agendamentos', icon: CalendarClock },
     { href: '/admin/shipping', label: 'Frete', icon: Truck },
     { href: '/admin/reviews', label: 'Comentarios', icon: MessageSquare },

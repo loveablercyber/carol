@@ -310,6 +310,17 @@ const Chatbot: React.FC<ChatbotProps> = ({
   const [hairSituation, setHairSituation] = useState('')
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
   const [selectedKitItems, setSelectedKitItems] = useState<string[]>([])
+  const [faqItems, setFaqItems] = useState<FAQItem[]>(FAQ_ITEMS)
+  const [maintenanceOptions, setMaintenanceOptions] =
+    useState<MaintenanceOption[]>(MAINTENANCE_OPTIONS)
+  const [additionalServices, setAdditionalServices] = useState<string[]>(ADDITIONAL_SERVICES)
+  const [maintenanceKitItems, setMaintenanceKitItems] = useState<string[]>(MAINTENANCE_KIT_ITEMS)
+  const [mainMenuLabels, setMainMenuLabels] = useState({
+    evaluation: 'Agendar avaliação',
+    maintenance: 'Manutenção do Megahair',
+    application: 'Aplicação do Megahair',
+    faq: 'Perguntas e Respostas',
+  })
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [selectedTime, setSelectedTime] = useState<string>('')
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix')
@@ -323,6 +334,90 @@ const Chatbot: React.FC<ChatbotProps> = ({
     if (preSelectedCategory) setSelectedCategory(preSelectedCategory)
     if (preSelectedService) setSelectedService(preSelectedService)
   }, [isOpen, preSelectedCategory, preSelectedService])
+
+  useEffect(() => {
+    const loadPublicConfig = async () => {
+      try {
+        const response = await fetch('/api/chatbot/config', { cache: 'no-store' })
+        const data = await response.json()
+        if (!response.ok) return
+
+        const configFaq = Array.isArray(data?.config?.faqItems)
+          ? data.config.faqItems
+          : []
+        if (configFaq.length > 0) {
+          setFaqItems(
+            configFaq
+              .filter((item: any) => item?.question && item?.answer)
+              .map((item: any) => ({
+                question: String(item.question),
+                answer: String(item.answer),
+              }))
+          )
+        }
+
+        const flowItems = Array.isArray(data?.config?.flowItems)
+          ? data.config.flowItems
+          : []
+        const services = Array.isArray(data?.config?.services)
+          ? data.config.services
+          : []
+
+        const configuredMaintenanceOptions = services
+          .filter((service: any) =>
+            /manutenc/i.test(String(service.category || service.subcategory || ''))
+          )
+          .map((service: any) => ({
+            label: String(service.name || 'Manutenção'),
+            value: String(service.id || service.name || 'manutencao'),
+            price: Number(service.price || 0),
+            priceLabel:
+              String(service.priceLabel || '').trim() ||
+              `R$ ${Number(service.price || 0).toFixed(2).replace('.', ',')}`,
+          }))
+
+        if (configuredMaintenanceOptions.length > 0) {
+          setMaintenanceOptions(configuredMaintenanceOptions)
+        }
+
+        if (flowItems.length > 0) {
+          const addonFlow = flowItems.find((item: any) =>
+            /adicion/i.test(String(item.title || item.description || ''))
+          )
+          if (Array.isArray(addonFlow?.options) && addonFlow.options.length > 0) {
+            setAdditionalServices(addonFlow.options.map((item: any) => String(item)))
+          }
+
+          const kitFlow = flowItems.find((item: any) =>
+            /kit/i.test(String(item.title || item.description || ''))
+          )
+          if (Array.isArray(kitFlow?.options) && kitFlow.options.length > 0) {
+            setMaintenanceKitItems(kitFlow.options.map((item: any) => String(item)))
+          }
+
+          const findTitle = (id: string, fallback: string) =>
+            String(
+              flowItems.find((item: any) => item.id === id)?.title ||
+                flowItems.find((item: any) =>
+                  String(item.title || '').toLowerCase().includes(fallback.toLowerCase().split(' ')[0])
+                )?.title ||
+                fallback
+            )
+
+          setMainMenuLabels({
+            evaluation: findTitle('flow_evaluation', 'Agendar avaliação'),
+            maintenance: findTitle('flow_maintenance', 'Manutenção do Megahair'),
+            application: findTitle('flow_application', 'Aplicação do Megahair'),
+            faq: findTitle('flow_faq', 'Perguntas e Respostas'),
+          })
+        }
+      } catch (error) {
+        console.warn('Nao foi possivel carregar configuracao publica do chatbot:', error)
+      }
+    }
+
+    void loadPublicConfig()
+  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -513,25 +608,25 @@ const Chatbot: React.FC<ChatbotProps> = ({
   const handleMainOptionSelect = (option: PrimaryFlow) => {
     clearMessageFlag('showMainMenu')
     if (option === 'evaluation') {
-      addMessage('user', 'Agendar avaliação', {})
+      addMessage('user', mainMenuLabels.evaluation, {})
       fluxoAvaliacao()
       return
     }
 
     if (option === 'maintenance') {
-      addMessage('user', 'Manutenção do Megahair', {})
+      addMessage('user', mainMenuLabels.maintenance, {})
       fluxoManutencao()
       return
     }
 
     if (option === 'application') {
-      addMessage('user', 'Aplicação do Megahair', {})
+      addMessage('user', mainMenuLabels.application, {})
       void fluxoAplicacao()
       return
     }
 
     if (option === 'faq') {
-      addMessage('user', 'Perguntas e Respostas', {})
+      addMessage('user', mainMenuLabels.faq, {})
       fluxoFAQ()
     }
   }
@@ -1057,7 +1152,11 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setSelectedDate(date)
 
     try {
-      const response = await fetch(`/api/chatbot/appointments?date=${date}`)
+      const params = new URLSearchParams({
+        date,
+        durationMinutes: String(getDurationMinutes()),
+      })
+      const response = await fetch(`/api/chatbot/appointments?${params.toString()}`)
       const data = await response.json()
       
       // Get booked slots from localStorage
@@ -1576,10 +1675,10 @@ const Chatbot: React.FC<ChatbotProps> = ({
       return (
         <div className="mt-4 grid grid-cols-1 gap-3">
           {[
-            { label: 'Agendar avaliação', flow: 'evaluation' as PrimaryFlow },
-            { label: 'Manutenção do Megahair', flow: 'maintenance' as PrimaryFlow },
-            { label: 'Aplicação do Megahair', flow: 'application' as PrimaryFlow },
-            { label: 'Perguntas e Respostas', flow: 'faq' as PrimaryFlow },
+            { label: mainMenuLabels.evaluation, flow: 'evaluation' as PrimaryFlow },
+            { label: mainMenuLabels.maintenance, flow: 'maintenance' as PrimaryFlow },
+            { label: mainMenuLabels.application, flow: 'application' as PrimaryFlow },
+            { label: mainMenuLabels.faq, flow: 'faq' as PrimaryFlow },
           ].map((option) => (
             <button
               key={option.flow}
@@ -1596,7 +1695,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     if (data.showMaintenanceTypes) {
       return (
         <div className="mt-4 space-y-3">
-          {MAINTENANCE_OPTIONS.map((option) => (
+          {maintenanceOptions.map((option) => (
             <button
               key={option.value}
               onClick={() => handleMaintenanceTypeSelect(option)}
@@ -1634,7 +1733,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
       return (
         <div className="mt-4 space-y-3">
           <div className="grid grid-cols-1 gap-2">
-            {ADDITIONAL_SERVICES.map((service) => {
+            {additionalServices.map((service) => {
               const selected = selectedAddons.includes(service)
               return (
                 <button
@@ -1690,7 +1789,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
       return (
         <div className="mt-4 space-y-3">
           <div className="grid grid-cols-1 gap-2">
-            {MAINTENANCE_KIT_ITEMS.map((item) => {
+            {maintenanceKitItems.map((item) => {
               const selected = selectedKitItems.includes(item)
               return (
                 <button
@@ -1720,7 +1819,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     if (data.showFAQ) {
       return (
         <div className="mt-4 space-y-2">
-          {FAQ_ITEMS.map((item, index) => (
+          {faqItems.map((item, index) => (
             <button
               key={item.question}
               onClick={() => handleFAQSelect(item)}

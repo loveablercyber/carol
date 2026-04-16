@@ -1,6 +1,11 @@
 import { db } from '@/lib/db'
 
-export type AppointmentStatus = 'scheduled' | 'cancelled' | 'completed'
+export type AppointmentStatus =
+  | 'pending'
+  | 'scheduled'
+  | 'confirmed'
+  | 'cancelled'
+  | 'completed'
 export type AppointmentNotificationType = 'confirmation' | 'reminder' | 'cancellation'
 
 export type AppointmentQuestionnaire = {
@@ -142,6 +147,8 @@ function asIsoDate(value: Date | string) {
 }
 
 function asStatus(value: string): AppointmentStatus {
+  if (value === 'pending') return 'pending'
+  if (value === 'confirmed') return 'confirmed'
   if (value === 'completed') return 'completed'
   if (value === 'cancelled') return 'cancelled'
   return 'scheduled'
@@ -380,7 +387,7 @@ export async function createAppointment(input: CreateAppointmentInput) {
         "maintenance_history",
         "notes"
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'scheduled',NULL,$14::jsonb,$15,$16,$17::jsonb,$18)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'pending',NULL,$14::jsonb,$15,$16,$17::jsonb,$18)
     `,
     id,
     input.userId || null,
@@ -526,7 +533,11 @@ export async function updateAppointmentStatus(id: string, status: AppointmentSta
       UPDATE "CustomerAppointment"
       SET
         "status" = $2,
-        "client_confirmed_at" = CASE WHEN $2 = 'scheduled' THEN "client_confirmed_at" ELSE NULL END,
+        "client_confirmed_at" = CASE
+          WHEN $2 = 'confirmed' THEN COALESCE("client_confirmed_at", NOW())
+          WHEN $2 IN ('scheduled', 'pending') THEN "client_confirmed_at"
+          ELSE NULL
+        END,
         "notes" = COALESCE($3, "notes"),
         "updated_at" = NOW()
       WHERE "id" = $1
@@ -543,6 +554,8 @@ export async function updateAppointmentAdminDetails(input: {
   id: string
   status: AppointmentStatus
   notes?: string | null
+  scheduledAt?: string | null
+  durationMinutes?: number | null
   questionnaireData?: AppointmentQuestionnaire | null
   beforeImageUrl?: string | null
   afterImageUrl?: string | null
@@ -574,18 +587,32 @@ export async function updateAppointmentAdminDetails(input: {
     input.maintenanceHistory === undefined
       ? current.maintenanceHistory
       : sanitizeMaintenanceHistory(input.maintenanceHistory)
+  const nextScheduledAt =
+    input.scheduledAt === undefined || input.scheduledAt === null
+      ? current.scheduledAt
+      : new Date(input.scheduledAt).toISOString()
+  const nextDurationMinutes =
+    input.durationMinutes === undefined || input.durationMinutes === null
+      ? current.durationMinutes
+      : Math.max(15, Math.min(600, Number(input.durationMinutes) || current.durationMinutes))
 
   await db.$executeRawUnsafe(
     `
       UPDATE "CustomerAppointment"
       SET
         "status" = $2,
-        "client_confirmed_at" = CASE WHEN $2 = 'scheduled' THEN "client_confirmed_at" ELSE NULL END,
+        "client_confirmed_at" = CASE
+          WHEN $2 = 'confirmed' THEN COALESCE("client_confirmed_at", NOW())
+          WHEN $2 IN ('scheduled', 'pending') THEN "client_confirmed_at"
+          ELSE NULL
+        END,
         "notes" = $3,
         "questionnaire_data" = $4::jsonb,
         "before_image_url" = $5,
         "after_image_url" = $6,
         "maintenance_history" = $7::jsonb,
+        "scheduled_at" = $8,
+        "duration_minutes" = $9,
         "updated_at" = NOW()
       WHERE "id" = $1
     `,
@@ -595,7 +622,9 @@ export async function updateAppointmentAdminDetails(input: {
     nextQuestionnaire ? JSON.stringify(nextQuestionnaire) : null,
     nextBeforeImage,
     nextAfterImage,
-    JSON.stringify(nextMaintenance || [])
+    JSON.stringify(nextMaintenance || []),
+    new Date(nextScheduledAt),
+    nextDurationMinutes
   )
 
   return getAppointmentById(input.id)
@@ -643,7 +672,7 @@ export async function listDaySlots(dateIso: string) {
       FROM "CustomerAppointment"
       WHERE "scheduled_at" >= $1
         AND "scheduled_at" <= $2
-        AND "status" = 'scheduled'
+        AND "status" IN ('pending', 'scheduled', 'confirmed')
       ORDER BY "scheduled_at" ASC
     `,
     start,
@@ -651,6 +680,59 @@ export async function listDaySlots(dateIso: string) {
   )
 
   return rows.map(mapRow)
+}
+
+export async function hasAppointmentConflict(input: {
+  scheduledAt: string
+  durationMinutes: number
+  excludeId?: string | null
+}) {
+  await ensureAppointmentsStore()
+  await releaseExpiredUnconfirmedAppointments()
+
+  const start = new Date(input.scheduledAt)
+  const durationMinutes = Math.max(15, Math.min(600, Number(input.durationMinutes || 60)))
+  const end = new Date(start.getTime() + durationMinutes * 60 * 1000)
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return true
+  }
+
+  const rows = await db.$queryRawUnsafe<Array<{ id: string }>>(
+    `
+      SELECT "id"
+      FROM "CustomerAppointment"
+      WHERE "status" IN ('pending', 'scheduled', 'confirmed')
+        AND ($3::text IS NULL OR "id" <> $3)
+        AND "scheduled_at" < $2
+        AND ("scheduled_at" + ("duration_minutes" * INTERVAL '1 minute')) > $1
+      LIMIT 1
+    `,
+    start,
+    end,
+    input.excludeId || null
+  )
+
+  return rows.length > 0
+}
+
+export async function deleteAppointment(id: string) {
+  await ensureAppointmentsStore()
+  const affected = await db.$executeRawUnsafe(
+    `DELETE FROM "CustomerAppointment" WHERE "id" = $1`,
+    id
+  )
+  return Number(affected || 0)
+}
+
+export async function deleteAppointments(ids: string[]) {
+  await ensureAppointmentsStore()
+  let deleted = 0
+  for (const id of ids) {
+    if (!id) continue
+    deleted += await deleteAppointment(id)
+  }
+  return deleted
 }
 
 export async function listAppointmentsForReminder(input: {
@@ -692,7 +774,7 @@ export async function listAppointmentsForReminder(input: {
         "created_at",
         "updated_at"
       FROM "CustomerAppointment"
-      WHERE "status" = 'scheduled'
+      WHERE "status" IN ('scheduled', 'confirmed')
         AND "client_confirmed_at" IS NOT NULL
         AND "scheduled_at" >= $1
         AND "scheduled_at" <= $2
@@ -712,10 +794,11 @@ export async function confirmAppointmentByCustomer(id: string) {
     `
       UPDATE "CustomerAppointment"
       SET
+        "status" = 'confirmed',
         "client_confirmed_at" = NOW(),
         "updated_at" = NOW()
       WHERE "id" = $1
-        AND "status" = 'scheduled'
+        AND "status" IN ('pending', 'scheduled', 'confirmed')
     `,
     id
   )
@@ -744,7 +827,7 @@ export async function releaseExpiredUnconfirmedAppointments(nowIso?: string) {
           ELSE "notes" || E'\\n' || $2
         END,
         "updated_at" = NOW()
-      WHERE "status" = 'scheduled'
+      WHERE "status" IN ('pending', 'scheduled')
         AND "client_confirmed_at" IS NULL
         AND "scheduled_at" <= $1
     `,

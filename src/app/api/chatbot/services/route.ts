@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { getPublicChatbotConfig } from '@/lib/admin-config-store'
 
 const SERVICES_DATA = {
   categories: [
@@ -243,12 +244,51 @@ const SERVICES_DATA = {
   ]
 }
 
+function slugify(value: string) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+}
+
+function mapConfigService(service: any) {
+  return {
+    id: service.id,
+    name: service.name,
+    description:
+      service.longDescription ||
+      service.shortDescription ||
+      service.observations ||
+      '',
+    images: [],
+    durationMinutes: Number(service.durationMinutes || 60),
+    priceInfo: {
+      fixedPrice: Number(service.price || 0),
+    },
+    order: Number(service.order || 999),
+    adminConfigured: true,
+    observations: service.observations || '',
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const category = searchParams.get('category')
   const serviceId = searchParams.get('serviceId')
+  const publicConfig = await getPublicChatbotConfig().catch(() => null)
+  const configuredServices = publicConfig?.services || []
 
   if (serviceId) {
+    const configured = configuredServices.find((service: any) => service.id === serviceId)
+    if (configured) {
+      return NextResponse.json({
+        success: true,
+        service: mapConfigService(configured),
+      })
+    }
+
     // Find service in all categories
     for (const catId of Object.keys(SERVICES_DATA)) {
       if (catId === 'categories') continue
@@ -264,7 +304,32 @@ export async function GET(request: NextRequest) {
 
   if (category) {
     const services = SERVICES_DATA[category as keyof typeof SERVICES_DATA] || []
-    return NextResponse.json({ success: true, services, category })
+    const configuredForCategory = configuredServices
+      .filter((service: any) => {
+        const categorySlug = slugify(service.category || '')
+        if (categorySlug === category) return true
+        if (
+          category === 'extensoes' &&
+          /extens|fibra|mega|aplic/i.test(String(service.category || ''))
+        ) {
+          return true
+        }
+        if (
+          category === 'tratamentos' &&
+          /tratamento|botox|hidrat|blindagem/i.test(String(service.category || ''))
+        ) {
+          return true
+        }
+        return false
+      })
+      .map(mapConfigService)
+    const merged = [...services, ...configuredForCategory]
+      .filter(
+        (service, index, arr) =>
+          arr.findIndex((item) => item.id === service.id) === index
+      )
+      .sort((a: any, b: any) => Number(a.order || 999) - Number(b.order || 999))
+    return NextResponse.json({ success: true, services: merged, category })
   }
 
   return NextResponse.json({ success: true, categories: SERVICES_DATA.categories })
