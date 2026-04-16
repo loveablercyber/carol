@@ -448,7 +448,12 @@ const Chatbot: React.FC<ChatbotProps> = ({
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       setCurrentQuestionIndex(0)
-      if (initialMessage) {
+      if (promoData) {
+        if (initialMessage) {
+          addMessage('user', initialMessage)
+        }
+        handlePromoInitiation(initialMessage || promoData.serviceName)
+      } else if (initialMessage) {
         addMessage('user', initialMessage)
         handlePromoInitiation(initialMessage)
       } else {
@@ -465,9 +470,39 @@ const Chatbot: React.FC<ChatbotProps> = ({
     )
   }
 
-  const handlePromoInitiation = (msg: string) => {
+  const handlePromoInitiation = (_msg: string) => {
     setIsLoading(true)
     setTimeout(() => {
+      if (promoData) {
+        const promoPrice = parsePrice(promoData.price || 0)
+        setPrimaryFlow(null)
+        setSelectedCategory(null)
+        setMaintenanceType(null)
+        setHairSituation('')
+        setSelectedAddons([])
+        setSelectedKitItems([])
+        setSelectedService({
+          id: 'promo-bio-proteina',
+          name: promoData.serviceName,
+          description:
+            'Promoção exclusiva da página Bio Proteína. Fluxo direto para agendar este serviço.',
+          durationMinutes: 60,
+          priceInfo: {
+            fixedPrice: promoPrice,
+          },
+        })
+        setSelectedOption({
+          name: promoData.serviceName,
+          price: promoPrice,
+        })
+        addMessage(
+          'bot',
+          'Oi! Que maravilha que você se interessou pela nossa Bio Proteína.\n\nVamos agendar diretamente esse serviço da promoção.'
+        )
+        beginCustomerDataCollection(800)
+        return
+      }
+
       addMessage(
         'bot',
         'Oi! Vi seu interesse e vou te ajudar a seguir pelo melhor caminho.'
