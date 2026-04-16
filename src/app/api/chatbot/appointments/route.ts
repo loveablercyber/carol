@@ -42,9 +42,15 @@ export async function POST(request: NextRequest) {
       questionnaireData,
     } = body
 
-    if (!customer || !service || !scheduledDate || !totalPrice) {
+    const hasTotalPrice =
+      totalPrice !== undefined &&
+      totalPrice !== null &&
+      String(totalPrice).trim() !== ''
+    const numericTotalPrice = Number(totalPrice)
+
+    if (!customer || !service || !scheduledDate || !hasTotalPrice || !Number.isFinite(numericTotalPrice)) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields' },
+        { success: false, error: 'Campos obrigatorios ausentes para criar o agendamento.' },
         { status: 400 }
       )
     }
@@ -96,7 +102,7 @@ export async function POST(request: NextRequest) {
       durationMinutes: safeDuration,
       grams: grams ? String(grams) : null,
       lengthLabel: length ? String(length) : null,
-      totalPrice: Number(totalPrice || 0),
+      totalPrice: numericTotalPrice,
       paymentMethod: paymentMethod ? String(paymentMethod) : null,
       paymentStatus: 'pending',
       questionnaireData:

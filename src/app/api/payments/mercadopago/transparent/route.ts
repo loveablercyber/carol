@@ -130,7 +130,6 @@ function isOfflinePayment(paymentTypeId: string, paymentMethodId: string) {
   const normalizedType = paymentTypeId.trim()
 
   if (
-    normalizedType === 'ticket' ||
     normalizedType === 'bank_transfer' ||
     normalizedType === 'bankTransfer'
   ) {
@@ -141,11 +140,11 @@ function isOfflinePayment(paymentTypeId: string, paymentMethodId: string) {
     return true
   }
 
-  if (paymentMethodId.startsWith('bol')) {
-    return true
-  }
-
   return false
+}
+
+function isBoletoPayment(paymentTypeId: string, paymentMethodId: string) {
+  return paymentTypeId.trim() === 'ticket' || paymentMethodId.startsWith('bol')
 }
 
 export async function POST(request: NextRequest) {
@@ -212,6 +211,13 @@ export async function POST(request: NextRequest) {
             number: cpfFromOrder,
           }
         : undefined)
+    if (isBoletoPayment(paymentTypeId, paymentMethodId)) {
+      return NextResponse.json(
+        { error: 'Pagamento por boleto esta desativado. Use Pix, credito ou debito.' },
+        { status: 400 }
+      )
+    }
+
     const offlinePayment = isOfflinePayment(paymentTypeId, paymentMethodId)
 
     if (!paymentMethodId || !payerEmail) {

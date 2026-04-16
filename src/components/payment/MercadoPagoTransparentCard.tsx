@@ -187,7 +187,7 @@ export function MercadoPagoTransparentCard({
             paymentMethods: {
               creditCard: 'all',
               debitCard: 'all',
-              ticket: 'all',
+              ticket: 'none',
               bankTransfer: 'all',
               mercadoPago: 'none',
             },

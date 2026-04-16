@@ -223,7 +223,7 @@ function OrderDetailContent() {
           {canRetryPayment && (
             <div className="mt-6 border-t border-gray-100 pt-5 space-y-3">
               <p className="text-sm text-muted-foreground">
-                Pagamento pendente ou recusado. Tente novamente com PIX, boleto ou cartao direto no checkout transparente.
+                Pagamento pendente ou recusado. Tente novamente com PIX ou cartao direto no checkout transparente.
               </p>
 
               {paymentError && (

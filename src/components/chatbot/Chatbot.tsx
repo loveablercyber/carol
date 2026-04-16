@@ -627,9 +627,20 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setSelectedAddons([])
     setSelectedKitItems([])
     addMessage('bot', 'Perfeito! Vamos seguir com sua aplicação de mega hair.')
+    const maintenanceNames = new Set(
+      maintenanceOptions.map((option) => option.label.trim().toLowerCase())
+    )
     await handleCategorySelect(EXTENSION_CATEGORY, {
       silentUserMessage: true,
       introText: 'Escolha a técnica de aplicação que deseja conhecer e agendar:',
+      serviceFilter: (service) => {
+        const id = String(service.id || '').toLowerCase()
+        const name = String(service.name || '').trim().toLowerCase()
+        return !id.startsWith('svc_maintenance') &&
+          !/manutenc/.test(id) &&
+          !/manutenc/.test(name) &&
+          !maintenanceNames.has(name)
+      },
     })
   }
 
@@ -668,7 +679,11 @@ const Chatbot: React.FC<ChatbotProps> = ({
 
   const handleCategorySelect = async (
     category: ServiceCategory,
-    options: { silentUserMessage?: boolean; introText?: string } = {}
+    options: {
+      silentUserMessage?: boolean
+      introText?: string
+      serviceFilter?: (service: Service) => boolean
+    } = {}
   ) => {
     if (!options.silentUserMessage) {
       addMessage('user', category.nameEmoji + ' ' + category.name, category)
@@ -680,11 +695,16 @@ const Chatbot: React.FC<ChatbotProps> = ({
       const response = await fetch(`/api/chatbot/services?category=${category.id}`)
       const data = await response.json()
 
+      const services = Array.isArray(data.services) ? data.services : []
+      const visibleServices = options.serviceFilter
+        ? services.filter(options.serviceFilter)
+        : services
+
       setTimeout(() => {
         addMessage(
           'bot',
           options.introText || 'Perfeito! Aqui estão os serviços disponíveis nessa categoria:',
-          { services: data.services }
+          { services: visibleServices }
         )
         setIsLoading(false)
       }, 800)

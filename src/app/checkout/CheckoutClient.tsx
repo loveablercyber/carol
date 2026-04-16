@@ -1328,7 +1328,7 @@ function CheckoutContent() {
               </h2>
               <div className="space-y-3 mb-6">
                 <p className="text-sm text-muted-foreground">
-                  Ao confirmar o pedido, escolha PIX, boleto ou cartao de credito/debito sem sair do site.
+                  Ao confirmar o pedido, escolha PIX ou cartao de credito/debito sem sair do site.
                 </p>
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Lock className="w-4 h-4" />
@@ -1454,7 +1454,7 @@ function CheckoutContent() {
                   Frete grátis acima de R${' '}
                   {freeShippingMin.toFixed(2).replace('.', ',')}
                 </p>
-                <p>✓ PIX, boleto e cartao em ambiente seguro</p>
+                <p>✓ PIX e cartao em ambiente seguro</p>
                 <p>✓ Pagamento seguro via Mercado Pago</p>
                 <p>✓ 7 dias para troca</p>
               </div>
