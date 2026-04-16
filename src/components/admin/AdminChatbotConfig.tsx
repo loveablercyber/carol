@@ -81,15 +81,45 @@ function reorder<T extends { order?: number }>(items: T[]) {
   return items.map((item, index) => ({ ...item, order: index + 1 }))
 }
 
-function linesToArray(value: string) {
-  return value
-    .split('\n')
-    .map((item) => item.trim())
-    .filter(Boolean)
+function toOptionItems(item: any) {
+  const existing = Array.isArray(item.optionItems) ? item.optionItems : []
+  if (existing.length > 0) {
+    return existing
+      .map((option: any, index: number) => ({
+        id: option.id || newId('opt'),
+        label: option.label || '',
+        value: option.value || option.label || '',
+        price: option.price ?? null,
+        priceLabel: option.priceLabel || '',
+        active: option.active !== false,
+        order: Number(option.order || index + 1),
+      }))
+      .sort((a: any, b: any) => Number(a.order || 999) - Number(b.order || 999))
+  }
+
+  return (Array.isArray(item.options) ? item.options : [])
+    .map((label: string, index: number) => ({
+      id: `legacy_opt_${index}`,
+      label,
+      value: label,
+      price: null,
+      priceLabel: '',
+      active: true,
+      order: index + 1,
+    }))
 }
 
-function arrayToLines(value: unknown) {
-  return Array.isArray(value) ? value.join('\n') : ''
+function optionsToLabels(options: any[]) {
+  return options
+    .filter((option) => option.active !== false && String(option.label || '').trim())
+    .sort((a, b) => Number(a.order || 999) - Number(b.order || 999))
+    .map((option) => String(option.label).trim())
+}
+
+function sortedPriceTable(service: any) {
+  return Array.isArray(service.priceTable)
+    ? [...service.priceTable].sort((a, b) => Number(a.order || 999) - Number(b.order || 999))
+    : []
 }
 
 export default function AdminChatbotConfig() {
@@ -132,6 +162,17 @@ export default function AdminChatbotConfig() {
     [config]
   )
 
+  const serviceOptions = useMemo(
+    () =>
+      [...config.services]
+        .sort((a, b) => Number(a.order || 999) - Number(b.order || 999))
+        .map((service) => ({
+          id: service.id,
+          name: service.name || service.id,
+        })),
+    [config.services]
+  )
+
   const save = async () => {
     setSaving(true)
     try {
@@ -161,6 +202,66 @@ export default function AdminChatbotConfig() {
       [section]: prev[section].map((item) =>
         item.id === id ? { ...item, ...patch } : item
       ),
+    }))
+  }
+
+  const patchFlowOption = (flowId: string, optionId: string, patch: Record<string, unknown>) => {
+    setConfig((prev) => ({
+      ...prev,
+      flowItems: prev.flowItems.map((item) => {
+        if (item.id !== flowId) return item
+        const nextOptions = toOptionItems(item).map((option) =>
+          option.id === optionId ? { ...option, ...patch } : option
+        )
+        return {
+          ...item,
+          optionItems: nextOptions,
+          options: optionsToLabels(nextOptions),
+        }
+      }),
+    }))
+  }
+
+  const addFlowOption = (flowId: string) => {
+    setConfig((prev) => ({
+      ...prev,
+      flowItems: prev.flowItems.map((item) => {
+        if (item.id !== flowId) return item
+        const nextOptions = [
+          ...toOptionItems(item),
+          {
+            id: newId('opt'),
+            label: 'Nova opção',
+            value: 'Nova opção',
+            price: null,
+            priceLabel: '',
+            active: true,
+            order: toOptionItems(item).length + 1,
+          },
+        ]
+        return {
+          ...item,
+          optionItems: nextOptions,
+          options: optionsToLabels(nextOptions),
+        }
+      }),
+    }))
+  }
+
+  const removeFlowOption = (flowId: string, optionId: string) => {
+    setConfig((prev) => ({
+      ...prev,
+      flowItems: prev.flowItems.map((item) => {
+        if (item.id !== flowId) return item
+        const nextOptions = toOptionItems(item)
+          .filter((option) => option.id !== optionId)
+          .map((option, index) => ({ ...option, order: index + 1 }))
+        return {
+          ...item,
+          optionItems: nextOptions,
+          options: optionsToLabels(nextOptions),
+        }
+      }),
     }))
   }
 
@@ -471,7 +572,12 @@ export default function AdminChatbotConfig() {
                     </label>
                   </Field>
                 </div>
-                <TextArea label="Botões/opções clicáveis (uma por linha)" value={arrayToLines(item.options)} onChange={(value) => patchItem('flowItems', item.id, { options: linesToArray(value) })} />
+                <FlowOptionEditor
+                  item={item}
+                  onChange={patchFlowOption}
+                  onAdd={addFlowOption}
+                  onRemove={removeFlowOption}
+                />
                 <TextArea label="Observação" value={item.observation} onChange={(value) => patchItem('flowItems', item.id, { observation: value })} />
               </div>
             ))
@@ -501,6 +607,16 @@ export default function AdminChatbotConfig() {
                 <TextArea label="Descrição curta" value={item.shortDescription} onChange={(value) => patchItem('services', item.id, { shortDescription: value })} />
                 <TextArea label="Descrição longa" value={item.longDescription} onChange={(value) => patchItem('services', item.id, { longDescription: value })} />
                 <TextArea label="Observações" value={item.observations} onChange={(value) => patchItem('services', item.id, { observations: value })} />
+                <ServicePriceTableEditor
+                  service={item}
+                  onChange={(priceTable) => patchItem('services', item.id, { priceTable })}
+                />
+                <div className="rounded-xl border border-[#d8e3ff] bg-[#f8faff] p-3 text-sm text-slate-600">
+                  Conteúdo vinculado: {config.beforeAfterItems.filter((media) => media.serviceId === item.id).length} resultado(s),{' '}
+                  {config.videoItems.filter((media) => media.serviceId === item.id).length} vídeo(s),{' '}
+                  {config.faqItems.filter((faq) => faq.serviceId === item.id).length} dúvida(s).
+                  Use as abas Antes/Depois, Vídeos e FAQ para editar o conteúdo visual deste serviço.
+                </div>
               </div>
             ))
           )}
@@ -515,6 +631,7 @@ export default function AdminChatbotConfig() {
                 <Header eyebrow={`Resultado #${index + 1}`} title={item.title} actions={rowActions('beforeAfterItems', item)} />
                 <div className="grid gap-3 md:grid-cols-3">
                   <TextInput label="Título" value={item.title} onChange={(value) => patchItem('beforeAfterItems', item.id, { title: value })} />
+                  <ServiceSelect label="Serviço vinculado" value={item.serviceId || ''} services={serviceOptions} onChange={(value) => patchItem('beforeAfterItems', item.id, { serviceId: value })} />
                   <TextInput label="Categoria" value={item.category} onChange={(value) => patchItem('beforeAfterItems', item.id, { category: value })} />
                   <TextInput label="Descrição" value={item.description} onChange={(value) => patchItem('beforeAfterItems', item.id, { description: value })} />
                 </div>
@@ -536,6 +653,7 @@ export default function AdminChatbotConfig() {
                 <Header eyebrow={`Vídeo #${index + 1}`} title={item.title} actions={rowActions('videoItems', item)} />
                 <div className="grid gap-3 md:grid-cols-3">
                   <TextInput label="Título" value={item.title} onChange={(value) => patchItem('videoItems', item.id, { title: value })} />
+                  <ServiceSelect label="Serviço vinculado" value={item.serviceId || ''} services={serviceOptions} onChange={(value) => patchItem('videoItems', item.id, { serviceId: value })} />
                   <TextInput label="Link do vídeo" value={item.videoUrl} onChange={(value) => patchItem('videoItems', item.id, { videoUrl: value })} />
                   <TextInput label="Descrição" value={item.description} onChange={(value) => patchItem('videoItems', item.id, { description: value })} />
                 </div>
@@ -552,6 +670,7 @@ export default function AdminChatbotConfig() {
             card('faqItems', index, (
               <div key={item.id} className="space-y-4">
                 <Header eyebrow={`Pergunta #${index + 1}`} title={item.question} actions={rowActions('faqItems', item)} />
+                <ServiceSelect label="Serviço vinculado (opcional)" value={item.serviceId || ''} services={serviceOptions} onChange={(value) => patchItem('faqItems', item.id, { serviceId: value })} />
                 <TextInput label="Pergunta" value={item.question} onChange={(value) => patchItem('faqItems', item.id, { question: value })} />
                 <TextArea label="Resposta" value={item.answer} onChange={(value) => patchItem('faqItems', item.id, { answer: value })} />
               </div>
@@ -730,6 +849,330 @@ function TextArea({ label, value, onChange }: { label: string; value?: string; o
     <Field label={label}>
       <textarea rows={3} value={value || ''} onChange={(event) => onChange(event.target.value)} className="admin-input" />
     </Field>
+  )
+}
+
+function ServiceSelect({
+  label,
+  value,
+  services,
+  onChange,
+}: {
+  label: string
+  value: string
+  services: Array<{ id: string; name: string }>
+  onChange: (value: string) => void
+}) {
+  return (
+    <Field label={label}>
+      <select value={value || ''} onChange={(event) => onChange(event.target.value)} className="admin-input">
+        <option value="">Geral / sem vínculo</option>
+        {services.map((service) => (
+          <option key={service.id} value={service.id}>
+            {service.name}
+          </option>
+        ))}
+      </select>
+    </Field>
+  )
+}
+
+function FlowOptionEditor({
+  item,
+  onChange,
+  onAdd,
+  onRemove,
+}: {
+  item: any
+  onChange: (flowId: string, optionId: string, patch: Record<string, unknown>) => void
+  onAdd: (flowId: string) => void
+  onRemove: (flowId: string, optionId: string) => void
+}) {
+  const options = toOptionItems(item)
+
+  return (
+    <div className="space-y-3 rounded-xl border border-[#d8e3ff] bg-[#f8faff] p-3">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+            Botões/opções visuais
+          </p>
+          <p className="text-xs text-slate-500">
+            Use o campo valor para adicionais e kit quando quiser cobrar futuramente.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onAdd(item.id)}
+          className="rounded-lg border border-[#b8c7ff] bg-white px-3 py-2 text-xs font-bold text-[#3247d3]"
+        >
+          Adicionar opção
+        </button>
+      </div>
+      {options.length === 0 ? (
+        <p className="text-sm text-slate-500">Nenhuma opção cadastrada.</p>
+      ) : (
+        <div className="space-y-2">
+          {options.map((option) => (
+            <div key={option.id} className="grid gap-2 rounded-lg border border-white bg-white p-2 md:grid-cols-[1.4fr_1fr_110px_1fr_auto_auto]">
+              <input
+                value={option.label || ''}
+                onChange={(event) =>
+                  onChange(item.id, option.id, {
+                    label: event.target.value,
+                    value: option.value || event.target.value,
+                  })
+                }
+                placeholder="Texto exibido"
+                className="admin-input"
+              />
+              <input
+                value={option.value || ''}
+                onChange={(event) => onChange(item.id, option.id, { value: event.target.value })}
+                placeholder="Valor interno"
+                className="admin-input"
+              />
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={option.price ?? ''}
+                onChange={(event) =>
+                  onChange(item.id, option.id, {
+                    price: event.target.value === '' ? null : Number(event.target.value),
+                  })
+                }
+                placeholder="Valor"
+                className="admin-input"
+              />
+              <input
+                value={option.priceLabel || ''}
+                onChange={(event) => onChange(item.id, option.id, { priceLabel: event.target.value })}
+                placeholder="Texto do valor"
+                className="admin-input"
+              />
+              <label className="flex items-center justify-center gap-2 text-xs font-semibold text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={option.active !== false}
+                  onChange={(event) => onChange(item.id, option.id, { active: event.target.checked })}
+                  className="accent-[#3247d3]"
+                />
+                Ativo
+              </label>
+              <button
+                type="button"
+                onClick={() => onRemove(item.id, option.id)}
+                className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+              >
+                Remover
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ServicePriceTableEditor({
+  service,
+  onChange,
+}: {
+  service: any
+  onChange: (priceTable: any[]) => void
+}) {
+  const table = sortedPriceTable(service)
+  const commit = (nextTable: any[]) =>
+    onChange(nextTable.map((row, index) => ({ ...row, order: index + 1 })))
+
+  const updateRow = (rowId: string, patch: Record<string, unknown>) => {
+    commit(table.map((row) => (row.id === rowId ? { ...row, ...patch } : row)))
+  }
+
+  const updateLength = (rowId: string, lengthId: string, patch: Record<string, unknown>) => {
+    commit(
+      table.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              lengths: (Array.isArray(row.lengths) ? row.lengths : []).map((length: any) =>
+                length.id === lengthId ? { ...length, ...patch } : length
+              ),
+            }
+          : row
+      )
+    )
+  }
+
+  const addRow = () => {
+    commit([
+      ...table,
+      {
+        id: newId('price_row'),
+        grams: '100g',
+        active: true,
+        order: table.length + 1,
+        lengths: [
+          {
+            id: newId('price_len'),
+            size: '60/65/70cm',
+            price: 0,
+            active: true,
+            order: 1,
+          },
+        ],
+      },
+    ])
+  }
+
+  const removeRow = (rowId: string) => {
+    commit(table.filter((row) => row.id !== rowId))
+  }
+
+  const addLength = (rowId: string) => {
+    commit(
+      table.map((row) => {
+        if (row.id !== rowId) return row
+        const lengths = Array.isArray(row.lengths) ? row.lengths : []
+        return {
+          ...row,
+          lengths: [
+            ...lengths,
+            {
+              id: newId('price_len'),
+              size: '75/80cm',
+              price: 0,
+              active: true,
+              order: lengths.length + 1,
+            },
+          ],
+        }
+      })
+    )
+  }
+
+  const removeLength = (rowId: string, lengthId: string) => {
+    commit(
+      table.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              lengths: (Array.isArray(row.lengths) ? row.lengths : []).filter(
+                (length: any) => length.id !== lengthId
+              ),
+            }
+          : row
+      )
+    )
+  }
+
+  return (
+    <div className="space-y-3 rounded-xl border border-[#d8e3ff] bg-[#f8faff] p-3">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+            Tabela visual de gramas, tamanhos e valores
+          </p>
+          <p className="text-xs text-slate-500">
+            Edite valores como 100g, 60/65/70cm e R$ 360 exibidos no chatbot.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={addRow}
+          className="rounded-lg border border-[#b8c7ff] bg-white px-3 py-2 text-xs font-bold text-[#3247d3]"
+        >
+          Adicionar gramas
+        </button>
+      </div>
+      {table.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          Sem tabela. O chatbot usará o valor base do serviço.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {table.map((row) => (
+            <div key={row.id} className="space-y-2 rounded-lg border border-white bg-white p-3">
+              <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                <input
+                  value={row.grams || ''}
+                  onChange={(event) => updateRow(row.id, { grams: event.target.value })}
+                  placeholder="Ex: 100g"
+                  className="admin-input"
+                />
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={row.active !== false}
+                    onChange={(event) => updateRow(row.id, { active: event.target.checked })}
+                    className="accent-[#3247d3]"
+                  />
+                  Ativo
+                </label>
+                <button
+                  type="button"
+                  onClick={() => removeRow(row.id)}
+                  className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+                >
+                  Remover gramas
+                </button>
+              </div>
+              <div className="space-y-2">
+                {(Array.isArray(row.lengths) ? row.lengths : []).map((length: any) => (
+                  <div key={length.id} className="grid gap-2 md:grid-cols-[1fr_120px_auto_auto]">
+                    <input
+                      value={length.size || ''}
+                      onChange={(event) => updateLength(row.id, length.id, { size: event.target.value })}
+                      placeholder="Ex: 60/65/70cm"
+                      className="admin-input"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={length.price ?? ''}
+                      onChange={(event) =>
+                        updateLength(row.id, length.id, {
+                          price: Number(event.target.value || 0),
+                        })
+                      }
+                      placeholder="Valor"
+                      className="admin-input"
+                    />
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={length.active !== false}
+                        onChange={(event) =>
+                          updateLength(row.id, length.id, { active: event.target.checked })
+                        }
+                        className="accent-[#3247d3]"
+                      />
+                      Ativo
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => removeLength(row.id, length.id)}
+                      className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => addLength(row.id)}
+                  className="rounded-lg border border-[#b8c7ff] px-3 py-2 text-xs font-bold text-[#3247d3]"
+                >
+                  Adicionar tamanho
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

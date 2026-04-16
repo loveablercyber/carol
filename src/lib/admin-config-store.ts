@@ -17,6 +17,16 @@ export type ChatbotFlowItemType =
   | 'video'
   | 'faq'
 
+export type ChatbotOptionItem = {
+  id: string
+  label: string
+  value?: string
+  price?: number | null
+  priceLabel?: string
+  order: number
+  active: boolean
+}
+
 export type ChatbotFlowItem = {
   id: string
   type: ChatbotFlowItemType
@@ -24,6 +34,7 @@ export type ChatbotFlowItem = {
   subtitle?: string
   description?: string
   options?: string[]
+  optionItems?: ChatbotOptionItem[]
   price?: string
   grams?: string
   observation?: string
@@ -46,6 +57,19 @@ export type AdminServiceItem = {
   shortDescription: string
   longDescription?: string
   observations?: string
+  priceTable?: Array<{
+    id: string
+    grams: string
+    order: number
+    active: boolean
+    lengths: Array<{
+      id: string
+      size: string
+      price: number
+      order: number
+      active: boolean
+    }>
+  }>
   extraQuestions?: Array<{
     id: string
     label: string
@@ -60,6 +84,7 @@ export type AdminServiceItem = {
 
 export type BeforeAfterItem = {
   id: string
+  serviceId?: string
   title: string
   description: string
   category: string
@@ -71,6 +96,7 @@ export type BeforeAfterItem = {
 
 export type VideoItem = {
   id: string
+  serviceId?: string
   title: string
   description: string
   thumbnailUrl: string
@@ -81,6 +107,7 @@ export type VideoItem = {
 
 export type FaqItem = {
   id: string
+  serviceId?: string
   question: string
   answer: string
   order: number
@@ -304,6 +331,103 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
       required: true,
     },
     {
+      id: 'flow_hair_situation',
+      type: 'single_choice',
+      title: 'Qual é a sua situação?',
+      subtitle: 'Situação do cabelo para manutenção',
+      description: 'Opções exibidas depois da escolha do tipo de manutenção.',
+      options: [
+        'Vou usar o mesmo cabelo',
+        'Vou fazer manutenção com cabelo novo',
+        'Tirei o cabelo em casa e quero só fazer a aplicação',
+      ],
+      optionItems: [
+        {
+          id: 'hair_same',
+          label: 'Vou usar o mesmo cabelo',
+          value: 'same_hair',
+          price: null,
+          priceLabel: '',
+          order: 1,
+          active: true,
+        },
+        {
+          id: 'hair_new',
+          label: 'Vou fazer manutenção com cabelo novo',
+          value: 'new_hair',
+          price: null,
+          priceLabel: '',
+          order: 2,
+          active: true,
+        },
+        {
+          id: 'hair_home_removed',
+          label: 'Tirei o cabelo em casa e quero só fazer a aplicação',
+          value: 'home_removed',
+          price: null,
+          priceLabel: '',
+          order: 3,
+          active: true,
+        },
+      ],
+      price: '',
+      grams: '',
+      observation: 'Cliente orientada a vir com o cabelo limpo.',
+      order: 4,
+      active: true,
+      required: true,
+    },
+    {
+      id: 'flow_additional_services',
+      type: 'multi_choice',
+      title: 'Quer acrescentar mais algum serviço ao seu atendimento?',
+      subtitle: 'Upsell de serviços adicionais',
+      description: 'Serviços adicionais oferecidos antes da confirmação.',
+      options: ['Escova', 'Hidratação', 'Botox selante', 'Botox progressiva', 'Coloração'],
+      optionItems: [
+        { id: 'addon_brush', label: 'Escova', value: 'escova', price: null, priceLabel: '', order: 1, active: true },
+        { id: 'addon_hydration', label: 'Hidratação', value: 'hidratacao', price: null, priceLabel: '', order: 2, active: true },
+        { id: 'addon_sealant_botox', label: 'Botox selante', value: 'botox_selante', price: null, priceLabel: '', order: 3, active: true },
+        { id: 'addon_progressive_botox', label: 'Botox progressiva', value: 'botox_progressiva', price: null, priceLabel: '', order: 4, active: true },
+        { id: 'addon_coloring', label: 'Coloração', value: 'coloracao', price: null, priceLabel: '', order: 5, active: true },
+      ],
+      price: '',
+      grams: '',
+      observation: 'Permite configurar valores futuramente.',
+      order: 5,
+      active: true,
+      required: false,
+    },
+    {
+      id: 'flow_maintenance_kit',
+      type: 'multi_choice',
+      title: 'Deseja incluir também um kit de manutenção?',
+      subtitle: 'Itens do kit de manutenção',
+      description: 'Itens exibidos quando a cliente aceita incluir o kit.',
+      options: [
+        'Óleo reparador',
+        'Escova raquete',
+        'Touca de cetim',
+        'Fronha de cetim',
+        'Xuxinha de cetim',
+        'Reparador para fibra',
+      ],
+      optionItems: [
+        { id: 'kit_oil', label: 'Óleo reparador', value: 'oleo_reparador', price: null, priceLabel: '', order: 1, active: true },
+        { id: 'kit_brush', label: 'Escova raquete', value: 'escova_raquete', price: null, priceLabel: '', order: 2, active: true },
+        { id: 'kit_cap', label: 'Touca de cetim', value: 'touca_cetim', price: null, priceLabel: '', order: 3, active: true },
+        { id: 'kit_pillowcase', label: 'Fronha de cetim', value: 'fronha_cetim', price: null, priceLabel: '', order: 4, active: true },
+        { id: 'kit_scrunchie', label: 'Xuxinha de cetim', value: 'xuxinha_cetim', price: null, priceLabel: '', order: 5, active: true },
+        { id: 'kit_fiber_repair', label: 'Reparador para fibra', value: 'reparador_fibra', price: null, priceLabel: '', order: 6, active: true },
+      ],
+      price: '',
+      grams: '',
+      observation: 'Permite configurar valores futuramente.',
+      order: 6,
+      active: true,
+      required: false,
+    },
+    {
       id: 'flow_faq',
       type: 'faq',
       title: 'Perguntas e Respostas',
@@ -313,7 +437,7 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
       price: '',
       grams: '',
       observation: '',
-      order: 4,
+      order: 7,
       active: true,
       required: false,
     },
@@ -335,6 +459,138 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
       observations: '',
       extraQuestions: [],
       order: 1,
+      active: true,
+    },
+    {
+      id: 'invisible-weft',
+      name: 'Invisible Weft Extensions (Ponto Invisível)',
+      category: 'Extensões / Fibra Russa',
+      subcategory: 'Aplicação do Megahair',
+      price: 0,
+      priceLabel: 'Tabela por gramas e tamanho',
+      pricePerGram: null,
+      minGrams: 100,
+      maxGrams: 350,
+      durationMinutes: 180,
+      shortDescription: 'Técnica moderna de aplicação em costura invisível. Natural e confortável.',
+      longDescription: 'Técnica moderna de aplicação em costura invisível. Natural e confortável.',
+      observations: 'Venha com o cabelo limpo.',
+      priceTable: [
+        { id: 'weft_100g', grams: '100g', order: 1, active: true, lengths: [
+          { id: 'weft_100g_60', size: '60/65/70cm', price: 360, order: 1, active: true },
+          { id: 'weft_100g_75', size: '75/80cm', price: 430, order: 2, active: true },
+        ] },
+        { id: 'weft_150g', grams: '150g', order: 2, active: true, lengths: [
+          { id: 'weft_150g_60', size: '60/65/70cm', price: 405, order: 1, active: true },
+          { id: 'weft_150g_75', size: '75/80cm', price: 510, order: 2, active: true },
+        ] },
+        { id: 'weft_200g', grams: '200g', order: 3, active: true, lengths: [
+          { id: 'weft_200g_60', size: '60/65/70cm', price: 500, order: 1, active: true },
+          { id: 'weft_200g_75', size: '75/80cm', price: 640, order: 2, active: true },
+        ] },
+        { id: 'weft_250g', grams: '250g', order: 4, active: true, lengths: [
+          { id: 'weft_250g_60', size: '60/65/70cm', price: 600, order: 1, active: true },
+          { id: 'weft_250g_75', size: '75/80cm', price: 775, order: 2, active: true },
+        ] },
+        { id: 'weft_300g', grams: '300g', order: 5, active: true, lengths: [
+          { id: 'weft_300g_60', size: '60/65/70cm', price: 660, order: 1, active: true },
+          { id: 'weft_300g_75', size: '75/80cm', price: 870, order: 2, active: true },
+        ] },
+        { id: 'weft_350g', grams: '350g', order: 6, active: true, lengths: [
+          { id: 'weft_350g_60', size: '60/65/70cm', price: 770, order: 1, active: true },
+          { id: 'weft_350g_75', size: '75/80cm', price: 1015, order: 2, active: true },
+        ] },
+      ],
+      extraQuestions: [],
+      order: 2,
+      active: true,
+    },
+    {
+      id: 'micro-capsula',
+      name: 'Micro Cápsula de Queratina',
+      category: 'Extensões / Fibra Russa',
+      subcategory: 'Aplicação do Megahair',
+      price: 0,
+      priceLabel: 'Tabela por gramas e tamanho',
+      pricePerGram: null,
+      minGrams: 100,
+      maxGrams: 350,
+      durationMinutes: 240,
+      shortDescription: 'Pequenas cápsulas aplicadas fio a fio com queratina. Maior naturalidade.',
+      longDescription: 'Pequenas cápsulas aplicadas fio a fio com queratina. Maior naturalidade.',
+      observations: 'Venha com o cabelo limpo.',
+      priceTable: [
+        { id: 'micro_100g', grams: '100g', order: 1, active: true, lengths: [
+          { id: 'micro_100g_60', size: '60/65/70cm', price: 590, order: 1, active: true },
+          { id: 'micro_100g_75', size: '75/80cm', price: 660, order: 2, active: true },
+        ] },
+        { id: 'micro_150g', grams: '150g', order: 2, active: true, lengths: [
+          { id: 'micro_150g_60', size: '60/65/70cm', price: 780, order: 1, active: true },
+          { id: 'micro_150g_75', size: '75/80cm', price: 885, order: 2, active: true },
+        ] },
+        { id: 'micro_200g', grams: '200g', order: 3, active: true, lengths: [
+          { id: 'micro_200g_60', size: '60/65/70cm', price: 1040, order: 1, active: true },
+          { id: 'micro_200g_75', size: '75/80cm', price: 1180, order: 2, active: true },
+        ] },
+        { id: 'micro_250g', grams: '250g', order: 4, active: true, lengths: [
+          { id: 'micro_250g_60', size: '60/65/70cm', price: 1300, order: 1, active: true },
+          { id: 'micro_250g_75', size: '75/80cm', price: 1475, order: 2, active: true },
+        ] },
+        { id: 'micro_300g', grams: '300g', order: 5, active: true, lengths: [
+          { id: 'micro_300g_60', size: '60/65/70cm', price: 1560, order: 1, active: true },
+          { id: 'micro_300g_75', size: '75/80cm', price: 1770, order: 2, active: true },
+        ] },
+        { id: 'micro_350g', grams: '350g', order: 6, active: true, lengths: [
+          { id: 'micro_350g_60', size: '60/65/70cm', price: 1820, order: 1, active: true },
+          { id: 'micro_350g_75', size: '75/80cm', price: 2065, order: 2, active: true },
+        ] },
+      ],
+      extraQuestions: [],
+      order: 3,
+      active: true,
+    },
+    {
+      id: 'invisible-hair',
+      name: 'Invisible Hair Extensions (Fita Adesiva)',
+      category: 'Extensões / Fibra Russa',
+      subcategory: 'Aplicação do Megahair',
+      price: 0,
+      priceLabel: 'Tabela por gramas e tamanho',
+      pricePerGram: null,
+      minGrams: 100,
+      maxGrams: 350,
+      durationMinutes: 120,
+      shortDescription: 'Fitas adesivas ultrafinas e invisíveis. Aplicação rápida e discreta.',
+      longDescription: 'Fitas adesivas ultrafinas e invisíveis. Aplicação rápida e discreta.',
+      observations: 'Venha com o cabelo limpo.',
+      priceTable: [
+        { id: 'hair_100g', grams: '100g', order: 1, active: true, lengths: [
+          { id: 'hair_100g_60', size: '60/65/70cm', price: 440, order: 1, active: true },
+          { id: 'hair_100g_75', size: '75/80cm', price: 510, order: 2, active: true },
+        ] },
+        { id: 'hair_150g', grams: '150g', order: 2, active: true, lengths: [
+          { id: 'hair_150g_60', size: '60/65/70cm', price: 525, order: 1, active: true },
+          { id: 'hair_150g_75', size: '75/80cm', price: 630, order: 2, active: true },
+        ] },
+        { id: 'hair_200g', grams: '200g', order: 3, active: true, lengths: [
+          { id: 'hair_200g_60', size: '60/65/70cm', price: 660, order: 1, active: true },
+          { id: 'hair_200g_75', size: '75/80cm', price: 800, order: 2, active: true },
+        ] },
+        { id: 'hair_250g', grams: '250g', order: 4, active: true, lengths: [
+          { id: 'hair_250g_60', size: '60/65/70cm', price: 800, order: 1, active: true },
+          { id: 'hair_250g_75', size: '75/80cm', price: 975, order: 2, active: true },
+        ] },
+        { id: 'hair_300g', grams: '300g', order: 5, active: true, lengths: [
+          { id: 'hair_300g_60', size: '60/65/70cm', price: 930, order: 1, active: true },
+          { id: 'hair_300g_75', size: '75/80cm', price: 1140, order: 2, active: true },
+        ] },
+        { id: 'hair_350g', grams: '350g', order: 6, active: true, lengths: [
+          { id: 'hair_350g_60', size: '60/65/70cm', price: 1085, order: 1, active: true },
+          { id: 'hair_350g_75', size: '75/80cm', price: 1330, order: 2, active: true },
+        ] },
+      ],
+      extraQuestions: [],
+      order: 4,
       active: true,
     },
     {
@@ -446,6 +702,18 @@ function parseJsonField<T>(value: unknown, fallback: T): T {
   return fallback
 }
 
+function mergeDefaultsById<T extends { id: string; order?: number }>(
+  current: T[] | undefined,
+  defaults: T[]
+) {
+  if (!Array.isArray(current)) return defaults
+  const seen = new Set(current.map((item) => item.id))
+  return [
+    ...current,
+    ...defaults.filter((item) => !seen.has(item.id)),
+  ].sort((a, b) => Number(a.order || 999) - Number(b.order || 999))
+}
+
 async function ensureAdminConfigStore() {
   if (bootstrapPromise) return bootstrapPromise
 
@@ -466,8 +734,8 @@ async function ensureAdminConfigStore() {
 function normalizeConfig(input: Partial<AdminOperationalConfig>): AdminOperationalConfig {
   const defaults = cloneDefaultConfig()
   return {
-    flowItems: Array.isArray(input.flowItems) ? input.flowItems : defaults.flowItems,
-    services: Array.isArray(input.services) ? input.services : defaults.services,
+    flowItems: mergeDefaultsById(input.flowItems, defaults.flowItems),
+    services: mergeDefaultsById(input.services, defaults.services),
     beforeAfterItems: Array.isArray(input.beforeAfterItems)
       ? input.beforeAfterItems
       : defaults.beforeAfterItems,

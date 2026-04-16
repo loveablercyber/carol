@@ -254,6 +254,31 @@ function slugify(value: string) {
 }
 
 function mapConfigService(service: any) {
+  const imagesById: Record<string, string[]> = {
+    'invisible-weft': ['/images/services/megahair-invisible.png'],
+    'micro-capsula': ['/images/services/megahair-microcapsula.png'],
+    'invisible-hair': ['/images/services/megahair-fita.png'],
+  }
+
+  const priceTable = Array.isArray(service.priceTable)
+    ? service.priceTable
+        .filter((row: any) => row?.active !== false)
+        .sort((a: any, b: any) => Number(a.order || 999) - Number(b.order || 999))
+        .map((row: any) => ({
+          grams: String(row.grams || ''),
+          lengths: Array.isArray(row.lengths)
+            ? row.lengths
+                .filter((length: any) => length?.active !== false)
+                .sort((a: any, b: any) => Number(a.order || 999) - Number(b.order || 999))
+                .map((length: any) => ({
+                  size: String(length.size || ''),
+                  price: Number(length.price || 0),
+                }))
+            : [],
+        }))
+        .filter((row: any) => row.grams && row.lengths.length > 0)
+    : []
+
   return {
     id: service.id,
     name: service.name,
@@ -262,11 +287,14 @@ function mapConfigService(service: any) {
       service.shortDescription ||
       service.observations ||
       '',
-    images: [],
+    images: service.images || imagesById[service.id] || [],
     durationMinutes: Number(service.durationMinutes || 60),
-    priceInfo: {
-      fixedPrice: Number(service.price || 0),
-    },
+    priceInfo:
+      priceTable.length > 0
+        ? { table: priceTable }
+        : {
+            fixedPrice: Number(service.price || 0),
+          },
     order: Number(service.order || 999),
     adminConfigured: true,
     observations: service.observations || '',
@@ -323,7 +351,7 @@ export async function GET(request: NextRequest) {
         return false
       })
       .map(mapConfigService)
-    const merged = [...services, ...configuredForCategory]
+    const merged = [...configuredForCategory, ...services]
       .filter(
         (service, index, arr) =>
           arr.findIndex((item) => item.id === service.id) === index

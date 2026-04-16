@@ -72,6 +72,25 @@ type MaintenanceOption = {
 type FAQItem = {
   question: string
   answer: string
+  serviceId?: string
+}
+
+type ConfigurableChoice = {
+  label: string
+  value?: string
+  price?: number | null
+  priceLabel?: string
+}
+
+type ServiceMediaItem = {
+  id: string
+  serviceId?: string
+  title?: string
+  description?: string
+  beforeImageUrl?: string
+  afterImageUrl?: string
+  thumbnailUrl?: string
+  videoUrl?: string
 }
 
 const QUESTION_FIELD_MAP: Array<keyof CustomerFormData> = [
@@ -157,6 +176,45 @@ const MAINTENANCE_KIT_ITEMS = [
   'Xuxinha de cetim',
   'Reparador para fibra',
 ]
+
+const toChoiceOptions = (items: string[]): ConfigurableChoice[] =>
+  items.map((label) => ({ label }))
+
+const formatChoiceLabel = (option: ConfigurableChoice) => {
+  const priceLabel =
+    option.priceLabel ||
+    (typeof option.price === 'number' && option.price > 0
+      ? `R$ ${option.price.toFixed(2).replace('.', ',')}`
+      : '')
+  return priceLabel ? `${option.label} - ${priceLabel}` : option.label
+}
+
+const flowOptionsToChoices = (
+  flowItem: any,
+  fallback: string[]
+): ConfigurableChoice[] => {
+  const optionItems = Array.isArray(flowItem?.optionItems)
+    ? flowItem.optionItems
+    : []
+  const activeOptionItems = optionItems
+    .filter((item: any) => item?.active !== false && String(item?.label || '').trim())
+    .sort((a: any, b: any) => Number(a.order || 999) - Number(b.order || 999))
+
+  if (activeOptionItems.length > 0) {
+    return activeOptionItems.map((item: any) => ({
+      label: String(item.label || '').trim(),
+      value: String(item.value || item.label || '').trim(),
+      price:
+        typeof item.price === 'number' && Number.isFinite(item.price)
+          ? item.price
+          : null,
+      priceLabel: String(item.priceLabel || '').trim(),
+    }))
+  }
+
+  const options = Array.isArray(flowItem?.options) ? flowItem.options : fallback
+  return toChoiceOptions(options.map((item: any) => String(item)).filter(Boolean))
+}
 
 const FAQ_ITEMS: FAQItem[] = [
   {
@@ -313,8 +371,16 @@ const Chatbot: React.FC<ChatbotProps> = ({
   const [faqItems, setFaqItems] = useState<FAQItem[]>(FAQ_ITEMS)
   const [maintenanceOptions, setMaintenanceOptions] =
     useState<MaintenanceOption[]>(MAINTENANCE_OPTIONS)
-  const [additionalServices, setAdditionalServices] = useState<string[]>(ADDITIONAL_SERVICES)
-  const [maintenanceKitItems, setMaintenanceKitItems] = useState<string[]>(MAINTENANCE_KIT_ITEMS)
+  const [hairSituations, setHairSituations] = useState<string[]>(HAIR_SITUATIONS)
+  const [additionalServiceOptions, setAdditionalServiceOptions] = useState<ConfigurableChoice[]>(
+    toChoiceOptions(ADDITIONAL_SERVICES)
+  )
+  const [maintenanceKitOptions, setMaintenanceKitOptions] = useState<ConfigurableChoice[]>(
+    toChoiceOptions(MAINTENANCE_KIT_ITEMS)
+  )
+  const [serviceBeforeAfterItems, setServiceBeforeAfterItems] = useState<ServiceMediaItem[]>([])
+  const [serviceVideoItems, setServiceVideoItems] = useState<ServiceMediaItem[]>([])
+  const [serviceFaqItems, setServiceFaqItems] = useState<FAQItem[]>([])
   const [mainMenuLabels, setMainMenuLabels] = useState({
     evaluation: 'Agendar avaliação',
     maintenance: 'Manutenção do Megahair',
@@ -346,10 +412,21 @@ const Chatbot: React.FC<ChatbotProps> = ({
           ? data.config.faqItems
           : []
         if (configFaq.length > 0) {
+          const generalFaq = configFaq.filter((item: any) => !item?.serviceId)
+          const linkedFaq = configFaq.filter((item: any) => item?.serviceId)
           setFaqItems(
-            configFaq
+            generalFaq
               .filter((item: any) => item?.question && item?.answer)
               .map((item: any) => ({
+                question: String(item.question),
+                answer: String(item.answer),
+              }))
+          )
+          setServiceFaqItems(
+            linkedFaq
+              .filter((item: any) => item?.question && item?.answer)
+              .map((item: any) => ({
+                serviceId: String(item.serviceId || ''),
                 question: String(item.question),
                 answer: String(item.answer),
               }))
@@ -380,19 +457,70 @@ const Chatbot: React.FC<ChatbotProps> = ({
           setMaintenanceOptions(configuredMaintenanceOptions)
         }
 
+        const beforeAfter = Array.isArray(data?.config?.beforeAfterItems)
+          ? data.config.beforeAfterItems
+          : []
+        setServiceBeforeAfterItems(
+          beforeAfter
+            .filter((item: any) => item?.serviceId)
+            .map((item: any) => ({
+              id: String(item.id || ''),
+              serviceId: String(item.serviceId || ''),
+              title: String(item.title || ''),
+              description: String(item.description || ''),
+              beforeImageUrl: String(item.beforeImageUrl || ''),
+              afterImageUrl: String(item.afterImageUrl || ''),
+            }))
+        )
+
+        const videos = Array.isArray(data?.config?.videoItems)
+          ? data.config.videoItems
+          : []
+        setServiceVideoItems(
+          videos
+            .filter((item: any) => item?.serviceId)
+            .map((item: any) => ({
+              id: String(item.id || ''),
+              serviceId: String(item.serviceId || ''),
+              title: String(item.title || ''),
+              description: String(item.description || ''),
+              thumbnailUrl: String(item.thumbnailUrl || ''),
+              videoUrl: String(item.videoUrl || ''),
+            }))
+        )
+
         if (flowItems.length > 0) {
-          const addonFlow = flowItems.find((item: any) =>
-            /adicion/i.test(String(item.title || item.description || ''))
+          const findFlow = (id: string, pattern: RegExp) =>
+            flowItems.find((item: any) => item.id === id) ||
+            flowItems.find((item: any) =>
+              pattern.test(String(`${item.title || ''} ${item.description || ''}`))
+            )
+
+          const hairSituationFlow = findFlow(
+            'flow_hair_situation',
+            /situa|cabelo/i
           )
-          if (Array.isArray(addonFlow?.options) && addonFlow.options.length > 0) {
-            setAdditionalServices(addonFlow.options.map((item: any) => String(item)))
+          const configuredHairSituations = flowOptionsToChoices(
+            hairSituationFlow,
+            HAIR_SITUATIONS
+          ).map((item) => item.label)
+          if (configuredHairSituations.length > 0) {
+            setHairSituations(configuredHairSituations)
           }
 
-          const kitFlow = flowItems.find((item: any) =>
-            /kit/i.test(String(item.title || item.description || ''))
+          const addonFlow = findFlow(
+            'flow_additional_services',
+            /adicion|servi/i
           )
-          if (Array.isArray(kitFlow?.options) && kitFlow.options.length > 0) {
-            setMaintenanceKitItems(kitFlow.options.map((item: any) => String(item)))
+          const configuredAddons = flowOptionsToChoices(addonFlow, ADDITIONAL_SERVICES)
+          if (configuredAddons.length > 0) {
+            setAdditionalServiceOptions(configuredAddons)
+          }
+
+          const kitFlow = findFlow('flow_maintenance_kit', /kit/i)
+          const configuredKit = flowOptionsToChoices(kitFlow, MAINTENANCE_KIT_ITEMS)
+          if (configuredKit.length > 0) {
+            setMaintenanceKitOptions(configuredKit)
           }
 
           const findTitle = (id: string, fallback: string) =>
@@ -1785,7 +1913,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     if (data.showHairSituations) {
       return (
         <div className="mt-4 space-y-2">
-          {HAIR_SITUATIONS.map((situation) => (
+          {hairSituations.map((situation) => (
             <button
               key={situation}
               onClick={() => handleHairSituationSelect(situation)}
@@ -1802,7 +1930,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
       return (
         <div className="mt-4 space-y-3">
           <div className="grid grid-cols-1 gap-2">
-            {additionalServices.map((service) => {
+            {additionalServiceOptions.map((option) => {
+              const service = option.label
               const selected = selectedAddons.includes(service)
               return (
                 <button
@@ -1814,7 +1943,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
                       : 'bg-white border-pink-200 text-foreground hover:border-pink-400'
                   }`}
                 >
-                  {selected ? '✓ ' : ''}{service}
+                  {selected ? '✓ ' : ''}{formatChoiceLabel(option)}
                 </button>
               )
             })}
@@ -1858,7 +1987,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
       return (
         <div className="mt-4 space-y-3">
           <div className="grid grid-cols-1 gap-2">
-            {maintenanceKitItems.map((item) => {
+            {maintenanceKitOptions.map((option) => {
+              const item = option.label
               const selected = selectedKitItems.includes(item)
               return (
                 <button
@@ -1870,7 +2000,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
                       : 'bg-white border-pink-200 text-foreground hover:border-pink-400'
                   }`}
                 >
-                  {selected ? '✓ ' : ''}{item}
+                  {selected ? '✓ ' : ''}{formatChoiceLabel(option)}
                 </button>
               )
             })}
@@ -2287,7 +2417,29 @@ const Chatbot: React.FC<ChatbotProps> = ({
       ]
     }
 
-    const faqs = faqData[service.id] || faqData['default']
+    const linkedResults = serviceBeforeAfterItems.filter(
+      (item) => item.serviceId === service.id
+    )
+    const linkedVideos = serviceVideoItems.filter((item) => item.serviceId === service.id)
+    const linkedFaqs = serviceFaqItems.filter((item) => item.serviceId === service.id)
+    const selectedResult = linkedResults[0]
+    const selectedVideo = linkedVideos[0]
+    const fallbackBeforeImage =
+      service.id === 'invisible-weft' ? '/images/antes1.png' :
+      service.id === 'invisible-hair' ? '/images/fita1.png' :
+      service.id === 'micro-capsula' ? '/images/queratina1.png' :
+      service.images?.[0] || ''
+    const fallbackAfterImage =
+      service.id === 'invisible-weft' ? '/images/depois1.png' :
+      service.id === 'invisible-hair' ? '/images/fita2.png' :
+      service.id === 'micro-capsula' ? '/images/queratina2.png' :
+      service.images?.[1] || service.images?.[0] || ''
+    const beforeImageUrl = selectedResult?.beforeImageUrl || fallbackBeforeImage
+    const afterImageUrl = selectedResult?.afterImageUrl || fallbackAfterImage
+    const faqs =
+      linkedFaqs.length > 0
+        ? linkedFaqs.map((item) => ({ q: item.question, a: item.answer }))
+        : faqData[service.id] || faqData['default']
 
     return (
       <div className="mt-4 space-y-4">
@@ -2322,24 +2474,16 @@ const Chatbot: React.FC<ChatbotProps> = ({
           {activeTab === 'results' && (
             <div className="space-y-3">
               <div className="bg-gradient-to-r from-[#FFF0F5] to-white p-4 rounded-xl border border-pink-100">
-                <h4 className="font-display font-bold text-xl mb-2 leading-tight">Antes do tratamento</h4>
+                <h4 className="font-display font-bold text-xl mb-2 leading-tight">
+                  {selectedResult?.title || 'Antes do tratamento'}
+                </h4>
                 <div className="w-full h-48 bg-gradient-to-br from-pink-100 to-pink-50 rounded-lg flex items-center justify-center overflow-hidden cursor-zoom-in group">
-                  {service.images && service.images.length > 0 ? (
+                  {beforeImageUrl ? (
                     <img
-                      src={
-                        service.id === 'invisible-weft' ? '/images/antes1.png' : 
-                        service.id === 'invisible-hair' ? '/images/fita1.png' : 
-                        service.id === 'micro-capsula' ? '/images/queratina1.png' :
-                        service.images[0]
-                      }
+                      src={beforeImageUrl}
                       alt={service.name}
                       onClick={() => {
-                        const url = 
-                          service.id === 'invisible-weft' ? '/images/antes1.png' : 
-                          service.id === 'invisible-hair' ? '/images/fita1.png' : 
-                          service.id === 'micro-capsula' ? '/images/queratina1.png' :
-                          service.images![0]
-                        setModalImageUrl(url)
+                        setModalImageUrl(beforeImageUrl)
                         setIsImageModalOpen(true)
                       }}
                       className="w-full h-full object-cover transition-transform group-hover:scale-105"
@@ -2355,22 +2499,12 @@ const Chatbot: React.FC<ChatbotProps> = ({
               <div className="bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] p-4 rounded-xl text-white">
                 <h4 className="font-display font-bold text-xl mb-2 leading-tight">Depois do tratamento ✨</h4>
                 <div className="w-full h-48 bg-gradient-to-br from-white/20 to-white/40 rounded-lg flex items-center justify-center overflow-hidden cursor-zoom-in group">
-                  {service.images && service.images.length > 0 ? (
+                  {afterImageUrl ? (
                     <img
-                      src={
-                        service.id === 'invisible-weft' ? '/images/depois1.png' : 
-                        service.id === 'invisible-hair' ? '/images/fita2.png' : 
-                        service.id === 'micro-capsula' ? '/images/queratina2.png' :
-                        (service.images[1] || service.images[0])
-                      }
+                      src={afterImageUrl}
                       alt={service.name}
                       onClick={() => {
-                        const url = 
-                          service.id === 'invisible-weft' ? '/images/depois1.png' : 
-                          service.id === 'invisible-hair' ? '/images/fita2.png' : 
-                          service.id === 'micro-capsula' ? '/images/queratina2.png' :
-                          (service.images![1] || service.images![0])
-                        setModalImageUrl(url)
+                        setModalImageUrl(afterImageUrl)
                         setIsImageModalOpen(true)
                       }}
                       className="w-full h-full object-cover transition-transform group-hover:scale-105"
@@ -2382,7 +2516,9 @@ const Chatbot: React.FC<ChatbotProps> = ({
                     <span className="text-4xl">✨</span>
                   )}
                 </div>
-                <p className="text-base mt-2 leading-relaxed">Resultado incrível de nossas clientes satisfeitas!</p>
+                <p className="text-base mt-2 leading-relaxed">
+                  {selectedResult?.description || 'Resultado incrível de nossas clientes satisfeitas!'}
+                </p>
               </div>
             </div>
           )}
@@ -2392,10 +2528,23 @@ const Chatbot: React.FC<ChatbotProps> = ({
               <div className="text-center py-8">
                 <div className="text-6xl mb-4">📹</div>
                 <h4 className="font-display font-bold text-xl mb-2 leading-tight">Vídeo de Aplicação</h4>
-                <p className="text-base text-muted-foreground mb-4 leading-relaxed">Veja como é realizada a aplicação de {service.name}</p>
-                <button className="bg-primary text-white py-3 px-6 rounded-xl font-medium hover:shadow-lg transition-all text-base">
-                  ▶️ Assistir Vídeo
-                </button>
+                <p className="text-base text-muted-foreground mb-4 leading-relaxed">
+                  {selectedVideo?.description || `Veja como é realizada a aplicação de ${service.name}`}
+                </p>
+                {selectedVideo?.videoUrl ? (
+                  <a
+                    href={selectedVideo.videoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex bg-primary text-white py-3 px-6 rounded-xl font-medium hover:shadow-lg transition-all text-base"
+                  >
+                    ▶️ Assistir Vídeo
+                  </a>
+                ) : (
+                  <button className="bg-primary text-white py-3 px-6 rounded-xl font-medium hover:shadow-lg transition-all text-base">
+                    ▶️ Assistir Vídeo
+                  </button>
+                )}
               </div>
             </div>
           )}
