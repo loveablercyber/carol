@@ -8,6 +8,32 @@ import {
 } from '@/lib/appointments-store'
 import { buildGoogleCalendarUrl } from '@/lib/appointment-calendar'
 
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function isEvaluationAppointment(item: {
+  serviceName?: string | null
+  questionnaireData?: unknown
+}) {
+  const serviceName = normalizeText(String(item.serviceName || ''))
+  const questionnaireData =
+    item.questionnaireData && typeof item.questionnaireData === 'object'
+      ? (item.questionnaireData as Record<string, unknown>)
+      : {}
+  const primaryFlow = normalizeText(String(questionnaireData.primaryFlow || ''))
+  const primaryCategory = normalizeText(String(questionnaireData.primaryCategory || ''))
+
+  return (
+    primaryFlow === 'evaluation' ||
+    serviceName.includes('avaliacao') ||
+    primaryCategory.includes('avaliacao')
+  )
+}
+
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -45,8 +71,10 @@ export async function GET() {
         const deadlineMs = confirmationDeadlineAt
           ? new Date(confirmationDeadlineAt).getTime()
           : 0
-        const depositApproved =
+        const depositRequired = !isEvaluationAppointment(item)
+        const paymentApproved =
           String(item.paymentStatus || '').toUpperCase() === 'APPROVED'
+        const depositApproved = !depositRequired || paymentApproved
         const canConfirmFromClient =
           ['pending', 'scheduled'].includes(item.status) &&
           depositApproved &&
@@ -70,7 +98,8 @@ export async function GET() {
             durationMinutes: item.durationMinutes,
             notes: item.notes,
           }),
-          depositAmount: 50,
+          depositRequired,
+          depositAmount: depositRequired ? 50 : 0,
           depositApproved,
         }
       })

@@ -1368,7 +1368,9 @@ const Chatbot: React.FC<ChatbotProps> = ({
             `Observação: Cliente orientada a vir com cabelo limpo`,
           ]
         : []),
-      `Valor: R$ ${price.toFixed(2).replace('.', ',')}`,
+      ...(primaryFlow === 'evaluation'
+        ? []
+        : [`Valor: R$ ${price.toFixed(2).replace('.', ',')}`]),
       ``,
       `Data: ${date}`,
       `Horário: ${time}`,
@@ -1569,7 +1571,12 @@ const Chatbot: React.FC<ChatbotProps> = ({
           totalPrice: price,
           grams: selectedOption?.grams || null,
           length: selectedOption?.size || selectedOption?.name || null,
-          paymentMethod: paymentMethod === 'pix' ? 'PIX' : 'CARD',
+          paymentMethod:
+            primaryFlow === 'evaluation'
+              ? null
+              : paymentMethod === 'pix'
+                ? 'PIX'
+                : 'CARD',
           questionnaireData: {
             name: customerData.name || '',
             phone: customerData.phone || '',
@@ -1638,10 +1645,15 @@ const Chatbot: React.FC<ChatbotProps> = ({
       message += `*Kit de manutenção:* ${formatList(selectedKitItems, 'Não incluído')}\n`
       message += `*Observação:* Cliente orientada a vir com cabelo limpo\n`
     }
-    message += `*Valor:* R$ ${price.toFixed(2).replace('.', ',')}\n`
+    if (primaryFlow !== 'evaluation') {
+      message += `*Valor:* R$ ${price.toFixed(2).replace('.', ',')}\n`
+    }
     message += `*Data:* ${date}\n`
     message += `*Horário:* ${time}\n`
-    message += `*Pagamento:* ${paymentMethod === 'pix' ? 'PIX' : 'Cartão'}\n\n`
+    if (primaryFlow !== 'evaluation') {
+      message += `*Pagamento:* ${paymentMethod === 'pix' ? 'PIX' : 'Cartão'}\n`
+    }
+    message += `\n`
     message += `*DADOS DA CLIENTE:*\n`
     questions.forEach(q => {
       if (q.value) message += `✅ *${q.label}:* ${q.value}\n`
@@ -1671,7 +1683,9 @@ const Chatbot: React.FC<ChatbotProps> = ({
     )
     addMessage(
       'bot',
-      'Obrigada! Seu agendamento foi registrado com sucesso.\n\nDeseja ser redirecionada para o painel do cliente para verificar seus serviços agendados e realizar o pagamento do adiantamento do serviço?',
+      primaryFlow === 'evaluation'
+        ? 'Obrigada! Seu agendamento foi registrado com sucesso.\n\nDeseja ser redirecionada para o painel do cliente para verificar seus serviços agendados e confirmar sua presença?'
+        : 'Obrigada! Seu agendamento foi registrado com sucesso.\n\nDeseja ser redirecionada para o painel do cliente para verificar seus serviços agendados e realizar o pagamento do adiantamento do serviço?',
       {
         showAccountRedirect: true,
         accountUrl: '/account?tab=appointments',

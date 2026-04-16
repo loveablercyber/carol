@@ -17,6 +17,32 @@ type PatchBody = {
   notes?: string
 }
 
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function isEvaluationAppointment(appointment: {
+  serviceName?: string | null
+  questionnaireData?: unknown
+}) {
+  const serviceName = normalizeText(String(appointment.serviceName || ''))
+  const questionnaireData =
+    appointment.questionnaireData && typeof appointment.questionnaireData === 'object'
+      ? (appointment.questionnaireData as Record<string, unknown>)
+      : {}
+  const primaryFlow = normalizeText(String(questionnaireData.primaryFlow || ''))
+  const primaryCategory = normalizeText(String(questionnaireData.primaryCategory || ''))
+
+  return (
+    primaryFlow === 'evaluation' ||
+    serviceName.includes('avaliacao') ||
+    primaryCategory.includes('avaliacao')
+  )
+}
+
 function withPresentation(appointment: Awaited<ReturnType<typeof getAppointmentById>>) {
   if (!appointment) return null
 
@@ -24,8 +50,10 @@ function withPresentation(appointment: Awaited<ReturnType<typeof getAppointmentB
   const deadlineAt = getAppointmentConfirmationDeadline(appointment.scheduledAt)
   const deadlineMs = deadlineAt ? new Date(deadlineAt).getTime() : 0
   const scheduledMs = new Date(appointment.scheduledAt).getTime()
-  const depositApproved =
+  const depositRequired = !isEvaluationAppointment(appointment)
+  const paymentApproved =
     String(appointment.paymentStatus || '').toUpperCase() === 'APPROVED'
+  const depositApproved = !depositRequired || paymentApproved
   const canConfirm =
     ['pending', 'scheduled'].includes(appointment.status) &&
     depositApproved &&
@@ -42,7 +70,8 @@ function withPresentation(appointment: Awaited<ReturnType<typeof getAppointmentB
     canConfirmFromClient: canConfirm,
     canCancelFromClient: canCancel,
     confirmationWindowHours: getAppointmentConfirmationPolicy().hoursBefore,
-    depositAmount: 50,
+    depositRequired,
+    depositAmount: depositRequired ? 50 : 0,
     depositApproved,
     googleCalendarUrl: buildGoogleCalendarUrl({
       serviceName: appointment.serviceName,
@@ -104,7 +133,10 @@ export async function PATCH(
     }
 
     if (action === 'confirm') {
-      if (String(current.paymentStatus || '').toUpperCase() !== 'APPROVED') {
+      const depositRequired = !isEvaluationAppointment(current)
+      const paymentApproved =
+        String(current.paymentStatus || '').toUpperCase() === 'APPROVED'
+      if (depositRequired && !paymentApproved) {
         return NextResponse.json(
           {
             error:

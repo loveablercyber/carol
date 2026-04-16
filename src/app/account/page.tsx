@@ -72,6 +72,7 @@ interface AppointmentHistory {
   customerPhone?: string | null
   paymentMethod?: string | null
   paymentStatus?: string | null
+  depositRequired?: boolean
   depositAmount?: number
   depositApproved?: boolean
   status: 'pending' | 'scheduled' | 'confirmed' | 'completed' | 'cancelled'
@@ -751,11 +752,36 @@ function AccountContent() {
     return 'bg-blue-100 text-blue-700'
   }
 
+  const isEvaluationAppointment = (appointment: AppointmentHistory) => {
+    const normalize = (value: string) =>
+      value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+
+    const serviceName = normalize(appointment.serviceName || '')
+    const primaryFlow = normalize(appointment.questionnaireData?.primaryFlow || '')
+    const primaryCategory = normalize(appointment.questionnaireData?.primaryCategory || '')
+
+    return (
+      primaryFlow === 'evaluation' ||
+      serviceName.includes('avaliacao') ||
+      primaryCategory.includes('avaliacao')
+    )
+  }
+
+  const isAppointmentDepositRequired = (appointment: AppointmentHistory) =>
+    typeof appointment.depositRequired === 'boolean'
+      ? appointment.depositRequired
+      : !isEvaluationAppointment(appointment)
+
   const isAppointmentDepositApproved = (appointment: AppointmentHistory) =>
+    !isAppointmentDepositRequired(appointment) ||
     Boolean(appointment.depositApproved) ||
     String(appointment.paymentStatus || '').toUpperCase() === 'APPROVED'
 
   const canPayAppointmentDeposit = (appointment: AppointmentHistory) =>
+    isAppointmentDepositRequired(appointment) &&
     ['pending', 'scheduled'].includes(appointment.status) &&
     !isAppointmentDepositApproved(appointment)
 
@@ -766,7 +792,10 @@ function AccountContent() {
         appointment.clientConfirmedAt
       ).toLocaleString('pt-BR')}`
     }
-    if (!isAppointmentDepositApproved(appointment)) {
+    if (
+      isAppointmentDepositRequired(appointment) &&
+      !isAppointmentDepositApproved(appointment)
+    ) {
       return 'Realize o pagamento do adiantamento de R$ 50,00 para liberar a confirmacao do agendamento.'
     }
     if (appointment.confirmationDeadlineAt) {
@@ -779,7 +808,12 @@ function AccountContent() {
 
   const getAppointmentConfirmationColor = (appointment: AppointmentHistory) => {
     if (appointment.clientConfirmedAt) return 'text-green-700'
-    if (!isAppointmentDepositApproved(appointment)) return 'text-amber-700'
+    if (
+      isAppointmentDepositRequired(appointment) &&
+      !isAppointmentDepositApproved(appointment)
+    ) {
+      return 'text-amber-700'
+    }
     if (!['pending', 'scheduled'].includes(appointment.status)) return 'text-muted-foreground'
     return 'text-amber-700'
   }
@@ -1339,21 +1373,29 @@ function AccountContent() {
                           {getAppointmentStatusText(appointment.status)}
                         </span>
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        Valor: R$ {appointment.totalPrice.toFixed(2).replace('.', ',')}
-                        {appointment.paymentMethod ? ` • Pagamento: ${appointment.paymentMethod}` : ''}
-                      </div>
-                      <div
-                        className={`rounded-xl border px-4 py-3 text-sm ${
-                          isAppointmentDepositApproved(appointment)
-                            ? 'border-green-200 bg-green-50 text-green-700'
-                            : 'border-amber-200 bg-amber-50 text-amber-800'
-                        }`}
-                      >
-                        {isAppointmentDepositApproved(appointment)
-                          ? 'Adiantamento de R$ 50,00 aprovado. Agora voce pode confirmar o agendamento.'
-                          : 'Para confirmar o agendamento, realize o pagamento do adiantamento de R$ 50,00 pelo Mercado Pago.'}
-                      </div>
+                      {isEvaluationAppointment(appointment) ? null : (
+                        <div className="text-sm text-muted-foreground">
+                          Valor: R$ {appointment.totalPrice.toFixed(2).replace('.', ',')}
+                          {appointment.paymentMethod ? ` • Pagamento: ${appointment.paymentMethod}` : ''}
+                        </div>
+                      )}
+                      {isAppointmentDepositRequired(appointment) ? (
+                        <div
+                          className={`rounded-xl border px-4 py-3 text-sm ${
+                            isAppointmentDepositApproved(appointment)
+                              ? 'border-green-200 bg-green-50 text-green-700'
+                              : 'border-amber-200 bg-amber-50 text-amber-800'
+                          }`}
+                        >
+                          {isAppointmentDepositApproved(appointment)
+                            ? 'Adiantamento de R$ 50,00 aprovado. Agora voce pode confirmar o agendamento.'
+                            : 'Para confirmar o agendamento, realize o pagamento do adiantamento de R$ 50,00 pelo Mercado Pago.'}
+                        </div>
+                      ) : (
+                        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                          Avaliacao agendada. Voce ja pode confirmar sua presenca.
+                        </div>
+                      )}
                       {getAppointmentConfirmationText(appointment) ? (
                         <p
                           className={`text-sm font-medium ${getAppointmentConfirmationColor(appointment)}`}
@@ -1643,9 +1685,10 @@ function AccountContent() {
                             </button>
                           ) : !appointment.clientConfirmedAt ? (
                             <span className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700">
-                              {isAppointmentDepositApproved(appointment)
-                                ? 'Prazo de confirmacao expirado. O horario pode ser liberado.'
-                                : 'Pague o adiantamento para liberar o botao de confirmacao.'}
+                              {isAppointmentDepositRequired(appointment) &&
+                              !isAppointmentDepositApproved(appointment)
+                                ? 'Pague o adiantamento para liberar o botao de confirmacao.'
+                                : 'Prazo de confirmacao expirado. O horario pode ser liberado.'}
                             </span>
                           ) : null}
 

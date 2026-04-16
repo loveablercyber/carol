@@ -15,6 +15,32 @@ import {
   validateScheduleWindow,
 } from '@/lib/scheduling-availability'
 
+function normalizeText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function isEvaluationAppointment(input: {
+  serviceName?: string | null
+  questionnaireData?: unknown
+}) {
+  const serviceName = normalizeText(String(input.serviceName || ''))
+  const questionnaireData =
+    input.questionnaireData && typeof input.questionnaireData === 'object'
+      ? (input.questionnaireData as Record<string, unknown>)
+      : {}
+  const primaryFlow = normalizeText(String(questionnaireData.primaryFlow || ''))
+  const primaryCategory = normalizeText(String(questionnaireData.primaryCategory || ''))
+
+  return (
+    primaryFlow === 'evaluation' ||
+    serviceName.includes('avaliacao') ||
+    primaryCategory.includes('avaliacao')
+  )
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -92,19 +118,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const serviceName = String(service.name || service.title || service.serviceName || service || '').trim()
+    const depositRequired = !isEvaluationAppointment({
+      serviceName,
+      questionnaireData,
+    })
+
     const appointment = await createAppointment({
       userId: session.user.id,
       customerName: String(customer.name || '').trim(),
       customerEmail: String(customer.email || '').trim(),
       customerPhone: String(customer.phone || '').trim(),
-      serviceName: String(service.name || service.title || service.serviceName || service || '').trim(),
+      serviceName,
       scheduledAt: scheduledAt.toISOString(),
       durationMinutes: safeDuration,
       grams: grams ? String(grams) : null,
       lengthLabel: length ? String(length) : null,
       totalPrice: numericTotalPrice,
-      paymentMethod: paymentMethod ? String(paymentMethod) : null,
-      paymentStatus: 'pending',
+      paymentMethod: depositRequired && paymentMethod ? String(paymentMethod) : null,
+      paymentStatus: depositRequired ? 'pending' : 'not_required',
       questionnaireData:
         questionnaireData && typeof questionnaireData === 'object'
           ? questionnaireData
