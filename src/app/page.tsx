@@ -167,6 +167,7 @@ export default function Home() {
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
   const [modules, setModules] = useState<HomeModuleConfig[]>(defaultModules)
   const [loadingModules, setLoadingModules] = useState(true)
+  const [showSchedulingHint, setShowSchedulingHint] = useState(false)
 
   useEffect(() => {
     const fetchModules = async () => {
@@ -198,6 +199,19 @@ export default function Home() {
     [modules]
   )
 
+  useEffect(() => {
+    if (!hasSchedulingModule) {
+      setShowSchedulingHint(false)
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowSchedulingHint(true)
+    }, 5000)
+
+    return () => window.clearTimeout(timer)
+  }, [hasSchedulingModule])
+
   const openModuleLink = (target: string) => {
     if (target.startsWith('http://') || target.startsWith('https://')) {
       window.open(target, '_blank', 'noopener,noreferrer')
@@ -208,7 +222,7 @@ export default function Home() {
 
   const handleCardClick = (module: HomeModuleConfig) => {
     if (module.openChatbot) {
-      setIsChatbotOpen(true)
+      openSchedulingChatbot()
       return
     }
 
@@ -220,6 +234,11 @@ export default function Home() {
     if (module.instagramUrl) {
       openModuleLink(module.instagramUrl)
     }
+  }
+
+  const openSchedulingChatbot = () => {
+    setShowSchedulingHint(false)
+    setIsChatbotOpen(true)
   }
 
   return (
@@ -266,13 +285,38 @@ export default function Home() {
       </div>
 
       {hasSchedulingModule && (
-        <button
-          onClick={() => setIsChatbotOpen(true)}
-          className="fixed bottom-20 md:bottom-24 right-4 md:right-6 z-[10000] bg-gradient-to-r from-[#E91E63] to-[#F8B6D8] text-white px-6 py-4 rounded-full shadow-2xl hover:shadow-xl transition-all flex items-center gap-3 btn-shine"
-        >
-          <CalendarPlus className="w-6 h-6" />
-          <span className="font-semibold text-base md:text-lg">Agendar meu atendimento</span>
-        </button>
+        <div className="fixed bottom-24 right-4 md:bottom-28 md:right-7 z-[10000] flex items-end gap-3">
+          {showSchedulingHint && (
+            <div
+              role="status"
+              className="relative max-w-[230px] rounded-2xl border border-pink-100 bg-white/95 px-4 py-3 pr-9 text-left text-sm text-foreground shadow-2xl backdrop-blur-sm animate-in fade-in slide-in-from-right-3 duration-500"
+            >
+              <button
+                type="button"
+                aria-label="Fechar aviso de agendamento"
+                onClick={() => setShowSchedulingHint(false)}
+                className="absolute right-3 top-2 text-lg leading-none text-muted-foreground hover:text-primary"
+              >
+                ×
+              </button>
+              <p className="font-display text-base font-bold text-primary">
+                Agende seu atendimento
+              </p>
+              <p className="mt-1 leading-snug text-muted-foreground">
+                Clique aqui para escolher serviço, data e horário pelo chatbot.
+              </p>
+            </div>
+          )}
+          <button
+            type="button"
+            aria-label="Agendar meu atendimento"
+            onClick={openSchedulingChatbot}
+            className="group relative flex h-16 w-16 md:h-20 md:w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#E91E63] via-[#F06292] to-[#F8B6D8] text-white shadow-[0_18px_45px_rgba(233,30,99,0.35)] ring-4 ring-white/90 transition-all duration-300 hover:scale-105 hover:shadow-[0_22px_55px_rgba(233,30,99,0.45)] focus:outline-none focus:ring-4 focus:ring-pink-200 btn-shine"
+          >
+            <span className="absolute inset-0 rounded-full bg-white/20 opacity-0 transition-opacity group-hover:opacity-100" />
+            <CalendarPlus className="relative z-10 h-8 w-8 md:h-10 md:w-10" />
+          </button>
+        </div>
       )}
 
       <Chatbot isOpen={isChatbotOpen} onClose={() => setIsChatbotOpen(false)} />
