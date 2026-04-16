@@ -28,6 +28,7 @@ import AdminAppointments from '@/components/admin/AdminAppointments'
 import AdminShipping from '@/components/admin/AdminShipping'
 import AdminReviews from '@/components/admin/AdminReviews'
 import AdminBackup from '@/components/admin/AdminBackup'
+import { MercadoPagoTransparentCard } from '@/components/payment/MercadoPagoTransparentCard'
 
 interface Order {
   id: string
@@ -66,8 +67,13 @@ interface AppointmentHistory {
   serviceName: string
   scheduledAt: string
   totalPrice: number
+  customerName?: string | null
+  customerEmail?: string | null
   customerPhone?: string | null
   paymentMethod?: string | null
+  paymentStatus?: string | null
+  depositAmount?: number
+  depositApproved?: boolean
   status: 'pending' | 'scheduled' | 'confirmed' | 'completed' | 'cancelled'
   clientConfirmedAt?: string | null
   confirmationDeadlineAt?: string | null
@@ -178,6 +184,8 @@ function AccountContent() {
   const [appointmentActionId, setAppointmentActionId] = useState<string | null>(null)
   const [appointmentActionError, setAppointmentActionError] = useState('')
   const [appointmentActionSuccess, setAppointmentActionSuccess] = useState('')
+  const [appointmentPaymentId, setAppointmentPaymentId] = useState<string | null>(null)
+  const [appointmentPaymentError, setAppointmentPaymentError] = useState('')
   const [cards, setCards] = useState<SavedCard[]>([])
   const [cardsLoading, setCardsLoading] = useState(false)
   const [cardForm, setCardForm] = useState({
@@ -743,12 +751,23 @@ function AccountContent() {
     return 'bg-blue-100 text-blue-700'
   }
 
+  const isAppointmentDepositApproved = (appointment: AppointmentHistory) =>
+    Boolean(appointment.depositApproved) ||
+    String(appointment.paymentStatus || '').toUpperCase() === 'APPROVED'
+
+  const canPayAppointmentDeposit = (appointment: AppointmentHistory) =>
+    ['pending', 'scheduled'].includes(appointment.status) &&
+    !isAppointmentDepositApproved(appointment)
+
   const getAppointmentConfirmationText = (appointment: AppointmentHistory) => {
     if (!['pending', 'scheduled', 'confirmed'].includes(appointment.status)) return null
     if (appointment.clientConfirmedAt) {
       return `Presenca confirmada em ${new Date(
         appointment.clientConfirmedAt
       ).toLocaleString('pt-BR')}`
+    }
+    if (!isAppointmentDepositApproved(appointment)) {
+      return 'Realize o pagamento do adiantamento de R$ 50,00 para liberar a confirmacao do agendamento.'
     }
     if (appointment.confirmationDeadlineAt) {
       return `Confirme ate ${new Date(appointment.confirmationDeadlineAt).toLocaleString(
@@ -759,8 +778,9 @@ function AccountContent() {
   }
 
   const getAppointmentConfirmationColor = (appointment: AppointmentHistory) => {
-    if (appointment.status !== 'scheduled') return 'text-muted-foreground'
     if (appointment.clientConfirmedAt) return 'text-green-700'
+    if (!isAppointmentDepositApproved(appointment)) return 'text-amber-700'
+    if (!['pending', 'scheduled'].includes(appointment.status)) return 'text-muted-foreground'
     return 'text-amber-700'
   }
 
@@ -1323,6 +1343,17 @@ function AccountContent() {
                         Valor: R$ {appointment.totalPrice.toFixed(2).replace('.', ',')}
                         {appointment.paymentMethod ? ` • Pagamento: ${appointment.paymentMethod}` : ''}
                       </div>
+                      <div
+                        className={`rounded-xl border px-4 py-3 text-sm ${
+                          isAppointmentDepositApproved(appointment)
+                            ? 'border-green-200 bg-green-50 text-green-700'
+                            : 'border-amber-200 bg-amber-50 text-amber-800'
+                        }`}
+                      >
+                        {isAppointmentDepositApproved(appointment)
+                          ? 'Adiantamento de R$ 50,00 aprovado. Agora voce pode confirmar o agendamento.'
+                          : 'Para confirmar o agendamento, realize o pagamento do adiantamento de R$ 50,00 pelo Mercado Pago.'}
+                      </div>
                       {getAppointmentConfirmationText(appointment) ? (
                         <p
                           className={`text-sm font-medium ${getAppointmentConfirmationColor(appointment)}`}
@@ -1345,7 +1376,88 @@ function AccountContent() {
                             ? 'Ocultar detalhes'
                             : 'Ver detalhes'}
                         </button>
+                        {canPayAppointmentDeposit(appointment) ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAppointmentPaymentError('')
+                              setAppointmentPaymentId((current) =>
+                                current === appointment.id ? null : appointment.id
+                              )
+                            }}
+                            className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90"
+                          >
+                            {appointmentPaymentId === appointment.id
+                              ? 'Ocultar pagamento'
+                              : 'Realizar pagamento do adiantamento'}
+                          </button>
+                        ) : null}
                       </div>
+                      {appointmentPaymentId === appointment.id ? (
+                        <div className="rounded-xl border border-pink-100 bg-white p-4 space-y-3">
+                          <div>
+                            <p className="text-sm font-semibold text-foreground">
+                              Adiantamento do serviço
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Valor a pagar agora: R$ 50,00. O restante fica para o atendimento.
+                            </p>
+                          </div>
+                          {appointmentPaymentError ? (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                              {appointmentPaymentError}
+                            </div>
+                          ) : null}
+                          <MercadoPagoTransparentCard
+                            order={{
+                              id: appointment.id,
+                              orderNumber: appointment.id,
+                              total: 50,
+                            }}
+                            paymentEndpoint="/api/payments/mercadopago/appointment-deposit"
+                            extraPayload={{ appointmentId: appointment.id }}
+                            payerEmail={
+                              appointment.questionnaireData?.email ||
+                              appointment.customerEmail ||
+                              session?.user?.email ||
+                              ''
+                            }
+                            payerProfile={{
+                              name:
+                                appointment.questionnaireData?.name ||
+                                appointment.customerName ||
+                                session?.user?.name ||
+                                '',
+                              email:
+                                appointment.questionnaireData?.email ||
+                                appointment.customerEmail ||
+                                session?.user?.email ||
+                                '',
+                              cpf: profileCpf || undefined,
+                              phone:
+                                appointment.questionnaireData?.phone ||
+                                appointment.customerPhone ||
+                                undefined,
+                            }}
+                            onSuccess={async () => {
+                              setAppointmentPaymentError('')
+                              setAppointmentActionSuccess(
+                                'Adiantamento aprovado. Agora confirme seu agendamento.'
+                              )
+                              setAppointmentPaymentId(null)
+                              await loadAppointments()
+                            }}
+                            onPending={async () => {
+                              setAppointmentPaymentError('')
+                              setAppointmentActionSuccess(
+                                'Pagamento gerado no Mercado Pago. Assim que for aprovado, o botao de confirmacao sera liberado.'
+                              )
+                              await loadAppointments()
+                            }}
+                            onError={setAppointmentPaymentError}
+                          />
+                        </div>
+                      ) : null}
                       {expandedAppointmentDetails[appointment.id] ? (
                         <div className="rounded-xl border border-pink-100 bg-pink-50/40 p-4 space-y-4">
                           <div>
@@ -1514,7 +1626,7 @@ function AccountContent() {
                           </div>
                         </div>
                       ) : null}
-                      {appointment.status === 'scheduled' && (
+                      {['pending', 'scheduled'].includes(appointment.status) && (
                         <div className="flex flex-wrap gap-2">
                           {appointment.canConfirmFromClient ? (
                             <button
@@ -1531,7 +1643,9 @@ function AccountContent() {
                             </button>
                           ) : !appointment.clientConfirmedAt ? (
                             <span className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700">
-                              Prazo de confirmacao expirado. O horario pode ser liberado.
+                              {isAppointmentDepositApproved(appointment)
+                                ? 'Prazo de confirmacao expirado. O horario pode ser liberado.'
+                                : 'Pague o adiantamento para liberar o botao de confirmacao.'}
                             </span>
                           ) : null}
 

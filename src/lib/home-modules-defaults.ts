@@ -130,7 +130,7 @@ export const DEFAULT_HOME_MODULES: HomeModuleConfig[] = [
     icon: 'User',
     title: 'Conhecer a Profissional',
     subtitle: '👩‍🦰',
-    description: 'Carol - 14 anos de experiencia',
+    description: 'Carol - 15 anos de experiência',
     href: '/profissional',
     image: '/images/carol.png',
     buttonText: 'Saiba Mais',
@@ -179,4 +179,3 @@ const defaultByKey = new Map(DEFAULT_HOME_MODULES.map((module) => [module.key, m
 export function getDefaultHomeModule(key: string) {
   return defaultByKey.get(key as HomeModuleKey)
 }
-

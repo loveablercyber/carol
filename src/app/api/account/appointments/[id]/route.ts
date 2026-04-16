@@ -24,8 +24,11 @@ function withPresentation(appointment: Awaited<ReturnType<typeof getAppointmentB
   const deadlineAt = getAppointmentConfirmationDeadline(appointment.scheduledAt)
   const deadlineMs = deadlineAt ? new Date(deadlineAt).getTime() : 0
   const scheduledMs = new Date(appointment.scheduledAt).getTime()
+  const depositApproved =
+    String(appointment.paymentStatus || '').toUpperCase() === 'APPROVED'
   const canConfirm =
     ['pending', 'scheduled'].includes(appointment.status) &&
+    depositApproved &&
     !appointment.clientConfirmedAt &&
     Boolean(deadlineMs) &&
     now <= deadlineMs
@@ -39,6 +42,8 @@ function withPresentation(appointment: Awaited<ReturnType<typeof getAppointmentB
     canConfirmFromClient: canConfirm,
     canCancelFromClient: canCancel,
     confirmationWindowHours: getAppointmentConfirmationPolicy().hoursBefore,
+    depositAmount: 50,
+    depositApproved,
     googleCalendarUrl: buildGoogleCalendarUrl({
       serviceName: appointment.serviceName,
       customerName: appointment.customerName,
@@ -99,6 +104,17 @@ export async function PATCH(
     }
 
     if (action === 'confirm') {
+      if (String(current.paymentStatus || '').toUpperCase() !== 'APPROVED') {
+        return NextResponse.json(
+          {
+            error:
+              'Para confirmar o agendamento, realize primeiro o pagamento do adiantamento de R$ 50,00.',
+            appointment: withPresentation(current),
+          },
+          { status: 409 }
+        )
+      }
+
       if (current.clientConfirmedAt) {
         return NextResponse.json({
           ok: true,

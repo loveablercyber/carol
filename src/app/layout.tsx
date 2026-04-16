@@ -29,7 +29,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "CarolSol Studio Premium - Megahair, Perucas e Tratamentos Capilares",
-  description: "Há 14 anos transformando vidas com serviços acessíveis e atendimento humano. Megahair, perucas e tratamentos capilares com ética e amor.",
+  description: "Há 15 anos transformando vidas com serviços acessíveis e atendimento humano. Megahair, perucas e tratamentos capilares com ética e amor.",
   keywords: ["Megahair", "Perucas", "Tratamentos Capilares", "CarolSol Studio", "Salão de Beleza", "Cabelo", "Beleza", "Autoestima"],
   authors: [{ name: "CarolSol Studio" }],
   icons: {

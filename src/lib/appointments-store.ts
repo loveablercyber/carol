@@ -550,6 +550,30 @@ export async function updateAppointmentStatus(id: string, status: AppointmentSta
   return getAppointmentById(id)
 }
 
+export async function updateAppointmentPaymentStatus(input: {
+  id: string
+  paymentStatus: string
+  paymentMethod?: string | null
+}) {
+  await ensureAppointmentsStore()
+
+  await db.$executeRawUnsafe(
+    `
+      UPDATE "CustomerAppointment"
+      SET
+        "payment_status" = $2,
+        "payment_method" = COALESCE($3, "payment_method"),
+        "updated_at" = NOW()
+      WHERE "id" = $1
+    `,
+    input.id,
+    input.paymentStatus,
+    input.paymentMethod || null
+  )
+
+  return getAppointmentById(input.id)
+}
+
 export async function updateAppointmentAdminDetails(input: {
   id: string
   status: AppointmentStatus

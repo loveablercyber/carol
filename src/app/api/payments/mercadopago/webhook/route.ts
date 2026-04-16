@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { OrderStatus, PaymentStatus } from '@prisma/client'
 import { db } from '@/lib/db'
 import { resolveMercadoPagoConfig } from '@/lib/mercadopago-config'
+import { updateAppointmentPaymentStatus } from '@/lib/appointments-store'
 
 const MERCADO_PAGO_API = 'https://api.mercadopago.com/v1/payments'
 
@@ -58,6 +59,40 @@ export async function POST(request: NextRequest) {
       pending: PaymentStatus.PENDING,
       rejected: PaymentStatus.REJECTED,
       refunded: PaymentStatus.REFUNDED,
+    }
+    const appointmentPaymentStatusMap: Record<string, string> = {
+      approved: 'APPROVED',
+      pending: 'PENDING',
+      in_process: 'PENDING',
+      authorized: 'PENDING',
+      rejected: 'REJECTED',
+      cancelled: 'REJECTED',
+      refunded: 'REFUNDED',
+      charged_back: 'REFUNDED',
+    }
+
+    const appointmentId =
+      String(data?.metadata?.appointment_id || '').trim() ||
+      (String(externalReference || '').startsWith('appointment:')
+        ? String(externalReference).replace('appointment:', '').trim()
+        : '')
+
+    if (appointmentId) {
+      await updateAppointmentPaymentStatus({
+        id: appointmentId,
+        paymentStatus: appointmentPaymentStatusMap[status] || 'PENDING',
+        paymentMethod: `MERCADO_PAGO_${String(data?.payment_method_id || '').toUpperCase()}`,
+      })
+
+      console.info('[MP] Appointment deposit webhook processed', {
+        env: config.env,
+        paymentId: String(paymentId),
+        appointmentId,
+        status,
+        mpRequestId,
+      })
+
+      return NextResponse.json({ received: true })
     }
 
     const orderStatusMap: Record<string, OrderStatus> = {

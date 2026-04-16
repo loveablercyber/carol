@@ -186,7 +186,7 @@ export const DEFAULT_INTERNAL_PAGES: InternalPageConfig[] = [
       profileImage: '/images/perfil.png',
       bookingButtonText: 'Agendar atendimento',
       badges: [
-        '14 anos de experiencia',
+        '15 anos de experiência',
         'Atendimento humanizado',
         'Protocolos personalizados',
       ],

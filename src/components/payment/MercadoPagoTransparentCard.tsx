@@ -23,6 +23,8 @@ type MercadoPagoTransparentCardProps = {
     orderNumber: string
     total: number
   }
+  paymentEndpoint?: string
+  extraPayload?: Record<string, unknown>
   payerEmail?: string | null
   payerProfile?: {
     name?: string | null
@@ -89,6 +91,8 @@ function unwrapPaymentBrickPayload(payload: unknown) {
 
 export function MercadoPagoTransparentCard({
   order,
+  paymentEndpoint = '/api/payments/mercadopago/transparent',
+  extraPayload,
   payerEmail,
   payerProfile,
   disabled,
@@ -224,13 +228,14 @@ export function MercadoPagoTransparentCard({
                   : {}),
               }
 
-              return fetch('/api/payments/mercadopago/transparent', {
+              return fetch(paymentEndpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   ...formData,
                   payer: fallbackPayer,
                   orderId: order.id,
+                  ...(extraPayload || {}),
                   payerEmail: effectivePayerEmail,
                   selectedPaymentMethod,
                   payerProfile: {
@@ -306,6 +311,8 @@ export function MercadoPagoTransparentCard({
     }
   }, [
     disabled,
+    paymentEndpoint,
+    JSON.stringify(extraPayload || {}),
     order.id,
     order.orderNumber,
     order.total,

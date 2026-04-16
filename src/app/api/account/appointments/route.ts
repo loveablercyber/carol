@@ -45,8 +45,11 @@ export async function GET() {
         const deadlineMs = confirmationDeadlineAt
           ? new Date(confirmationDeadlineAt).getTime()
           : 0
+        const depositApproved =
+          String(item.paymentStatus || '').toUpperCase() === 'APPROVED'
         const canConfirmFromClient =
           ['pending', 'scheduled'].includes(item.status) &&
+          depositApproved &&
           !item.clientConfirmedAt &&
           Boolean(deadlineMs) &&
           now <= deadlineMs
@@ -67,6 +70,8 @@ export async function GET() {
             durationMinutes: item.durationMinutes,
             notes: item.notes,
           }),
+          depositAmount: 50,
+          depositApproved,
         }
       })
       .sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt))

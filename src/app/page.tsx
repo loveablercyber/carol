@@ -62,12 +62,12 @@ const HeroSection = () => {
         </h1>
 
         <p className="text-lg md:text-xl font-medium text-foreground">
-          Ha 14 anos transformando vidas com servicos acessiveis e atendimento humano.
+          Há 15 anos transformando vidas com serviços acessíveis e atendimento humano.
         </p>
 
         <div className="flex flex-wrap justify-center gap-3 md:gap-4">
           {[
-            { icon: Star, text: '14 Anos de Experiencia' },
+            { icon: Star, text: '15 Anos de Experiência' },
             { icon: User, text: 'Atendimento Individual' },
             { icon: Calendar, text: 'Agendamento Online' },
           ].map((badge, index) => (

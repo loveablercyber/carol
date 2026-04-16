@@ -1651,7 +1651,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     )
     addMessage(
       'bot',
-      'Obrigada! Seu agendamento foi registrado com sucesso.\n\nDeseja ser redirecionada para o painel do cliente para verificar seus serviços agendados?',
+      'Obrigada! Seu agendamento foi registrado com sucesso.\n\nDeseja ser redirecionada para o painel do cliente para verificar seus serviços agendados e realizar o pagamento do adiantamento do serviço?',
       {
         showAccountRedirect: true,
         accountUrl: '/account?tab=appointments',
