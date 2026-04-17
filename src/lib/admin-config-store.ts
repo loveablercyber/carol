@@ -889,6 +889,64 @@ function mergeFlowDefaults(
 ) {
   const merged = mergeDefaultsById(current, defaults)
   const defaultsById = new Map(defaults.map((item) => [item.id, item]))
+  const kitItemDefaults: Record<string, Partial<ChatbotOptionItem>> = {
+    kit_oil: {
+      label: 'Óleo reparador',
+      value: 'oleo_reparador',
+      price: 20,
+      priceLabel: 'R$ 20',
+      order: 1,
+      active: true,
+    },
+    kit_cap: {
+      label: 'Touca',
+      value: 'touca',
+      price: 30,
+      priceLabel: 'R$ 30',
+      order: 2,
+      active: true,
+    },
+    kit_brush: {
+      label: 'Escova raquete',
+      value: 'escova_raquete',
+      price: 30,
+      priceLabel: 'R$ 30',
+      order: 3,
+      active: true,
+    },
+    kit_pillowcase: {
+      label: 'Fronha',
+      value: 'fronha',
+      price: 20,
+      priceLabel: 'R$ 20',
+      order: 4,
+      active: true,
+    },
+    kit_fiber_repair: {
+      label: 'Reparador pra fibra',
+      value: 'reparador_fibra',
+      price: 30,
+      priceLabel: 'R$ 30',
+      order: 5,
+      active: true,
+    },
+    kit_thermal: {
+      label: 'Protetor térmico',
+      value: 'protetor_termico',
+      price: 20,
+      priceLabel: 'R$ 20',
+      order: 6,
+      active: true,
+    },
+    kit_scrunchie: {
+      label: 'Xuxinha de cetim',
+      value: 'xuxinha_cetim',
+      price: null,
+      priceLabel: '',
+      order: 99,
+      active: false,
+    },
+  }
 
   return merged.map((item) => {
     const fallback = defaultsById.get(item.id)
@@ -899,7 +957,13 @@ function mergeFlowDefaults(
     const nextOptionItems = [
       ...currentOptions,
       ...fallback.optionItems.filter((option) => !seen.has(option.id)),
-    ].sort((a, b) => Number(a.order || 999) - Number(b.order || 999))
+    ]
+      .map((option) =>
+        item.id === 'flow_maintenance_kit' && kitItemDefaults[option.id]
+          ? { ...option, ...kitItemDefaults[option.id] }
+          : option
+      )
+      .sort((a, b) => Number(a.order || 999) - Number(b.order || 999))
 
     return {
       ...item,
