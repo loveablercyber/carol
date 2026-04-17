@@ -22,14 +22,22 @@ type AppointmentQuestionnaire = {
   hairColor?: string
   hairState?: string
   methods?: string
+  hairPhotoUrl?: string
   primaryFlow?: string
   primaryCategory?: string
   maintenanceType?: string
   maintenanceBasePrice?: string
   hairSituation?: string
+  selectedOption?: string
   additionalServices?: string
+  additionalServicesTotal?: string
   maintenanceKit?: string
+  maintenanceKitTotal?: string
   cleanHairObservation?: string
+  futureMaintenance?: string
+  cronogramaCapilar?: string
+  parentAppointmentId?: string
+  relatedAppointmentType?: string
 }
 
 type AppointmentMaintenanceEntry = {
@@ -98,14 +106,22 @@ const emptyQuestionnaire: AppointmentQuestionnaire = {
   hairColor: '',
   hairState: '',
   methods: '',
+  hairPhotoUrl: '',
   primaryFlow: '',
   primaryCategory: '',
   maintenanceType: '',
   maintenanceBasePrice: '',
   hairSituation: '',
+  selectedOption: '',
   additionalServices: '',
+  additionalServicesTotal: '',
   maintenanceKit: '',
+  maintenanceKitTotal: '',
   cleanHairObservation: '',
+  futureMaintenance: '',
+  cronogramaCapilar: '',
+  parentAppointmentId: '',
+  relatedAppointmentType: '',
 }
 
 function normalizeQuestionnaireData(
@@ -628,8 +644,16 @@ export default function AdminAppointments() {
             ['maintenanceType', 'Tipo de manutencao'],
             ['maintenanceBasePrice', 'Valor base manutencao'],
             ['hairSituation', 'Situacao do cabelo'],
+            ['selectedOption', 'Opcao escolhida'],
             ['additionalServices', 'Servicos adicionais'],
+            ['additionalServicesTotal', 'Total adicionais'],
             ['maintenanceKit', 'Kit de manutencao'],
+            ['maintenanceKitTotal', 'Total kit'],
+            ['futureMaintenance', 'Manutencao 60 dias'],
+            ['cronogramaCapilar', 'Cronograma capilar'],
+            ['hairPhotoUrl', 'Foto do cabelo atual'],
+            ['parentAppointmentId', 'Agendamento principal'],
+            ['relatedAppointmentType', 'Tipo vinculado'],
             ['cleanHairObservation', 'Observacao cabelo limpo'],
           ] as Array<[keyof AppointmentQuestionnaire, string]>
         ).map(([field, label]) => (
@@ -648,6 +672,13 @@ export default function AdminAppointments() {
               }
               className="w-full px-3 py-2 border border-pink-200 rounded-lg"
             />
+            {field === 'hairPhotoUrl' && update.questionnaireData.hairPhotoUrl ? (
+              <img
+                src={update.questionnaireData.hairPhotoUrl}
+                alt="Foto do cabelo atual"
+                className="mt-2 h-36 w-full rounded-lg border border-pink-100 object-cover"
+              />
+            ) : null}
           </div>
         ))}
       </div>

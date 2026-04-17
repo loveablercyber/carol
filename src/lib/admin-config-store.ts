@@ -355,6 +355,43 @@ function createAlignmentService(
   }
 }
 
+function createQueratinaApplicationService(): AdminServiceItem {
+  return {
+    id: 'queratina-aplicacao',
+    name: 'Queratina',
+    category: 'Extensões / Fibra Russa',
+    subcategory: 'Aplicação do Megahair',
+    price: 0,
+    priceLabel: 'Tabela por gramas',
+    pricePerGram: null,
+    minGrams: 100,
+    maxGrams: 350,
+    durationMinutes: 240,
+    shortDescription: 'Aplicação de queratina por gramas.',
+    longDescription: 'Aplicação de queratina com valores por grama conforme tabela.',
+    observations: 'Venha com o cabelo limpo.',
+    priceTable: [
+      {
+        id: 'queratina_aplicacao',
+        grams: 'Aplicação',
+        order: 1,
+        active: true,
+        lengths: [
+          { id: 'queratina_100g', size: '100g aplicação', price: 500, order: 1, active: true },
+          { id: 'queratina_150g', size: '150g aplicação', price: 750, order: 2, active: true },
+          { id: 'queratina_200g', size: '200g aplicação', price: 1000, order: 3, active: true },
+          { id: 'queratina_250g', size: '250g aplicação', price: 1250, order: 4, active: true },
+          { id: 'queratina_300g', size: '300g aplicação', price: 1500, order: 5, active: true },
+          { id: 'queratina_350g', size: '350g aplicação', price: 1750, order: 6, active: true },
+        ],
+      },
+    ],
+    extraQuestions: [],
+    order: 5,
+    active: true,
+  }
+}
+
 const DEFAULT_CONFIG: AdminOperationalConfig = {
   flowItems: [
     {
@@ -466,33 +503,29 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
       title: 'Qual é a sua situação?',
       subtitle: 'Situação do cabelo para manutenção',
       description: 'Opções exibidas depois da escolha do tipo de manutenção.',
-      options: [
-        'Vou usar o mesmo cabelo',
-        'Vou fazer manutenção com cabelo novo',
-        'Tirei o cabelo em casa e quero só fazer a aplicação',
-      ],
+      options: ['Cabelo novo', 'Mesmo cabelo', 'Tirei o cabelo / só aplicação'],
       optionItems: [
         {
           id: 'hair_same',
-          label: 'Vou usar o mesmo cabelo',
+          label: 'Mesmo cabelo',
           value: 'same_hair',
-          price: null,
-          priceLabel: '',
-          order: 1,
-          active: true,
-        },
-        {
-          id: 'hair_new',
-          label: 'Vou fazer manutenção com cabelo novo',
-          value: 'new_hair',
           price: null,
           priceLabel: '',
           order: 2,
           active: true,
         },
         {
+          id: 'hair_new',
+          label: 'Cabelo novo',
+          value: 'new_hair',
+          price: null,
+          priceLabel: '',
+          order: 1,
+          active: true,
+        },
+        {
           id: 'hair_home_removed',
-          label: 'Tirei o cabelo em casa e quero só fazer a aplicação',
+          label: 'Tirei o cabelo / só aplicação',
           value: 'home_removed',
           price: null,
           priceLabel: '',
@@ -543,12 +576,12 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
         'Reparador para fibra',
       ],
       optionItems: [
-        { id: 'kit_oil', label: 'Óleo reparador', value: 'oleo_reparador', price: null, priceLabel: '', order: 1, active: true },
-        { id: 'kit_brush', label: 'Escova raquete', value: 'escova_raquete', price: null, priceLabel: '', order: 2, active: true },
-        { id: 'kit_cap', label: 'Touca de cetim', value: 'touca_cetim', price: null, priceLabel: '', order: 3, active: true },
-        { id: 'kit_pillowcase', label: 'Fronha de cetim', value: 'fronha_cetim', price: null, priceLabel: '', order: 4, active: true },
-        { id: 'kit_scrunchie', label: 'Xuxinha de cetim', value: 'xuxinha_cetim', price: null, priceLabel: '', order: 5, active: true },
-        { id: 'kit_fiber_repair', label: 'Reparador para fibra', value: 'reparador_fibra', price: null, priceLabel: '', order: 6, active: true },
+        { id: 'kit_oil', label: 'Óleo reparador', value: 'oleo_reparador', price: 20, priceLabel: 'R$ 20', order: 1, active: true },
+        { id: 'kit_cap', label: 'Touca', value: 'touca', price: 30, priceLabel: 'R$ 30', order: 2, active: true },
+        { id: 'kit_brush', label: 'Escova raquete', value: 'escova_raquete', price: 30, priceLabel: 'R$ 30', order: 3, active: true },
+        { id: 'kit_pillowcase', label: 'Fronha', value: 'fronha', price: 20, priceLabel: 'R$ 20', order: 4, active: true },
+        { id: 'kit_fiber_repair', label: 'Reparador pra fibra', value: 'reparador_fibra', price: 30, priceLabel: 'R$ 30', order: 5, active: true },
+        { id: 'kit_thermal', label: 'Protetor térmico', value: 'protetor_termico', price: 20, priceLabel: 'R$ 20', order: 6, active: true },
       ],
       price: '',
       grams: '',
@@ -723,6 +756,7 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
       order: 4,
       active: true,
     },
+    createQueratinaApplicationService(),
     createAlignmentService('align_selante_blond', 'Selante Blond', 190, 230, 270, 150, 20),
     createAlignmentService('align_btx', 'BTX', 160, 200, 240, 120, 21),
     createAlignmentService('align_blindagem_fios', 'Blindagem dos Fios', 160, 190, 260, 120, 22),
@@ -849,6 +883,34 @@ function mergeDefaultsById<T extends { id: string; order?: number }>(
   ].sort((a, b) => Number(a.order || 999) - Number(b.order || 999))
 }
 
+function mergeFlowDefaults(
+  current: ChatbotFlowItem[] | undefined,
+  defaults: ChatbotFlowItem[]
+) {
+  const merged = mergeDefaultsById(current, defaults)
+  const defaultsById = new Map(defaults.map((item) => [item.id, item]))
+
+  return merged.map((item) => {
+    const fallback = defaultsById.get(item.id)
+    if (!fallback?.optionItems?.length) return item
+
+    const currentOptions = Array.isArray(item.optionItems) ? item.optionItems : []
+    const seen = new Set(currentOptions.map((option) => option.id))
+    const nextOptionItems = [
+      ...currentOptions,
+      ...fallback.optionItems.filter((option) => !seen.has(option.id)),
+    ].sort((a, b) => Number(a.order || 999) - Number(b.order || 999))
+
+    return {
+      ...item,
+      optionItems: nextOptionItems,
+      options: nextOptionItems
+        .filter((option) => option.active !== false)
+        .map((option) => option.label),
+    }
+  })
+}
+
 async function ensureAdminConfigStore() {
   if (bootstrapPromise) return bootstrapPromise
 
@@ -869,7 +931,7 @@ async function ensureAdminConfigStore() {
 function normalizeConfig(input: Partial<AdminOperationalConfig>): AdminOperationalConfig {
   const defaults = cloneDefaultConfig()
   return {
-    flowItems: mergeDefaultsById(input.flowItems, defaults.flowItems),
+    flowItems: mergeFlowDefaults(input.flowItems, defaults.flowItems),
     services: mergeDefaultsById(input.services, defaults.services),
     beforeAfterItems: Array.isArray(input.beforeAfterItems)
       ? input.beforeAfterItems

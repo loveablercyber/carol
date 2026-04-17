@@ -58,6 +58,7 @@ type CustomerFormData = {
   hairColor: string
   hairState: string
   methods: string
+  hairPhotoUrl: string
 }
 
 type PrimaryFlow =
@@ -86,6 +87,27 @@ type ConfigurableChoice = {
   value?: string
   price?: number | null
   priceLabel?: string
+}
+
+type MaintenancePriceOption = {
+  name: string
+  price: number
+  grams?: string
+  size?: string
+  description?: string
+  durationMinutes?: number
+  image?: string
+}
+
+type ScheduleMode = 'main' | 'futureMaintenance' | 'cronograma'
+
+type ScheduledExtra = {
+  type: 'futureMaintenance' | 'cronograma'
+  serviceName: string
+  scheduledAt: string
+  durationMinutes: number
+  totalPrice: number
+  notes?: string
 }
 
 type ServiceMediaItem = {
@@ -123,6 +145,86 @@ const EMPTY_CUSTOMER_DATA: CustomerFormData = {
   hairColor: '',
   hairState: '',
   methods: '',
+  hairPhotoUrl: '',
+}
+
+const FIBRA_PRICE_TABLE = [
+  { grams: '100g', size: '60/65/70cm', price: 360 },
+  { grams: '150g', size: '60/65/70cm', price: 405 },
+  { grams: '200g', size: '60/65/70cm', price: 500 },
+  { grams: '250g', size: '60/65/70cm', price: 600 },
+  { grams: '300g', size: '60/65/70cm', price: 660 },
+  { grams: '350g', size: '60/65/70cm', price: 770 },
+  { grams: '100g', size: '75/80cm', price: 430 },
+  { grams: '150g', size: '75/80cm', price: 510 },
+  { grams: '200g', size: '75/80cm', price: 640 },
+  { grams: '250g', size: '75/80cm', price: 775 },
+  { grams: '300g', size: '75/80cm', price: 870 },
+  { grams: '350g', size: '75/80cm', price: 1015 },
+]
+
+const QUERATINA_PRICE_TABLE = [
+  { grams: '100g', size: '60/65/70cm', price: 690 },
+  { grams: '150g', size: '60/65/70cm', price: 930 },
+  { grams: '200g', size: '60/65/70cm', price: 1240 },
+  { grams: '250g', size: '60/65/70cm', price: 1550 },
+  { grams: '300g', size: '60/65/70cm', price: 1860 },
+  { grams: '350g', size: '60/65/70cm', price: 2170 },
+  { grams: '100g', size: '75/80cm', price: 760 },
+  { grams: '150g', size: '75/80cm', price: 1035 },
+  { grams: '200g', size: '75/80cm', price: 1380 },
+  { grams: '250g', size: '75/80cm', price: 1725 },
+  { grams: '300g', size: '75/80cm', price: 1270 },
+  { grams: '350g', size: '75/80cm', price: 2415 },
+]
+
+const QUERATINA_APPLICATION_BY_GRAMS: Record<string, number> = {
+  '100g': 500,
+  '150g': 750,
+  '200g': 1000,
+  '250g': 1250,
+  '300g': 1500,
+  '350g': 1750,
+}
+
+const QUERATINA_REMOVAL_BY_GRAMS: Record<string, number> = {
+  '100g': 75,
+  '150g': 120,
+  '200g': 150,
+  '250g': 190,
+  '300g': 225,
+  '350g': 270,
+}
+
+const CRONOGRAMA_TREATMENTS = [
+  {
+    name: 'Hidratação',
+    objective: 'Recupera água e maciez, ideal para cabelos opacos e ressecados.',
+  },
+  {
+    name: 'Nutrição',
+    objective: 'Repõe lipídio e óleos, combate frizz e dá brilho.',
+  },
+  {
+    name: 'Reconstrução',
+    objective: 'Repõe proteínas e queratina, fortalece fios danificados ou quimicamente tratados.',
+  },
+  {
+    name: 'Blindagem Capilar',
+    objective: 'Cria uma capa protetora, sela as cutículas, reduz frizz e prolonga efeitos da hidratação/nutrição/reconstrução.',
+  },
+]
+
+const KIT_PRICE_BY_LABEL: Record<string, number> = {
+  'Touca': 30,
+  'Touca de cetim': 30,
+  'Óleo reparador': 20,
+  'Escova raquete': 30,
+  'Fronha': 20,
+  'Fronha de cetim': 20,
+  'Reparador pra fibra': 30,
+  'Reparador para fibra': 30,
+  'Protetor térmico': 20,
 }
 
 const EXTENSION_CATEGORY: ServiceCategory = {
@@ -184,23 +286,48 @@ const ADDITIONAL_SERVICES = [
 
 const MAINTENANCE_KIT_ITEMS = [
   'Óleo reparador',
+  'Touca',
   'Escova raquete',
-  'Touca de cetim',
-  'Fronha de cetim',
-  'Xuxinha de cetim',
-  'Reparador para fibra',
+  'Fronha',
+  'Reparador pra fibra',
+  'Protetor térmico',
 ]
 
 const toChoiceOptions = (items: string[]): ConfigurableChoice[] =>
-  items.map((label) => ({ label }))
+  items.map((label) => ({
+    label,
+    price: KIT_PRICE_BY_LABEL[label] || null,
+    priceLabel: KIT_PRICE_BY_LABEL[label] ? `R$ ${KIT_PRICE_BY_LABEL[label]}` : '',
+  }))
 
 const formatChoiceLabel = (option: ConfigurableChoice) => {
   const priceLabel =
     option.priceLabel ||
     (typeof option.price === 'number' && option.price > 0
       ? `R$ ${option.price.toFixed(2).replace('.', ',')}`
+      : KIT_PRICE_BY_LABEL[option.label]
+        ? `R$ ${KIT_PRICE_BY_LABEL[option.label]}`
       : '')
   return priceLabel ? `${option.label} - ${priceLabel}` : option.label
+}
+
+const getChoicePrice = (label: string, options: ConfigurableChoice[]) => {
+  const normalized = label.trim().toLowerCase()
+  const found = options.find((option) => option.label.trim().toLowerCase() === normalized)
+  if (typeof found?.price === 'number' && Number.isFinite(found.price)) {
+    return found.price
+  }
+  return KIT_PRICE_BY_LABEL[label] || 0
+}
+
+const formatSelectedChoices = (items: string[], options: ConfigurableChoice[], emptyText: string) => {
+  if (items.length === 0) return emptyText
+  return items
+    .map((item) => {
+      const price = getChoicePrice(item, options)
+      return price > 0 ? `${item} (R$ ${price.toFixed(2).replace('.', ',')})` : item
+    })
+    .join(', ')
 }
 
 const flowOptionsToChoices = (
@@ -382,6 +509,13 @@ const Chatbot: React.FC<ChatbotProps> = ({
   const [hairSituation, setHairSituation] = useState('')
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
   const [selectedKitItems, setSelectedKitItems] = useState<string[]>([])
+  const [maintenancePriceOptions, setMaintenancePriceOptions] = useState<MaintenancePriceOption[]>([])
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>('main')
+  const [futureMaintenance, setFutureMaintenance] = useState<ScheduledExtra | null>(null)
+  const [cronogramaEnabled, setCronogramaEnabled] = useState(false)
+  const [cronogramaAppointments, setCronogramaAppointments] = useState<ScheduledExtra[]>([])
+  const [cronogramaStepIndex, setCronogramaStepIndex] = useState(0)
+  const [cronogramaMonth, setCronogramaMonth] = useState('')
   const [faqItems, setFaqItems] = useState<FAQItem[]>(FAQ_ITEMS)
   const [maintenanceOptions, setMaintenanceOptions] =
     useState<MaintenanceOption[]>(MAINTENANCE_OPTIONS)
@@ -404,6 +538,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
   })
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [selectedTime, setSelectedTime] = useState<string>('')
+  const [pendingExtraDate, setPendingExtraDate] = useState<string>('')
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix')
   const [inputValue, setInputValue] = useState<string>('')
   const [isLoading, setIsLoading] = useState(false)
@@ -535,7 +670,18 @@ const Chatbot: React.FC<ChatbotProps> = ({
           const kitFlow = findFlow('flow_maintenance_kit', /kit/i)
           const configuredKit = flowOptionsToChoices(kitFlow, MAINTENANCE_KIT_ITEMS)
           if (configuredKit.length > 0) {
-            setMaintenanceKitOptions(configuredKit)
+            const mergedKit = [...configuredKit]
+            for (const defaultKit of toChoiceOptions(MAINTENANCE_KIT_ITEMS)) {
+              if (
+                !mergedKit.some(
+                  (item) =>
+                    item.label.trim().toLowerCase() === defaultKit.label.trim().toLowerCase()
+                )
+              ) {
+                mergedKit.push(defaultKit)
+              }
+            }
+            setMaintenanceKitOptions(mergedKit)
           }
 
           const findTitle = (id: string, fallback: string) =>
@@ -679,6 +825,198 @@ const Chatbot: React.FC<ChatbotProps> = ({
     )
   }
 
+  const resetUpsellAndScheduleState = () => {
+    setSelectedAddons([])
+    setSelectedKitItems([])
+    setMaintenancePriceOptions([])
+    setScheduleMode('main')
+    setFutureMaintenance(null)
+    setCronogramaEnabled(false)
+    setCronogramaAppointments([])
+    setCronogramaStepIndex(0)
+    setCronogramaMonth('')
+  }
+
+  const normalizeChoiceText = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+
+  const getMaintenanceImage = (label: string) => {
+    const normalized = normalizeChoiceText(label)
+    if (normalized.includes('fita')) return '/images/Bio Proteína Loiro Mel.jpeg'
+    if (normalized.includes('queratina')) return '/images/Bio Proteína Loiro Clarisso.jpeg'
+    if (normalized.includes('entrelace')) return '/images/Bio Proteína Loiro Dourado.jpeg'
+    return '/images/Bio Proteína Marsala.jpeg'
+  }
+
+  const buildMaintenanceOptionsForSituation = (
+    type: MaintenanceOption,
+    situation: string
+  ): MaintenancePriceOption[] => {
+    const typeText = normalizeChoiceText(type.label)
+    const situationText = normalizeChoiceText(situation)
+    const sameHair = situationText.includes('mesmo')
+    const newHair = situationText.includes('novo')
+    const onlyApplication = situationText.includes('tirei') || situationText.includes('aplicacao')
+    const image = getMaintenanceImage(type.label)
+
+    if (typeText.includes('ponto')) {
+      if (newHair) {
+        return FIBRA_PRICE_TABLE.map((item) => ({
+          name: `${item.grams} ${item.size} - R$ ${item.price} cabelo e aplicação + R$ 70 remoção + escova e hidratação`,
+          price: item.price + 70,
+          grams: item.grams,
+          size: item.size,
+          description: 'Cabelo e aplicação + R$ 70 remoção + escova e hidratação',
+          durationMinutes: 180,
+          image,
+        }))
+      }
+
+      if (sameHair || onlyApplication) {
+        return [
+          {
+            name: `${type.label} - ${onlyApplication ? 'só aplicação' : 'mesmo cabelo'}`,
+            price: 260,
+            description: onlyApplication ? 'Só aplicação' : 'Manutenção com o mesmo cabelo',
+            durationMinutes: 120,
+            image,
+          },
+        ]
+      }
+    }
+
+    if (typeText.includes('fita')) {
+      if (sameHair) {
+        return FIBRA_PRICE_TABLE.map((item) => ({
+          name: `${item.grams} ${item.size} - R$ ${item.price} cabelo e aplicação + R$ 70 remoção + R$ 290 aplicação + escova e hidratação`,
+          price: item.price + 70 + 290,
+          grams: item.grams,
+          size: item.size,
+          description: 'Cabelo e aplicação + R$ 70 remoção + R$ 290 aplicação + escova e hidratação',
+          durationMinutes: 180,
+          image,
+        }))
+      }
+
+      if (newHair) {
+        return FIBRA_PRICE_TABLE.map((item) => ({
+          name: `${item.grams} ${item.size} - R$ ${item.price} cabelo novo + R$ 70 remoção`,
+          price: item.price + 70,
+          grams: item.grams,
+          size: item.size,
+          description: 'Cabelo novo + remoção',
+          durationMinutes: 180,
+          image,
+        }))
+      }
+
+      if (onlyApplication) {
+        return [
+          {
+            name: `${type.label} - aplicação`,
+            price: 290,
+            description: 'Aplicação de fita adesiva',
+            durationMinutes: 120,
+            image,
+          },
+        ]
+      }
+    }
+
+    if (typeText.includes('entrelace')) {
+      if (sameHair) {
+        return [
+          {
+            name: `${type.label} - aplicação + remoção`,
+            price: 430,
+            description: 'R$ 360 aplicação + R$ 70 remoção',
+            durationMinutes: 150,
+            image,
+          },
+        ]
+      }
+
+      if (newHair) {
+        return FIBRA_PRICE_TABLE.map((item) => ({
+          name: `${item.grams} ${item.size} - R$ ${item.price} cabelo novo + R$ 70 remoção`,
+          price: item.price + 70,
+          grams: item.grams,
+          size: item.size,
+          description: 'Valor da tabela + R$ 70 remoção',
+          durationMinutes: 180,
+          image,
+        }))
+      }
+
+      if (onlyApplication) {
+        return [
+          {
+            name: `${type.label} - só aplicação`,
+            price: 360,
+            description: 'Aplicação de entrelace',
+            durationMinutes: 150,
+            image,
+          },
+        ]
+      }
+    }
+
+    if (typeText.includes('queratina')) {
+      if (sameHair) {
+        return Object.entries(QUERATINA_APPLICATION_BY_GRAMS).map(([grams, applicationPrice]) => {
+          const removal = QUERATINA_REMOVAL_BY_GRAMS[grams] || 0
+          return {
+            name: `${grams} - R$ ${removal} remoção + R$ ${applicationPrice} aplicação`,
+            price: removal + applicationPrice,
+            grams,
+            description: `Remoção R$ ${removal} + aplicação R$ ${applicationPrice}`,
+            durationMinutes: 240,
+            image,
+          }
+        })
+      }
+
+      if (newHair) {
+        return QUERATINA_PRICE_TABLE.map((item) => {
+          const removal = QUERATINA_REMOVAL_BY_GRAMS[item.grams] || 0
+          return {
+            name: `${item.grams} ${item.size} - R$ ${item.price} cabelo + R$ ${removal} remoção`,
+            price: item.price + removal,
+            grams: item.grams,
+            size: item.size,
+            description: `Tabela queratina + remoção R$ ${removal}`,
+            durationMinutes: 240,
+            image,
+          }
+        })
+      }
+
+      if (onlyApplication) {
+        return Object.entries(QUERATINA_APPLICATION_BY_GRAMS).map(([grams, price]) => ({
+          name: `${grams} aplicação = R$ ${price}`,
+          price,
+          grams,
+          description: 'Aplicação de queratina',
+          durationMinutes: 240,
+          image,
+        }))
+      }
+    }
+
+    return [
+      {
+        name: `${type.label} - ${situation}`,
+        price: type.price,
+        description: situation,
+        durationMinutes: 120,
+        image,
+      },
+    ]
+  }
+
   const clearAccountRedirectPrompt = () => {
     setMessages((prev) =>
       prev.map((message) =>
@@ -723,6 +1061,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
 
   const fluxoAvaliacao = () => {
     setPrimaryFlow('evaluation')
+    resetUpsellAndScheduleState()
     setSelectedCategory(null)
     setSelectedService({
       id: 'avaliacao',
@@ -754,8 +1093,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setSelectedOption(null)
     setMaintenanceType(null)
     setHairSituation('')
-    setSelectedAddons([])
-    setSelectedKitItems([])
+    resetUpsellAndScheduleState()
     addMessage('bot', 'Perfeito! Vamos agendar sua manutenção de mega hair.')
     setTimeout(() => {
       addMessage('bot', 'Selecione o tipo de manutenção:', {
@@ -768,12 +1106,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setPrimaryFlow('application')
     setMaintenanceType(null)
     setHairSituation('')
-    setSelectedAddons([])
-    setSelectedKitItems([])
+    resetUpsellAndScheduleState()
     addMessage('bot', 'Perfeito! Vamos seguir com sua aplicação de mega hair.')
-    const maintenanceNames = new Set(
-      maintenanceOptions.map((option) => option.label.trim().toLowerCase())
-    )
     await handleCategorySelect(EXTENSION_CATEGORY, {
       silentUserMessage: true,
       introText: 'Escolha a técnica de aplicação que deseja conhecer e agendar:',
@@ -782,8 +1116,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
         const name = String(service.name || '').trim().toLowerCase()
         return !id.startsWith('svc_maintenance') &&
           !/manutenc/.test(id) &&
-          !/manutenc/.test(name) &&
-          !maintenanceNames.has(name)
+          !/manutenc/.test(name)
       },
     })
   }
@@ -793,8 +1126,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setSelectedCategory(ALIGNMENT_CATEGORY)
     setMaintenanceType(null)
     setHairSituation('')
-    setSelectedAddons([])
-    setSelectedKitItems([])
+    resetUpsellAndScheduleState()
     addMessage('bot', 'Perfeito! Vamos seguir com seu alinhamento.')
     await handleCategorySelect(ALIGNMENT_CATEGORY, {
       silentUserMessage: true,
@@ -1022,7 +1354,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
 
     const question = getNextQuestion(startIndex, dataSnapshot)
     if (!question) {
-      showDateSelection()
+      continueAfterQuestionnaire(dataSnapshot)
       return
     }
 
@@ -1176,13 +1508,10 @@ const Chatbot: React.FC<ChatbotProps> = ({
   const handleMaintenanceTypeSelect = (option: MaintenanceOption) => {
     clearMessageFlag('showMaintenanceTypes')
     setMaintenanceType(option)
-    setSelectedOption({
-      name: option.label,
-      price: option.price,
-      size: option.priceLabel,
-    })
-    addMessage('user', `${option.label} - ${option.priceLabel}`, {})
-    addMessage('bot', 'Agora me informe qual é a sua situação:', {
+    setSelectedOption(null)
+    setMaintenancePriceOptions([])
+    addMessage('user', option.label, {})
+    addMessage('bot', 'Selecione sua situação:', {
       showHairSituations: true,
     })
   }
@@ -1191,6 +1520,23 @@ const Chatbot: React.FC<ChatbotProps> = ({
     clearMessageFlag('showHairSituations')
     setHairSituation(situation)
     addMessage('user', situation, {})
+    const options = maintenanceType
+      ? buildMaintenanceOptionsForSituation(maintenanceType, situation)
+      : []
+    setMaintenancePriceOptions(options)
+    addMessage(
+      'bot',
+      options.length > 1
+        ? 'Agora selecione a opção de grama/tamanho correspondente:'
+        : 'Confira o valor correspondente para sua situação:',
+      { showMaintenancePriceOptions: true, options }
+    )
+  }
+
+  const handleMaintenancePriceSelect = (option: MaintenancePriceOption) => {
+    clearMessageFlag('showMaintenancePriceOptions')
+    setSelectedOption(option)
+    addMessage('user', `${option.name} - R$ ${option.price}`, {})
     addMessage('bot', 'Observação importante: para o atendimento, venha com o cabelo limpo.')
     showAdditionalServicesOffer()
   }
@@ -1228,6 +1574,20 @@ const Chatbot: React.FC<ChatbotProps> = ({
     })
   }
 
+  const showFutureMaintenanceOffer = () => {
+    addMessage('bot', 'Você deseja agendar sua manutenção para 60 dias?', {
+      showFutureMaintenanceOffer: true,
+    })
+  }
+
+  const showCronogramaOffer = () => {
+    addMessage(
+      'bot',
+      'Deseja adicionar Cronograma capilar por R$ 390? São 4 procedimentos: Hidratação, Nutrição, Reconstrução e Blindagem Capilar.',
+      { showCronogramaOffer: true }
+    )
+  }
+
   const handleKitOfferSelect = (includeKit: boolean) => {
     clearMessageFlag('showKitOffer')
     addMessage('user', includeKit ? 'Sim, quero incluir o kit' : 'Não, obrigado', {})
@@ -1240,7 +1600,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     }
 
     setSelectedKitItems([])
-    beginCustomerDataCollection(500)
+    showFutureMaintenanceOffer()
   }
 
   const toggleKitItem = (item: string) => {
@@ -1256,11 +1616,56 @@ const Chatbot: React.FC<ChatbotProps> = ({
     addMessage(
       'user',
       selectedKitItems.length > 0
-        ? `Kit de manutenção: ${selectedKitItems.join(', ')}`
+        ? `Kit de manutenção: ${formatSelectedChoices(selectedKitItems, maintenanceKitOptions, 'Não incluído')}`
         : 'Kit sem itens selecionados',
       {}
     )
-    beginCustomerDataCollection(500)
+    showFutureMaintenanceOffer()
+  }
+
+  const handleFutureMaintenanceOfferSelect = (wantsSchedule: boolean) => {
+    clearMessageFlag('showFutureMaintenanceOffer')
+    addMessage('user', wantsSchedule ? 'Sim, agendar manutenção para 60 dias' : 'Não agendar manutenção futura', {})
+    if (!wantsSchedule) {
+      showCronogramaOffer()
+      return
+    }
+
+    setScheduleMode('futureMaintenance')
+    const today = new Date()
+    const minDate = new Date(today.getTime() + 55 * 24 * 60 * 60 * 1000)
+    const maxDate = new Date(today.getTime() + 75 * 24 * 60 * 60 * 1000)
+    addMessage('bot', 'Selecione a data aproximada da manutenção de retorno:', {
+      showDatePicker: true,
+      minDate: minDate.toISOString().slice(0, 10),
+      maxDate: maxDate.toISOString().slice(0, 10),
+    })
+  }
+
+  const handleCronogramaOfferSelect = (includeCronograma: boolean) => {
+    clearMessageFlag('showCronogramaOffer')
+    setCronogramaEnabled(includeCronograma)
+    addMessage(
+      'user',
+      includeCronograma ? 'Sim, incluir cronograma capilar por R$ 390' : 'Não incluir cronograma capilar',
+      {}
+    )
+
+    if (!includeCronograma) {
+      beginCustomerDataCollection(500)
+      return
+    }
+
+    setScheduleMode('cronograma')
+    setCronogramaAppointments([])
+    setCronogramaStepIndex(0)
+    setCronogramaMonth('')
+    const treatment = CRONOGRAMA_TREATMENTS[0]
+    addMessage(
+      'bot',
+      `Vamos agendar os 4 procedimentos do cronograma. Primeiro: ${treatment.name} - ${treatment.objective}\n\nSelecione a data dentro do mês contratado:`,
+      { showDatePicker: true }
+    )
   }
 
   const handleFAQSelect = (item: FAQItem) => {
@@ -1318,11 +1723,59 @@ const Chatbot: React.FC<ChatbotProps> = ({
           questionIndex: nextQuestion.questionIndex
         })
       } else {
-        // After all questions, show date selection
-        showDateSelection()
+        continueAfterQuestionnaire(nextData)
       }
       setIsLoading(false)
     }, 500)
+  }
+
+  const continueAfterQuestionnaire = (dataSnapshot: CustomerFormData = customerData) => {
+    if (primaryFlow === 'evaluation' && !dataSnapshot.hairPhotoUrl) {
+      addMessage(
+        'bot',
+        'Se quiser, envie uma foto do seu cabelo atual para ajudar na avaliação.',
+        { showHairPhotoUpload: true }
+      )
+      return
+    }
+
+    showDateSelection()
+  }
+
+  const uploadHairPhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setIsLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await fetch('/api/chatbot/media', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Erro ao enviar imagem')
+      const nextData = { ...customerData, hairPhotoUrl: String(data.url || '') }
+      setCustomerData(nextData)
+      clearMessageFlag('showHairPhotoUpload')
+      addMessage('user', 'Foto do cabelo enviada', {})
+      showDateSelection()
+    } catch (error) {
+      addMessage(
+        'bot',
+        error instanceof Error ? error.message : 'Não foi possível enviar a foto. Você pode tentar novamente ou pular.',
+        { showHairPhotoUpload: true }
+      )
+    } finally {
+      event.target.value = ''
+      setIsLoading(false)
+    }
+  }
+
+  const skipHairPhoto = () => {
+    clearMessageFlag('showHairPhotoUpload')
+    addMessage('user', 'Continuar sem foto', {})
+    showDateSelection()
   }
 
   const getNextQuestion = (
@@ -1359,6 +1812,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
   const showDateSelection = () => {
     addMessage('bot', 'Obrigada por todas as informações! 💕\n\nAgora vamos escolher o melhor dia e horário para seu atendimento.')
     setTimeout(() => {
+      setScheduleMode('main')
       addMessage('bot', 'Selecione uma data para ver os horários disponíveis:', { showDatePicker: true })
     }, 500)
   }
@@ -1366,14 +1820,41 @@ const Chatbot: React.FC<ChatbotProps> = ({
   const handleDateSelect = async (date: string) => {
     // Add time component to avoid timezone offset issues (UTC vs Local)
     const dateObj = new Date(date + 'T12:00:00')
-    addMessage('user', `Data: ${dateObj.toLocaleDateString('pt-BR')}`, {})
+    const datePrefix =
+      scheduleMode === 'futureMaintenance'
+        ? 'Data da manutenção de 60 dias'
+        : scheduleMode === 'cronograma'
+          ? `Data do cronograma (${CRONOGRAMA_TREATMENTS[cronogramaStepIndex]?.name || 'procedimento'})`
+          : 'Data'
+    addMessage('user', `${datePrefix}: ${dateObj.toLocaleDateString('pt-BR')}`, {})
     setIsLoading(true)
-    setSelectedDate(date)
+    if (scheduleMode === 'main') {
+      setSelectedDate(date)
+    } else {
+      setPendingExtraDate(date)
+    }
+
+    if (scheduleMode === 'cronograma') {
+      const selectedMonth = date.slice(0, 7)
+      if (!cronogramaMonth) {
+        setCronogramaMonth(selectedMonth)
+      } else if (selectedMonth !== cronogramaMonth) {
+        addMessage('bot', 'O cronograma precisa ser agendado dentro do mesmo mês contratado. Escolha outra data.')
+        setIsLoading(false)
+        return
+      }
+    }
 
     try {
+      const durationForLookup =
+        scheduleMode === 'cronograma'
+          ? 180
+          : scheduleMode === 'futureMaintenance'
+            ? 120
+            : getDurationMinutes()
       const params = new URLSearchParams({
         date,
-        durationMinutes: String(getDurationMinutes()),
+        durationMinutes: String(durationForLookup),
       })
       const response = await fetch(`/api/chatbot/appointments?${params.toString()}`)
       const data = await response.json()
@@ -1422,8 +1903,79 @@ const Chatbot: React.FC<ChatbotProps> = ({
   }
 
   const handleTimeSelect = (timeSlot: any) => {
-    addMessage('user', `Horário: ${timeSlot.displayTime}`, {})
+    const timePrefix =
+      scheduleMode === 'futureMaintenance'
+        ? 'Horário da manutenção de 60 dias'
+        : scheduleMode === 'cronograma'
+          ? `Horário do cronograma (${CRONOGRAMA_TREATMENTS[cronogramaStepIndex]?.name || 'procedimento'})`
+          : 'Horário'
+    addMessage('user', `${timePrefix}: ${timeSlot.displayTime}`, {})
     setIsLoading(true)
+
+    if (scheduleMode === 'futureMaintenance') {
+      setFutureMaintenance({
+        type: 'futureMaintenance',
+        serviceName: `Manutenção de retorno${maintenanceType?.label ? ` - ${maintenanceType.label}` : ''}`,
+        scheduledAt: timeSlot.time,
+        durationMinutes: 120,
+        totalPrice: 0,
+        notes: 'Retorno/manutenção agendada aproximadamente 60 dias após o atendimento principal.',
+      })
+      setScheduleMode('main')
+      setPendingExtraDate('')
+      setTimeout(() => {
+        addMessage('bot', 'Manutenção de retorno registrada. Agora vamos seguir para a opção de cronograma capilar.')
+        showCronogramaOffer()
+        setIsLoading(false)
+      }, 600)
+      return
+    }
+
+    if (scheduleMode === 'cronograma') {
+      const treatment = CRONOGRAMA_TREATMENTS[cronogramaStepIndex]
+      const nextAppointments = [
+        ...cronogramaAppointments,
+        {
+          type: 'cronograma' as const,
+          serviceName: `Cronograma Capilar - ${treatment?.name || `Procedimento ${cronogramaStepIndex + 1}`}`,
+          scheduledAt: timeSlot.time,
+          durationMinutes: 180,
+          totalPrice: 0,
+          notes: treatment?.objective || '',
+        },
+      ]
+      setCronogramaAppointments(nextAppointments)
+      setPendingExtraDate('')
+
+      const nextIndex = cronogramaStepIndex + 1
+      if (nextIndex < CRONOGRAMA_TREATMENTS.length) {
+        setCronogramaStepIndex(nextIndex)
+        const nextTreatment = CRONOGRAMA_TREATMENTS[nextIndex]
+        const month = cronogramaMonth || pendingExtraDate.slice(0, 7)
+        const minDate = `${month}-01`
+        const maxDate = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)
+          .toISOString()
+          .slice(0, 10)
+        setTimeout(() => {
+          addMessage(
+            'bot',
+            `Agora agende: ${nextTreatment.name} - ${nextTreatment.objective}`,
+            { showDatePicker: true, minDate, maxDate }
+          )
+          setIsLoading(false)
+        }, 600)
+        return
+      }
+
+      setScheduleMode('main')
+      setCronogramaStepIndex(0)
+      setTimeout(() => {
+        addMessage('bot', 'Cronograma capilar registrado. Agora vamos seguir com seus dados para concluir o agendamento principal.')
+        beginCustomerDataCollection(300)
+      }, 600)
+      return
+    }
+
     setSelectedTime(timeSlot.time)
 
     setTimeout(() => {
@@ -1468,14 +2020,30 @@ const Chatbot: React.FC<ChatbotProps> = ({
 
   const getDurationMinutes = () => {
     if (primaryFlow === 'evaluation') return 15
-    return selectedService?.durationMinutes || 60
+    return selectedOption?.durationMinutes || selectedService?.durationMinutes || 60
   }
+
+  const getSelectedChoicesTotal = (items: string[], options: ConfigurableChoice[]) =>
+    items.reduce((sum, item) => sum + getChoicePrice(item, options), 0)
+
+  const getKitTotal = () =>
+    getSelectedChoicesTotal(selectedKitItems, maintenanceKitOptions)
+
+  const getAdditionalServicesTotal = () =>
+    getSelectedChoicesTotal(selectedAddons, additionalServiceOptions)
+
+  const getCronogramaTotal = () => (cronogramaEnabled ? 390 : 0)
 
   const getBasePrice = () => {
     if (primaryFlow === 'evaluation') return 0
-    if (primaryFlow === 'maintenance') return maintenanceType?.price || selectedOption?.price || 0
+    const addOnsTotal = getAdditionalServicesTotal()
+    const kitTotal = getKitTotal()
+    const cronogramaTotal = getCronogramaTotal()
+    if (primaryFlow === 'maintenance') {
+      return parsePrice(selectedOption?.price || maintenanceType?.price || 0) + addOnsTotal + kitTotal + cronogramaTotal
+    }
     if (primaryFlow === 'application' || primaryFlow === 'alignment') {
-      return parsePrice(selectedOption?.price || selectedService?.priceInfo?.fixedPrice || 0)
+      return parsePrice(selectedOption?.price || selectedService?.priceInfo?.fixedPrice || 0) + addOnsTotal + kitTotal + cronogramaTotal
     }
     return parsePrice(promoData?.price || selectedOption?.price || selectedService?.priceInfo?.fixedPrice || 0)
   }
@@ -1505,7 +2073,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
       { label: 'Tipo de Cabelo', value: customerData.hairType || '' },
       { label: 'Cor Natural', value: customerData.hairColor || '' },
       { label: 'Estado do Cabelo', value: customerData.hairState || '' },
-      { label: 'Métodos Usados', value: customerData.methods || 'Nenhum' }
+      { label: 'Métodos Usados', value: customerData.methods || 'Nenhum' },
+      { label: 'Foto do cabelo atual', value: customerData.hairPhotoUrl || 'Não enviada' }
     ]
 
     const questionsText = questions
@@ -1523,27 +2092,45 @@ const Chatbot: React.FC<ChatbotProps> = ({
       ...(primaryFlow === 'maintenance'
         ? [
             `Tipo: ${maintenanceType?.label || 'Não informado'}`,
-            `Valor base: ${maintenanceType?.priceLabel || `R$ ${price}`}`,
             `Situação do cabelo: ${hairSituation || 'Não informado'}`,
+            `Opção escolhida: ${getSelectedOptionLabel() || selectedOption?.name || 'Não informada'}`,
           ]
         : []),
       ...(primaryFlow === 'application' || primaryFlow === 'alignment'
         ? [
-            `Serviços adicionais: ${formatList(selectedAddons, 'Nenhum')}`,
-            `Kit de manutenção: ${formatList(selectedKitItems, 'Não incluído')}`,
+            `Serviços adicionais: ${formatSelectedChoices(selectedAddons, additionalServiceOptions, 'Nenhum')}`,
+            `Kit de manutenção: ${formatSelectedChoices(selectedKitItems, maintenanceKitOptions, 'Não incluído')}`,
             `Observação: Cliente orientada a vir com cabelo limpo`,
           ]
         : []),
       ...(primaryFlow === 'maintenance'
         ? [
-            `Serviços adicionais: ${formatList(selectedAddons, 'Nenhum')}`,
-            `Kit de manutenção: ${formatList(selectedKitItems, 'Não incluído')}`,
+            `Serviços adicionais: ${formatSelectedChoices(selectedAddons, additionalServiceOptions, 'Nenhum')}`,
+            `Kit de manutenção: ${formatSelectedChoices(selectedKitItems, maintenanceKitOptions, 'Não incluído')}`,
             `Observação: Cliente orientada a vir com cabelo limpo`,
+          ]
+        : []),
+      ...(futureMaintenance
+        ? [
+            `Manutenção em 60 dias: ${new Date(futureMaintenance.scheduledAt).toLocaleString('pt-BR')}`,
+          ]
+        : []),
+      ...(cronogramaEnabled
+        ? [
+            `Cronograma capilar: R$ 390,00`,
+            ...cronogramaAppointments.map(
+              (item, index) =>
+                `Cronograma ${index + 1}: ${item.serviceName} em ${new Date(item.scheduledAt).toLocaleString('pt-BR')}`
+            ),
           ]
         : []),
       ...(primaryFlow === 'evaluation'
         ? []
-        : [`Valor: R$ ${price.toFixed(2).replace('.', ',')}`]),
+        : [
+            `Kit: R$ ${getKitTotal().toFixed(2).replace('.', ',')}`,
+            `Cronograma: R$ ${getCronogramaTotal().toFixed(2).replace('.', ',')}`,
+            `Valor total: R$ ${price.toFixed(2).replace('.', ',')}`,
+          ]),
       ``,
       `Data: ${date}`,
       `Horário: ${time}`,
@@ -1714,7 +2301,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
       { label: 'Tipo de Cabelo', value: customerData.hairType || '' },
       { label: 'Cor Natural', value: customerData.hairColor || '' },
       { label: 'Estado do Cabelo', value: customerData.hairState || '' },
-      { label: 'Métodos Usados', value: customerData.methods || 'Nenhum' }
+      { label: 'Métodos Usados', value: customerData.methods || 'Nenhum' },
+      { label: 'Foto do cabelo atual', value: customerData.hairPhotoUrl || 'Não enviada' }
     ]
 
     setIsLoading(true)
@@ -1726,7 +2314,12 @@ const Chatbot: React.FC<ChatbotProps> = ({
     }
 
     let googleCalendarUrl = ''
+    let relatedCalendarUrls: string[] = []
     try {
+      const relatedAppointments: ScheduledExtra[] = [
+        ...(futureMaintenance ? [futureMaintenance] : []),
+        ...cronogramaAppointments,
+      ]
       const response = await fetch('/api/chatbot/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1744,6 +2337,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
           totalPrice: price,
           grams: selectedOption?.grams || null,
           length: selectedOption?.size || selectedOption?.name || null,
+          relatedAppointments,
           paymentMethod:
             primaryFlow === 'evaluation'
               ? null
@@ -1761,6 +2355,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
             hairColor: customerData.hairColor || '',
             hairState: customerData.hairState || '',
             methods: customerData.methods || '',
+            hairPhotoUrl: customerData.hairPhotoUrl || '',
             primaryFlow: primaryFlow || '',
             primaryCategory:
               primaryFlow === 'evaluation'
@@ -1775,8 +2370,19 @@ const Chatbot: React.FC<ChatbotProps> = ({
             maintenanceType: maintenanceType?.label || '',
             maintenanceBasePrice: maintenanceType?.priceLabel || '',
             hairSituation: hairSituation || '',
-            additionalServices: selectedAddons.join(', '),
-            maintenanceKit: selectedKitItems.join(', '),
+            selectedOption: getSelectedOptionLabel() || selectedOption?.name || '',
+            additionalServices: formatSelectedChoices(selectedAddons, additionalServiceOptions, ''),
+            additionalServicesTotal: `R$ ${getAdditionalServicesTotal().toFixed(2).replace('.', ',')}`,
+            maintenanceKit: formatSelectedChoices(selectedKitItems, maintenanceKitOptions, ''),
+            maintenanceKitTotal: `R$ ${getKitTotal().toFixed(2).replace('.', ',')}`,
+            futureMaintenance: futureMaintenance
+              ? `${futureMaintenance.serviceName} - ${new Date(futureMaintenance.scheduledAt).toLocaleString('pt-BR')}`
+              : '',
+            cronogramaCapilar: cronogramaEnabled
+              ? cronogramaAppointments
+                  .map((item) => `${item.serviceName} - ${new Date(item.scheduledAt).toLocaleString('pt-BR')}`)
+                  .join(' | ')
+              : '',
             cleanHairObservation:
               primaryFlow === 'maintenance' ||
               primaryFlow === 'application' ||
@@ -1789,6 +2395,11 @@ const Chatbot: React.FC<ChatbotProps> = ({
       const data = await response.json().catch(() => ({}))
       if (response.ok) {
         googleCalendarUrl = String(data.googleCalendarUrl || data.appointment?.googleCalendarUrl || '')
+        relatedCalendarUrls = Array.isArray(data.relatedAppointments)
+          ? data.relatedAppointments
+              .map((item: any) => String(item.googleCalendarUrl || ''))
+              .filter(Boolean)
+          : []
         const bookedSlots = JSON.parse(localStorage.getItem('booked_slots') || '[]')
         bookedSlots.push({
           date: selectedDate,
@@ -1819,15 +2430,25 @@ const Chatbot: React.FC<ChatbotProps> = ({
     if (primaryFlow === 'maintenance') {
       message += `*Tipo de manutenção:* ${maintenanceType?.label || 'Não informado'}\n`
       message += `*Situação do cabelo:* ${hairSituation || 'Não informado'}\n`
+      message += `*Opção escolhida:* ${getSelectedOptionLabel() || selectedOption?.name || 'Não informada'}\n`
     }
     if (
       primaryFlow === 'maintenance' ||
       primaryFlow === 'application' ||
       primaryFlow === 'alignment'
     ) {
-      message += `*Serviços adicionais:* ${formatList(selectedAddons, 'Nenhum')}\n`
-      message += `*Kit de manutenção:* ${formatList(selectedKitItems, 'Não incluído')}\n`
+      message += `*Serviços adicionais:* ${formatSelectedChoices(selectedAddons, additionalServiceOptions, 'Nenhum')}\n`
+      message += `*Kit de manutenção:* ${formatSelectedChoices(selectedKitItems, maintenanceKitOptions, 'Não incluído')}\n`
       message += `*Observação:* Cliente orientada a vir com cabelo limpo\n`
+    }
+    if (futureMaintenance) {
+      message += `*Manutenção 60 dias:* ${new Date(futureMaintenance.scheduledAt).toLocaleString('pt-BR')}\n`
+    }
+    if (cronogramaEnabled) {
+      message += `*Cronograma capilar:* R$ 390,00\n`
+      cronogramaAppointments.forEach((item, index) => {
+        message += `*Cronograma ${index + 1}:* ${item.serviceName} - ${new Date(item.scheduledAt).toLocaleString('pt-BR')}\n`
+      })
     }
     if (primaryFlow !== 'evaluation') {
       message += `*Valor:* R$ ${price.toFixed(2).replace('.', ',')}\n`
@@ -1850,13 +2471,17 @@ const Chatbot: React.FC<ChatbotProps> = ({
     if (googleCalendarUrl) {
       message += `\n*Google Agenda:* ${googleCalendarUrl}`
     }
+    relatedCalendarUrls.forEach((url, index) => {
+      message += `\n*Google Agenda vinculado ${index + 1}:* ${url}`
+    })
 
     const encodedMessage = encodeURIComponent(message)
     const whatsappUrl = `https://wa.me/5514998373935?text=${encodedMessage}`
     
     window.open(whatsappUrl, '_blank')
-    if (googleCalendarUrl && confirm('Deseja adicionar este agendamento no Google Agenda?')) {
+    if (googleCalendarUrl) {
       window.open(googleCalendarUrl, '_blank')
+      relatedCalendarUrls.forEach((url) => window.open(url, '_blank'))
     }
     setMessages((prev) =>
       prev.map((message) =>
@@ -1869,7 +2494,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
       'bot',
       primaryFlow === 'evaluation'
         ? 'Obrigada! Seu agendamento foi registrado com sucesso.\n\nDeseja ser redirecionada para o painel do cliente para verificar seus serviços agendados e confirmar sua presença?'
-        : 'Obrigada! Seu agendamento foi registrado com sucesso.\n\nDeseja ser redirecionada para o painel do cliente para verificar seus serviços agendados e realizar o pagamento do adiantamento do serviço?',
+        : 'Obrigada! Seu agendamento foi registrado com sucesso.\n\nDeseja ser redirecionada para o painel do cliente para verificar seus serviços agendados e realizar o pagamento do serviço?',
       {
         showAccountRedirect: true,
         accountUrl: '/account?tab=appointments',
@@ -1887,10 +2512,10 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setPrimaryFlow(null)
     setMaintenanceType(null)
     setHairSituation('')
-    setSelectedAddons([])
-    setSelectedKitItems([])
+    resetUpsellAndScheduleState()
     setSelectedDate('')
     setSelectedTime('')
+    setPendingExtraDate('')
     setPaymentMethod('pix')
     setCustomerData(EMPTY_CUSTOMER_DATA)
     setQuestionnaireStarted(false)
@@ -1914,9 +2539,13 @@ const Chatbot: React.FC<ChatbotProps> = ({
       !lastBotMessage.data?.showMainMenu &&
       !lastBotMessage.data?.showMaintenanceTypes &&
       !lastBotMessage.data?.showHairSituations &&
+      !lastBotMessage.data?.showMaintenancePriceOptions &&
       !lastBotMessage.data?.showAdditionalServices &&
       !lastBotMessage.data?.showKitOffer &&
       !lastBotMessage.data?.showKitItems &&
+      !lastBotMessage.data?.showFutureMaintenanceOffer &&
+      !lastBotMessage.data?.showCronogramaOffer &&
+      !lastBotMessage.data?.showHairPhotoUpload &&
       !lastBotMessage.data?.showFAQ &&
       !lastBotMessage.data?.showFAQAnswerActions
   }
@@ -1959,7 +2588,6 @@ const Chatbot: React.FC<ChatbotProps> = ({
                 <span className="font-display font-semibold text-lg text-foreground">
                   {option.label}
                 </span>
-                <span className="font-bold text-primary">{option.priceLabel}</span>
               </div>
             </button>
           ))}
@@ -1977,6 +2605,43 @@ const Chatbot: React.FC<ChatbotProps> = ({
               className="w-full py-3 px-4 bg-gradient-to-r from-[#FFF0F5] to-white border border-pink-200 rounded-lg hover:bg-primary hover:text-white transition-all text-sm font-medium text-left"
             >
               {situation}
+            </button>
+          ))}
+        </div>
+      )
+    }
+
+    if (data.showMaintenancePriceOptions) {
+      const options: MaintenancePriceOption[] =
+        Array.isArray(data.options) && data.options.length > 0
+          ? data.options
+          : maintenancePriceOptions
+      return (
+        <div className="mt-4 space-y-3">
+          {options.map((option, index) => (
+            <button
+              key={`${option.name}-${index}`}
+              onClick={() => handleMaintenancePriceSelect(option)}
+              className="w-full overflow-hidden rounded-xl border border-pink-200 bg-white text-left transition-all hover:border-pink-400 hover:shadow-md"
+            >
+              {option.image ? (
+                <img
+                  src={option.image}
+                  alt={option.name}
+                  className="h-32 w-full object-cover"
+                />
+              ) : null}
+              <div className="space-y-1 p-4">
+                <div className="font-display text-lg font-bold text-foreground">
+                  {option.name}
+                </div>
+                {option.description ? (
+                  <p className="text-sm text-muted-foreground">{option.description}</p>
+                ) : null}
+                <div className="text-xl font-bold text-primary">
+                  Total: R$ {option.price.toFixed(2).replace('.', ',')}
+                </div>
+              </div>
             </button>
           ))}
         </div>
@@ -2067,6 +2732,51 @@ const Chatbot: React.FC<ChatbotProps> = ({
             className="w-full py-3 px-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl hover:shadow-lg transition-all font-medium"
           >
             Continuar
+          </button>
+        </div>
+      )
+    }
+
+    if (data.showFutureMaintenanceOffer) {
+      return (
+        <div className="mt-4 space-y-3">
+          <button
+            onClick={() => handleFutureMaintenanceOfferSelect(true)}
+            className="w-full py-3 px-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl hover:shadow-lg transition-all font-medium"
+          >
+            Sim, agendar para 60 dias
+          </button>
+          <button
+            onClick={() => handleFutureMaintenanceOfferSelect(false)}
+            className="w-full py-3 px-4 bg-white text-primary border-2 border-primary rounded-xl hover:shadow-md transition-all font-medium"
+          >
+            Não, obrigado
+          </button>
+        </div>
+      )
+    }
+
+    if (data.showCronogramaOffer) {
+      return (
+        <div className="mt-4 space-y-3">
+          <div className="rounded-xl border border-pink-100 bg-white p-4 text-sm text-muted-foreground">
+            {CRONOGRAMA_TREATMENTS.map((item) => (
+              <p key={item.name} className="mb-2">
+                <span className="font-semibold text-foreground">{item.name}:</span> {item.objective}
+              </p>
+            ))}
+          </div>
+          <button
+            onClick={() => handleCronogramaOfferSelect(true)}
+            className="w-full py-3 px-4 bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] text-white rounded-xl hover:shadow-lg transition-all font-medium"
+          >
+            Sim, incluir por R$ 390
+          </button>
+          <button
+            onClick={() => handleCronogramaOfferSelect(false)}
+            className="w-full py-3 px-4 bg-white text-primary border-2 border-primary rounded-xl hover:shadow-md transition-all font-medium"
+          >
+            Não incluir
           </button>
         </div>
       )
@@ -2204,7 +2914,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
         <div className="mt-4">
           <input
             type="date"
-            min={new Date().toISOString().split('T')[0]}
+            min={data.minDate || new Date().toISOString().split('T')[0]}
+            max={data.maxDate || undefined}
             onChange={(e) => handleDateSelect(e.target.value)}
             className="w-full p-3 border border-pink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
           />
@@ -2257,6 +2968,28 @@ const Chatbot: React.FC<ChatbotProps> = ({
           >
             <div className="font-display font-bold text-xl mb-1">💳 Cartão</div>
             <div className="text-sm">Crédito ou débito no local</div>
+          </button>
+        </div>
+      )
+    }
+
+    if (data.showHairPhotoUpload) {
+      return (
+        <div className="mt-4 space-y-3">
+          <label className="block cursor-pointer rounded-xl border border-dashed border-pink-300 bg-white p-4 text-center text-sm font-semibold text-primary hover:bg-pink-50">
+            Enviar foto do cabelo atual
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={uploadHairPhoto}
+              className="hidden"
+            />
+          </label>
+          <button
+            onClick={skipHairPhoto}
+            className="w-full py-3 px-4 bg-white text-primary border-2 border-primary rounded-xl hover:shadow-md transition-all font-medium"
+          >
+            Continuar sem foto
           </button>
         </div>
       )

@@ -41,6 +41,14 @@ function isEvaluationAppointment(input: {
   )
 }
 
+function rangesOverlap(startA: Date, durationA: number, startB: Date, durationB: number) {
+  const aStart = startA.getTime()
+  const aEnd = aStart + durationA * 60 * 1000
+  const bStart = startB.getTime()
+  const bEnd = bStart + durationB * 60 * 1000
+  return aStart < bEnd && aEnd > bStart
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -66,6 +74,7 @@ export async function POST(request: NextRequest) {
       length,
       paymentMethod,
       questionnaireData,
+      relatedAppointments,
     } = body
 
     const hasTotalPrice =
@@ -118,6 +127,88 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const relatedInput = Array.isArray(relatedAppointments)
+      ? relatedAppointments
+          .map((item: any) => {
+            const relatedDate = new Date(item?.scheduledAt || item?.scheduledDate || '')
+            const relatedDuration = normalizeDurationMinutes(
+              item?.durationMinutes,
+              config.schedulingSettings.defaultDurationMinutes
+            )
+            return {
+              type: String(item?.type || 'related'),
+              serviceName: String(item?.serviceName || item?.name || 'Agendamento vinculado').trim(),
+              scheduledAt: relatedDate,
+              durationMinutes: relatedDuration,
+              totalPrice: Number(item?.totalPrice || 0),
+              notes: String(item?.notes || '').trim(),
+            }
+          })
+          .filter((item) => item.serviceName && !Number.isNaN(item.scheduledAt.getTime()))
+      : []
+
+    for (const related of relatedInput) {
+      const relatedWindow = validateScheduleWindow({
+        start: related.scheduledAt,
+        durationMinutes: related.durationMinutes,
+        settings: config.schedulingSettings,
+      })
+      if (!relatedWindow.available) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `${related.serviceName}: ${relatedWindow.reason || 'Horario indisponivel'}`,
+          },
+          { status: 409 }
+        )
+      }
+
+      const relatedConflict = await hasAppointmentConflict({
+        scheduledAt: related.scheduledAt.toISOString(),
+        durationMinutes: related.durationMinutes,
+      })
+      if (relatedConflict) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `${related.serviceName}: horario ja ocupado para a duracao do procedimento.`,
+          },
+          { status: 409 }
+        )
+      }
+
+      if (rangesOverlap(scheduledAt, safeDuration, related.scheduledAt, related.durationMinutes)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `${related.serviceName}: horario conflita com o atendimento principal.`,
+          },
+          { status: 409 }
+        )
+      }
+    }
+
+    for (let i = 0; i < relatedInput.length; i += 1) {
+      for (let j = i + 1; j < relatedInput.length; j += 1) {
+        if (
+          rangesOverlap(
+            relatedInput[i].scheduledAt,
+            relatedInput[i].durationMinutes,
+            relatedInput[j].scheduledAt,
+            relatedInput[j].durationMinutes
+          )
+        ) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: `${relatedInput[i].serviceName} conflita com ${relatedInput[j].serviceName}.`,
+            },
+            { status: 409 }
+          )
+        }
+      }
+    }
+
     const serviceName = String(service.name || service.title || service.serviceName || service || '').trim()
     const depositRequired = !isEvaluationAppointment({
       serviceName,
@@ -154,6 +245,47 @@ export async function POST(request: NextRequest) {
         })
       : null
 
+    const relatedCreated: any[] = []
+    if (appointment) {
+      for (const related of relatedInput) {
+        const relatedAppointment = await createAppointment({
+          userId: session.user.id,
+          customerName: String(customer.name || '').trim(),
+          customerEmail: String(customer.email || '').trim(),
+          customerPhone: String(customer.phone || '').trim(),
+          serviceName: related.serviceName,
+          scheduledAt: related.scheduledAt.toISOString(),
+          durationMinutes: related.durationMinutes,
+          grams: null,
+          lengthLabel: null,
+          totalPrice: related.totalPrice,
+          paymentMethod: null,
+          paymentStatus: 'included_in_parent',
+          questionnaireData: {
+            ...(questionnaireData && typeof questionnaireData === 'object'
+              ? questionnaireData
+              : {}),
+            parentAppointmentId: appointment.id,
+            relatedAppointmentType: related.type,
+          },
+          notes: related.notes || `Agendamento vinculado ao atendimento ${appointment.id}`,
+        })
+
+        if (relatedAppointment) {
+          relatedCreated.push({
+            ...relatedAppointment,
+            googleCalendarUrl: buildGoogleCalendarUrl({
+              serviceName: relatedAppointment.serviceName,
+              customerName: relatedAppointment.customerName,
+              scheduledAt: relatedAppointment.scheduledAt,
+              durationMinutes: relatedAppointment.durationMinutes,
+              notes: relatedAppointment.notes,
+            }),
+          })
+        }
+      }
+    }
+
     if (appointment) {
       await dispatchAppointmentNotification({
         appointment,
@@ -186,8 +318,10 @@ export async function POST(request: NextRequest) {
         questionnaireData: appointment?.questionnaireData || null,
         createdAt: appointment?.createdAt,
         googleCalendarUrl,
+        relatedAppointments: relatedCreated,
       },
       googleCalendarUrl,
+      relatedAppointments: relatedCreated,
       message: 'Agendamento realizado com sucesso!'
     })
   } catch (error) {

@@ -8,7 +8,7 @@ import {
 import { resolveMercadoPagoConfig } from '@/lib/mercadopago-config'
 
 const MERCADO_PAGO_PAYMENTS_URL = 'https://api.mercadopago.com/v1/payments'
-const DEPOSIT_AMOUNT = 50
+const MIN_PAYMENT_AMOUNT = 50
 const MERCADO_PAGO_TEST_PAYER_EMAIL = 'cliente.teste.carolsol@example.com'
 
 type MercadoPagoEnv = 'test' | 'prod'
@@ -140,6 +140,11 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    const paymentAmount = Math.max(
+      MIN_PAYMENT_AMOUNT,
+      Number(appointment.totalPrice || 0)
+    )
+
     const token = asString(body?.token)
     const paymentMethodId = asString(body?.payment_method_id || body?.paymentMethodId)
     const paymentTypeId = asString(
@@ -193,8 +198,8 @@ export async function POST(request: NextRequest) {
     }
 
     const paymentPayload: Record<string, unknown> = {
-      transaction_amount: DEPOSIT_AMOUNT,
-      description: `Adiantamento agendamento - ${appointment.serviceName}`,
+      transaction_amount: paymentAmount,
+      description: `Pagamento agendamento - ${appointment.serviceName}`,
       payment_method_id: paymentMethodId,
       external_reference: `appointment:${appointment.id}`,
       notification_url: `${config.baseUrl}/api/payments/mercadopago/webhook`,
@@ -227,9 +232,9 @@ export async function POST(request: NextRequest) {
         items: [
           {
             id: `appointment-deposit-${appointment.id}`,
-            title: `Adiantamento - ${appointment.serviceName}`,
+            title: `Pagamento - ${appointment.serviceName}`,
             quantity: 1,
-            unit_price: DEPOSIT_AMOUNT,
+            unit_price: paymentAmount,
           },
         ],
       },
@@ -318,7 +323,7 @@ export async function POST(request: NextRequest) {
       paymentStatus: nextPaymentStatus,
       orderNumber: appointment.id,
       appointmentId: appointment.id,
-      depositAmount: DEPOSIT_AMOUNT,
+      depositAmount: paymentAmount,
     })
   } catch (error) {
     console.error('Erro ao processar adiantamento Mercado Pago:', error)

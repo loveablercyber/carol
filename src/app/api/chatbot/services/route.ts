@@ -217,7 +217,7 @@ const SERVICES_DATA = {
       id: 'invisible-weft',
       name: 'Invisible Weft Extensions (Ponto Invisível)',
       description: 'Técnica moderna de aplicação em costura invisível. Natural e confortável.',
-      images: ['/images/services/megahair-invisible.png'],
+      images: ['/images/Bio Proteína Marsala.jpeg'],
       durationMinutes: 180,
       priceInfo: {
         table: [
@@ -254,7 +254,7 @@ const SERVICES_DATA = {
       id: 'micro-capsula',
       name: 'Micro Cápsula de Queratina',
       description: 'Pequenas cápsulas aplicadas fio a fio com queratina. Maior naturalidade.',
-      images: ['/images/services/megahair-microcapsula.png'],
+      images: ['/images/Bio Proteína Loiro Clarisso.jpeg'],
       durationMinutes: 240,
       priceInfo: {
         table: [
@@ -273,7 +273,7 @@ const SERVICES_DATA = {
       id: 'invisible-hair',
       name: 'Invisible Hair Extensions (Fita Adesiva)',
       description: 'Fitas adesivas ultrafinas e invisíveis. Aplicação rápida e discreta.',
-      images: ['/images/services/megahair-fita.png'],
+      images: ['/images/Bio Proteína Loiro Mel.jpeg'],
       durationMinutes: 120,
       priceInfo: {
         table: [
@@ -305,6 +305,30 @@ const SERVICES_DATA = {
       },
       requiresGrams: true,
       order: 3
+    },
+    {
+      id: 'queratina-aplicacao',
+      name: 'Queratina',
+      description: 'Aplicação de queratina por gramas.',
+      images: ['/images/Bio Proteína Loiro Dourado.jpeg'],
+      durationMinutes: 240,
+      priceInfo: {
+        table: [
+          {
+            grams: 'Aplicação',
+            lengths: [
+              { size: '100g aplicação', price: 500 },
+              { size: '150g aplicação', price: 750 },
+              { size: '200g aplicação', price: 1000 },
+              { size: '250g aplicação', price: 1250 },
+              { size: '300g aplicação', price: 1500 },
+              { size: '350g aplicação', price: 1750 },
+            ]
+          }
+        ]
+      },
+      requiresGrams: true,
+      order: 4
     }
   ],
 
@@ -334,9 +358,10 @@ function slugify(value: string) {
 
 function mapConfigService(service: any) {
   const imagesById: Record<string, string[]> = {
-    'invisible-weft': ['/images/services/megahair-invisible.png'],
-    'micro-capsula': ['/images/services/megahair-microcapsula.png'],
-    'invisible-hair': ['/images/services/megahair-fita.png'],
+    'invisible-weft': ['/images/Bio Proteína Marsala.jpeg'],
+    'micro-capsula': ['/images/Bio Proteína Loiro Clarisso.jpeg'],
+    'invisible-hair': ['/images/Bio Proteína Loiro Mel.jpeg'],
+    'queratina-aplicacao': ['/images/Bio Proteína Loiro Dourado.jpeg'],
   }
 
   const priceTable = Array.isArray(service.priceTable)

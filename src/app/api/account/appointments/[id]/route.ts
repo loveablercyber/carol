@@ -50,7 +50,10 @@ function withPresentation(appointment: Awaited<ReturnType<typeof getAppointmentB
   const deadlineAt = getAppointmentConfirmationDeadline(appointment.scheduledAt)
   const deadlineMs = deadlineAt ? new Date(deadlineAt).getTime() : 0
   const scheduledMs = new Date(appointment.scheduledAt).getTime()
-  const depositRequired = !isEvaluationAppointment(appointment)
+  const normalizedPaymentStatus = String(appointment.paymentStatus || '').toLowerCase()
+  const depositRequired =
+    !isEvaluationAppointment(appointment) &&
+    !['not_required', 'included_in_parent'].includes(normalizedPaymentStatus)
   const paymentApproved =
     String(appointment.paymentStatus || '').toUpperCase() === 'APPROVED'
   const depositApproved = !depositRequired || paymentApproved
@@ -71,7 +74,7 @@ function withPresentation(appointment: Awaited<ReturnType<typeof getAppointmentB
     canCancelFromClient: canCancel,
     confirmationWindowHours: getAppointmentConfirmationPolicy().hoursBefore,
     depositRequired,
-    depositAmount: depositRequired ? 50 : 0,
+    depositAmount: depositRequired ? appointment.totalPrice : 0,
     depositApproved,
     googleCalendarUrl: buildGoogleCalendarUrl({
       serviceName: appointment.serviceName,
@@ -134,13 +137,15 @@ export async function PATCH(
 
     if (action === 'confirm') {
       const depositRequired = !isEvaluationAppointment(current)
+      const normalizedPaymentStatus = String(current.paymentStatus || '').toLowerCase()
       const paymentApproved =
+        ['not_required', 'included_in_parent'].includes(normalizedPaymentStatus) ||
         String(current.paymentStatus || '').toUpperCase() === 'APPROVED'
       if (depositRequired && !paymentApproved) {
         return NextResponse.json(
           {
             error:
-              'Para confirmar o agendamento, realize primeiro o pagamento do adiantamento de R$ 50,00.',
+              'Para confirmar o agendamento, realize primeiro o pagamento pelo Mercado Pago.',
             appointment: withPresentation(current),
           },
           { status: 409 }

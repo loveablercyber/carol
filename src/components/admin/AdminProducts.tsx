@@ -21,6 +21,8 @@ interface Product {
   images: string[]
   description?: string
   shortDescription?: string
+  color?: string | null
+  length?: number | null
 }
 
 const initialForm = {
@@ -32,6 +34,11 @@ const initialForm = {
   description: '',
   shortDescription: '',
   images: '',
+  image1: '',
+  image2: '',
+  image3: '',
+  color: '',
+  length: '',
   isActive: true,
   featured: false,
 }
@@ -53,6 +60,7 @@ export default function AdminProducts() {
   const [form, setForm] = useState(initialForm)
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active')
+  const [uploadingImageSlot, setUploadingImageSlot] = useState('')
 
   const filteredProducts = useMemo(() => {
     if (!search) return products
@@ -117,10 +125,17 @@ export default function AdminProducts() {
         categoryId: form.categoryId,
         description: form.description,
         shortDescription: form.shortDescription,
-        images: form.images
-          .split(',')
+        color: form.color,
+        length: form.length ? Number(String(form.length).replace(',', '.')) : null,
+        images: [
+          form.image1,
+          form.image2,
+          form.image3,
+          ...form.images.split(','),
+        ]
           .map((img) => img.trim())
-          .filter(Boolean),
+          .filter(Boolean)
+          .slice(0, 12),
         isActive: form.isActive,
         featured: form.featured,
       }
@@ -157,6 +172,7 @@ export default function AdminProducts() {
   }
 
   const handleEdit = (product: Product) => {
+    const productImages = Array.isArray(product.images) ? product.images : []
     setEditingId(product.id)
     setForm({
       name: product.name,
@@ -166,10 +182,45 @@ export default function AdminProducts() {
       categoryId: product.categoryId,
       description: product.description || '',
       shortDescription: product.shortDescription || '',
-      images: product.images?.join(', ') || '',
+      images: productImages.slice(3).join(', ') || '',
+      image1: productImages[0] || '',
+      image2: productImages[1] || '',
+      image3: productImages[2] || '',
+      color: product.color || '',
+      length: product.length ? String(product.length) : '',
       isActive: product.isActive,
       featured: product.featured,
     })
+  }
+
+  const handleProductImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+    slot: 'image1' | 'image2' | 'image3'
+  ) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setUploadingImageSlot(slot)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await fetch('/api/admin/media', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Erro ao enviar imagem')
+      setForm((prev) => ({ ...prev, [slot]: data.url || '' }))
+      toast({ title: 'Imagem enviada' })
+    } catch (error: any) {
+      toast({
+        title: 'Erro no upload',
+        description: error?.message || 'Tente novamente.',
+        variant: 'destructive',
+      })
+    } finally {
+      event.target.value = ''
+      setUploadingImageSlot('')
+    }
   }
 
   const handleDelete = async (productId: string) => {
@@ -304,16 +355,78 @@ export default function AdminProducts() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold mb-2">Imagens (URLs)</label>
+            <label className="block text-sm font-semibold mb-2">Cor do cabelo</label>
+            <input
+              value={form.color}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, color: event.target.value }))
+              }
+              placeholder="Ex: loiro mel, marsala, preto"
+              className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-2">Comprimento do cabelo (cm)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={form.length}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, length: event.target.value }))
+              }
+              placeholder="Ex: 70"
+              className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-2">URLs adicionais</label>
             <input
               value={form.images}
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, images: event.target.value }))
               }
-              placeholder="url1, url2"
+              placeholder="url4, url5"
               className="w-full px-4 py-3 border border-pink-200 rounded-lg focus:outline-none focus:border-pink-400"
             />
           </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {(['image1', 'image2', 'image3'] as const).map((slot, index) => (
+            <div key={slot} className="rounded-xl border border-pink-100 bg-pink-50/40 p-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <label className="text-sm font-semibold">Imagem {index + 1}</label>
+                {form[slot] ? (
+                  <button
+                    type="button"
+                    onClick={() => setForm((prev) => ({ ...prev, [slot]: '' }))}
+                    className="text-xs font-semibold text-red-600"
+                  >
+                    Remover
+                  </button>
+                ) : null}
+              </div>
+              {form[slot] ? (
+                <img
+                  src={form[slot]}
+                  alt={`Preview imagem ${index + 1}`}
+                  className="mb-3 h-40 w-full rounded-lg object-cover border border-pink-100"
+                />
+              ) : (
+                <div className="mb-3 flex h-40 items-center justify-center rounded-lg border border-dashed border-pink-200 bg-white text-sm text-muted-foreground">
+                  Sem imagem
+                </div>
+              )}
+              <label className="block cursor-pointer rounded-lg bg-white px-4 py-3 text-center text-sm font-semibold text-primary border border-pink-200 hover:border-pink-400">
+                {uploadingImageSlot === slot ? 'Enviando...' : 'Upload da imagem'}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={(event) => handleProductImageUpload(event, slot)}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          ))}
         </div>
         <div>
           <label className="block text-sm font-semibold mb-2">Descricao curta</label>

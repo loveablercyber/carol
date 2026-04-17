@@ -133,7 +133,7 @@ export async function PUT(
         ...(body.length !== undefined && { length: body.length }),
         ...(body.hairType && { hairType: body.hairType }),
         ...(body.texture && { texture: body.texture }),
-        ...(body.color && { color: body.color }),
+        ...(body.color !== undefined && { color: body.color }),
         ...(body.images && { images: JSON.stringify(body.images) }),
         ...(body.specs !== undefined && { specs: JSON.stringify(body.specs) }),
         ...(body.seoTitle !== undefined && { seoTitle: body.seoTitle }),

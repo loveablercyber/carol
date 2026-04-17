@@ -71,7 +71,10 @@ export async function GET() {
         const deadlineMs = confirmationDeadlineAt
           ? new Date(confirmationDeadlineAt).getTime()
           : 0
-        const depositRequired = !isEvaluationAppointment(item)
+        const normalizedPaymentStatus = String(item.paymentStatus || '').toLowerCase()
+        const depositRequired =
+          !isEvaluationAppointment(item) &&
+          !['not_required', 'included_in_parent'].includes(normalizedPaymentStatus)
         const paymentApproved =
           String(item.paymentStatus || '').toUpperCase() === 'APPROVED'
         const depositApproved = !depositRequired || paymentApproved
@@ -99,7 +102,7 @@ export async function GET() {
             notes: item.notes,
           }),
           depositRequired,
-          depositAmount: depositRequired ? 50 : 0,
+          depositAmount: depositRequired ? item.totalPrice : 0,
           depositApproved,
         }
       })

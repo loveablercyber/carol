@@ -19,14 +19,22 @@ export type AppointmentQuestionnaire = {
   hairColor?: string
   hairState?: string
   methods?: string
+  hairPhotoUrl?: string
   primaryFlow?: string
   primaryCategory?: string
   maintenanceType?: string
   maintenanceBasePrice?: string
   hairSituation?: string
+  selectedOption?: string
   additionalServices?: string
+  additionalServicesTotal?: string
   maintenanceKit?: string
+  maintenanceKitTotal?: string
   cleanHairObservation?: string
+  futureMaintenance?: string
+  cronogramaCapilar?: string
+  parentAppointmentId?: string
+  relatedAppointmentType?: string
 }
 
 export type AppointmentMaintenanceEntry = {
@@ -191,6 +199,8 @@ function sanitizeQuestionnaireData(
     hairState:
       typeof parsed.hairState === 'string' ? parsed.hairState : undefined,
     methods: typeof parsed.methods === 'string' ? parsed.methods : undefined,
+    hairPhotoUrl:
+      typeof parsed.hairPhotoUrl === 'string' ? parsed.hairPhotoUrl : undefined,
     primaryFlow:
       typeof parsed.primaryFlow === 'string' ? parsed.primaryFlow : undefined,
     primaryCategory:
@@ -207,17 +217,43 @@ function sanitizeQuestionnaireData(
       typeof parsed.hairSituation === 'string'
         ? parsed.hairSituation
         : undefined,
+    selectedOption:
+      typeof parsed.selectedOption === 'string' ? parsed.selectedOption : undefined,
     additionalServices:
       typeof parsed.additionalServices === 'string'
         ? parsed.additionalServices
+        : undefined,
+    additionalServicesTotal:
+      typeof parsed.additionalServicesTotal === 'string'
+        ? parsed.additionalServicesTotal
         : undefined,
     maintenanceKit:
       typeof parsed.maintenanceKit === 'string'
         ? parsed.maintenanceKit
         : undefined,
+    maintenanceKitTotal:
+      typeof parsed.maintenanceKitTotal === 'string'
+        ? parsed.maintenanceKitTotal
+        : undefined,
     cleanHairObservation:
       typeof parsed.cleanHairObservation === 'string'
         ? parsed.cleanHairObservation
+        : undefined,
+    futureMaintenance:
+      typeof parsed.futureMaintenance === 'string'
+        ? parsed.futureMaintenance
+        : undefined,
+    cronogramaCapilar:
+      typeof parsed.cronogramaCapilar === 'string'
+        ? parsed.cronogramaCapilar
+        : undefined,
+    parentAppointmentId:
+      typeof parsed.parentAppointmentId === 'string'
+        ? parsed.parentAppointmentId
+        : undefined,
+    relatedAppointmentType:
+      typeof parsed.relatedAppointmentType === 'string'
+        ? parsed.relatedAppointmentType
         : undefined,
   }
 

@@ -49,7 +49,6 @@ const EMPTY_CONFIG: AdminConfig = {
 const TABS: Array<{ key: TabKey; label: string }> = [
   { key: 'flow', label: 'Chatbot' },
   { key: 'services', label: 'Serviços' },
-  { key: 'beforeAfter', label: 'Antes/Depois' },
   { key: 'videos', label: 'Vídeos' },
   { key: 'faq', label: 'FAQ' },
   { key: 'agenda', label: 'Agenda' },
@@ -381,6 +380,26 @@ export default function AdminChatbotConfig() {
     }))
   }
 
+  const addBeforeAfterForService = (serviceId: string) => {
+    const service = config.services.find((item) => item.id === serviceId)
+    setConfig((prev) => ({
+      ...prev,
+      beforeAfterItems: reorder([
+        ...prev.beforeAfterItems,
+        {
+          id: newId('ba'),
+          serviceId,
+          title: `Resultado - ${service?.name || 'serviço'}`,
+          description: '',
+          category: service?.category || '',
+          beforeImageUrl: '',
+          afterImageUrl: '',
+          active: true,
+        },
+      ]),
+    }))
+  }
+
   const addVideo = () => {
     setConfig((prev) => ({
       ...prev,
@@ -611,6 +630,52 @@ export default function AdminChatbotConfig() {
                   service={item}
                   onChange={(priceTable) => patchItem('services', item.id, { priceTable })}
                 />
+                <div className="space-y-3 rounded-xl border border-[#d8e3ff] bg-[#f8faff] p-3">
+                  <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                        Antes e depois do serviço
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Upload e edição centralizados neste serviço.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => addBeforeAfterForService(item.id)}
+                      className="rounded-lg border border-[#b8c7ff] bg-white px-3 py-2 text-xs font-bold text-[#3247d3]"
+                    >
+                      Adicionar resultado
+                    </button>
+                  </div>
+                  {config.beforeAfterItems.filter((media) => media.serviceId === item.id).length === 0 ? (
+                    <p className="text-sm text-slate-500">Nenhum resultado vinculado.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {config.beforeAfterItems
+                        .filter((media) => media.serviceId === item.id)
+                        .map((media) => (
+                          <div key={media.id} className="space-y-3 rounded-lg border border-white bg-white p-3">
+                            <div className="grid gap-3 md:grid-cols-2">
+                              <TextInput label="Título" value={media.title} onChange={(value) => patchItem('beforeAfterItems', media.id, { title: value })} />
+                              <TextInput label="Descrição" value={media.description} onChange={(value) => patchItem('beforeAfterItems', media.id, { description: value })} />
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <MediaUpload label="Imagem antes" value={media.beforeImageUrl} uploading={uploading === `${media.id}-before`} onUpload={(event) => uploadMedia(event, `${media.id}-before`, (url) => patchItem('beforeAfterItems', media.id, { beforeImageUrl: url }))} onClear={() => patchItem('beforeAfterItems', media.id, { beforeImageUrl: '' })} />
+                              <MediaUpload label="Imagem depois" value={media.afterImageUrl} uploading={uploading === `${media.id}-after`} onUpload={(event) => uploadMedia(event, `${media.id}-after`, (url) => patchItem('beforeAfterItems', media.id, { afterImageUrl: url }))} onClear={() => patchItem('beforeAfterItems', media.id, { afterImageUrl: '' })} />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => deleteItem('beforeAfterItems', media.id)}
+                              className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-600"
+                            >
+                              Remover resultado
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
                 <div className="rounded-xl border border-[#d8e3ff] bg-[#f8faff] p-3 text-sm text-slate-600">
                   Conteúdo vinculado: {config.beforeAfterItems.filter((media) => media.serviceId === item.id).length} resultado(s),{' '}
                   {config.videoItems.filter((media) => media.serviceId === item.id).length} vídeo(s),{' '}

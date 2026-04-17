@@ -70,6 +70,8 @@ interface AppointmentHistory {
   customerName?: string | null
   customerEmail?: string | null
   customerPhone?: string | null
+  grams?: string | null
+  lengthLabel?: string | null
   paymentMethod?: string | null
   paymentStatus?: string | null
   depositRequired?: boolean
@@ -92,14 +94,22 @@ interface AppointmentHistory {
 	    hairColor?: string
 	    hairState?: string
 	    methods?: string
+      hairPhotoUrl?: string
 	    primaryFlow?: string
 	    primaryCategory?: string
 	    maintenanceType?: string
 	    maintenanceBasePrice?: string
 	    hairSituation?: string
+      selectedOption?: string
 	    additionalServices?: string
+      additionalServicesTotal?: string
 	    maintenanceKit?: string
+      maintenanceKitTotal?: string
 	    cleanHairObservation?: string
+      futureMaintenance?: string
+      cronogramaCapilar?: string
+      parentAppointmentId?: string
+      relatedAppointmentType?: string
 	  } | null
   beforeImageUrl?: string | null
   afterImageUrl?: string | null
@@ -773,7 +783,10 @@ function AccountContent() {
   const isAppointmentDepositRequired = (appointment: AppointmentHistory) =>
     typeof appointment.depositRequired === 'boolean'
       ? appointment.depositRequired
-      : !isEvaluationAppointment(appointment)
+      : !isEvaluationAppointment(appointment) &&
+        !['not_required', 'included_in_parent'].includes(
+          String(appointment.paymentStatus || '').toLowerCase()
+        )
 
   const isAppointmentDepositApproved = (appointment: AppointmentHistory) =>
     !isAppointmentDepositRequired(appointment) ||
@@ -796,7 +809,7 @@ function AccountContent() {
       isAppointmentDepositRequired(appointment) &&
       !isAppointmentDepositApproved(appointment)
     ) {
-      return 'Realize o pagamento do adiantamento de R$ 50,00 para liberar a confirmacao do agendamento.'
+      return 'Realize o pagamento do agendamento para liberar a confirmacao.'
     }
     if (appointment.confirmationDeadlineAt) {
       return `Confirme ate ${new Date(appointment.confirmationDeadlineAt).toLocaleString(
@@ -1388,8 +1401,8 @@ function AccountContent() {
                           }`}
                         >
                           {isAppointmentDepositApproved(appointment)
-                            ? 'Adiantamento de R$ 50,00 aprovado. Agora voce pode confirmar o agendamento.'
-                            : 'Para confirmar o agendamento, realize o pagamento do adiantamento de R$ 50,00 pelo Mercado Pago.'}
+                            ? 'Pagamento aprovado. Agora voce pode confirmar o agendamento.'
+                            : `Para confirmar o agendamento, realize o pagamento de R$ ${appointment.totalPrice.toFixed(2).replace('.', ',')} pelo Mercado Pago.`}
                         </div>
                       ) : (
                         <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -1431,7 +1444,7 @@ function AccountContent() {
                           >
                             {appointmentPaymentId === appointment.id
                               ? 'Ocultar pagamento'
-                              : 'Realizar pagamento do adiantamento'}
+                              : 'Realizar pagamento'}
                           </button>
                         ) : null}
                       </div>
@@ -1439,10 +1452,10 @@ function AccountContent() {
                         <div className="rounded-xl border border-pink-100 bg-white p-4 space-y-3">
                           <div>
                             <p className="text-sm font-semibold text-foreground">
-                              Adiantamento do serviço
+                              Pagamento do agendamento
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              Valor a pagar agora: R$ 50,00. O restante fica para o atendimento.
+                              Valor a pagar: R$ {appointment.totalPrice.toFixed(2).replace('.', ',')}.
                             </p>
                           </div>
                           {appointmentPaymentError ? (
@@ -1454,7 +1467,7 @@ function AccountContent() {
                             order={{
                               id: appointment.id,
                               orderNumber: appointment.id,
-                              total: 50,
+                              total: appointment.totalPrice,
                             }}
                             paymentEndpoint="/api/payments/mercadopago/appointment-deposit"
                             extraPayload={{ appointmentId: appointment.id }}
@@ -1484,7 +1497,7 @@ function AccountContent() {
                             onSuccess={async () => {
                               setAppointmentPaymentError('')
                               setAppointmentActionSuccess(
-                                'Adiantamento aprovado. Agora confirme seu agendamento.'
+                                'Pagamento aprovado. Agora confirme seu agendamento.'
                               )
                               setAppointmentPaymentId(null)
                               await loadAppointments()
@@ -1576,21 +1589,57 @@ function AccountContent() {
 	                                  {appointment.questionnaireData.hairSituation ||
 	                                    'Nao informado'}
 	                                </p>
+                                  <p>
+                                    <span className="font-semibold">Opção escolhida:</span>{' '}
+                                    {appointment.questionnaireData.selectedOption ||
+                                      appointment.lengthLabel ||
+                                      'Nao informado'}
+                                  </p>
 	                                <p>
 	                                  <span className="font-semibold">Servicos adicionais:</span>{' '}
 	                                  {appointment.questionnaireData.additionalServices ||
 	                                    'Nenhum'}
 	                                </p>
+                                  <p>
+                                    <span className="font-semibold">Total adicionais:</span>{' '}
+                                    {appointment.questionnaireData.additionalServicesTotal ||
+                                      'R$ 0,00'}
+                                  </p>
 	                                <p>
 	                                  <span className="font-semibold">Kit de manutencao:</span>{' '}
 	                                  {appointment.questionnaireData.maintenanceKit ||
 	                                    'Nao incluido'}
 	                                </p>
+                                  <p>
+                                    <span className="font-semibold">Total kit:</span>{' '}
+                                    {appointment.questionnaireData.maintenanceKitTotal ||
+                                      'R$ 0,00'}
+                                  </p>
+                                  <p>
+                                    <span className="font-semibold">Manutenção 60 dias:</span>{' '}
+                                    {appointment.questionnaireData.futureMaintenance ||
+                                      'Nao agendada'}
+                                  </p>
+                                  <p className="md:col-span-2">
+                                    <span className="font-semibold">Cronograma capilar:</span>{' '}
+                                    {appointment.questionnaireData.cronogramaCapilar ||
+                                      'Nao contratado'}
+                                  </p>
 	                                <p>
 	                                  <span className="font-semibold">Observacao:</span>{' '}
 	                                  {appointment.questionnaireData.cleanHairObservation ||
 	                                    'Nao informado'}
 	                                </p>
+                                  {appointment.questionnaireData.hairPhotoUrl ? (
+                                    <div className="md:col-span-2">
+                                      <span className="font-semibold">Foto enviada na avaliação:</span>
+                                      <img
+                                        src={appointment.questionnaireData.hairPhotoUrl}
+                                        alt="Foto do cabelo atual"
+                                        className="mt-2 h-48 w-full rounded-lg border border-pink-100 object-cover"
+                                      />
+                                    </div>
+                                  ) : null}
 	                              </div>
                             ) : (
                               <p className="text-sm text-muted-foreground">
@@ -1687,7 +1736,7 @@ function AccountContent() {
                             <span className="inline-flex items-center px-3 py-2 rounded-lg text-xs font-semibold bg-amber-100 text-amber-700">
                               {isAppointmentDepositRequired(appointment) &&
                               !isAppointmentDepositApproved(appointment)
-                                ? 'Pague o adiantamento para liberar o botao de confirmacao.'
+                                ? 'Pague o agendamento para liberar o botao de confirmacao.'
                                 : 'Prazo de confirmacao expirado. O horario pode ser liberado.'}
                             </span>
                           ) : null}
