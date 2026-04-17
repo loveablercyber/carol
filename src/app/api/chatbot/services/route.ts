@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getPublicChatbotConfig } from '@/lib/admin-config-store'
 
+function alignmentPriceTable(shortPrice: number, mediumPrice: number, longPrice: number) {
+  return [
+    {
+      grams: 'Tamanho do cabelo',
+      lengths: [
+        { size: 'Curto para médio', price: shortPrice },
+        { size: 'Médio para longo', price: mediumPrice },
+        { size: 'Longos (à partir de)', price: longPrice },
+      ],
+    },
+  ]
+}
+
 const SERVICES_DATA = {
   categories: [
     {
@@ -28,12 +41,20 @@ const SERVICES_DATA = {
       order: 3
     },
     {
+      id: 'alinhamento',
+      name: 'Alinhamento',
+      nameEmoji: '✨',
+      description: 'Selante, BTX, blindagem, botox e acidificação',
+      image: '/images/services/alisamento-destaque.png',
+      order: 4
+    },
+    {
       id: 'cronograma',
       name: 'Cronograma Capilar + Blindagem',
       nameEmoji: '🌸',
       description: 'Tratamento completo com acompanhamento profissional',
       image: '/images/services/cronograma-capilar.png',
-      order: 4
+      order: 5
     }
   ],
 
@@ -130,6 +151,64 @@ const SERVICES_DATA = {
         ]
       },
       order: 2
+    }
+  ],
+
+  alinhamento: [
+    {
+      id: 'align_selante_blond',
+      name: 'Selante Blond',
+      description: 'Selante Blond com escolha de valor pelo tamanho do cabelo.',
+      images: ['/images/services/alisamento-destaque.png'],
+      durationMinutes: 150,
+      priceInfo: {
+        table: alignmentPriceTable(190, 230, 270)
+      },
+      order: 1
+    },
+    {
+      id: 'align_btx',
+      name: 'BTX',
+      description: 'BTX com escolha de valor pelo tamanho do cabelo.',
+      images: ['/images/services/botox-capilar.png'],
+      durationMinutes: 120,
+      priceInfo: {
+        table: alignmentPriceTable(160, 200, 240)
+      },
+      order: 2
+    },
+    {
+      id: 'align_blindagem_fios',
+      name: 'Blindagem dos Fios',
+      description: 'Blindagem dos Fios com escolha de valor pelo tamanho do cabelo.',
+      images: ['/images/services/blindagem-capilar.png'],
+      durationMinutes: 120,
+      priceInfo: {
+        table: alignmentPriceTable(160, 190, 260)
+      },
+      order: 3
+    },
+    {
+      id: 'align_botox_organic',
+      name: 'Botox Organic',
+      description: 'Botox Organic com escolha de valor pelo tamanho do cabelo.',
+      images: ['/images/services/botox-capilar.png'],
+      durationMinutes: 120,
+      priceInfo: {
+        table: alignmentPriceTable(150, 180, 250)
+      },
+      order: 4
+    },
+    {
+      id: 'align_acidificacao',
+      name: 'Acidificação',
+      description: 'Acidificação com escolha de valor pelo tamanho do cabelo.',
+      images: ['/images/services/acidificacao-capilar.png'],
+      durationMinutes: 90,
+      priceInfo: {
+        table: alignmentPriceTable(150, 180, 250)
+      },
+      order: 5
     }
   ],
 
@@ -345,6 +424,14 @@ export async function GET(request: NextRequest) {
         if (
           category === 'tratamentos' &&
           /tratamento|botox|hidrat|blindagem/i.test(String(service.category || ''))
+        ) {
+          return true
+        }
+        if (
+          category === 'alinhamento' &&
+          /alinhamento|selante|btx|blindagem|botox|acidifica/i.test(
+            String(`${service.category || ''} ${service.subcategory || ''}`)
+          )
         ) {
           return true
         }

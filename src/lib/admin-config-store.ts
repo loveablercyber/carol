@@ -286,6 +286,75 @@ const DEFAULT_FAQ_ITEMS: FaqItem[] = [
   },
 ]
 
+function createAlignmentPriceTable(
+  idPrefix: string,
+  shortPrice: number,
+  mediumPrice: number,
+  longPrice: number
+): AdminServiceItem['priceTable'] {
+  return [
+    {
+      id: `${idPrefix}_sizes`,
+      grams: 'Tamanho do cabelo',
+      order: 1,
+      active: true,
+      lengths: [
+        {
+          id: `${idPrefix}_short`,
+          size: 'Curto para médio',
+          price: shortPrice,
+          order: 1,
+          active: true,
+        },
+        {
+          id: `${idPrefix}_medium`,
+          size: 'Médio para longo',
+          price: mediumPrice,
+          order: 2,
+          active: true,
+        },
+        {
+          id: `${idPrefix}_long`,
+          size: 'Longos (à partir de)',
+          price: longPrice,
+          order: 3,
+          active: true,
+        },
+      ],
+    },
+  ]
+}
+
+function createAlignmentService(
+  id: string,
+  name: string,
+  shortPrice: number,
+  mediumPrice: number,
+  longPrice: number,
+  durationMinutes: number,
+  order: number
+): AdminServiceItem {
+  return {
+    id,
+    name,
+    category: 'Alinhamento',
+    subcategory: 'Alinhamento',
+    price: 0,
+    priceLabel: 'Tabela por tamanho',
+    pricePerGram: null,
+    minGrams: null,
+    maxGrams: null,
+    durationMinutes,
+    shortDescription: `${name} com valor definido pelo tamanho do cabelo.`,
+    longDescription: `${name} com escolha de tamanho do cabelo antes do agendamento.`,
+    observations: 'Venha com o cabelo limpo.',
+    priceTable: createAlignmentPriceTable(id, shortPrice, mediumPrice, longPrice),
+    extraQuestions: [],
+    order,
+    active: true,
+  }
+}
+
 const DEFAULT_CONFIG: AdminOperationalConfig = {
   flowItems: [
     {
@@ -327,6 +396,67 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
       grams: '',
       observation: 'Cliente orientada a vir com o cabelo limpo.',
       order: 3,
+      active: true,
+      required: true,
+    },
+    {
+      id: 'flow_alignment',
+      type: 'single_choice',
+      title: 'Alinhamento',
+      subtitle: 'Selante, BTX, blindagem, botox e acidificação',
+      description: 'Permite escolher o tipo de alinhamento, tamanho do cabelo, adicionais e kit.',
+      options: ['Selante Blond', 'BTX', 'Blindagem dos Fios', 'Botox Organic', 'Acidificação'],
+      optionItems: [
+        {
+          id: 'alignment_selante_blond',
+          label: 'Selante Blond',
+          value: 'selante_blond',
+          price: null,
+          priceLabel: 'Tabela por tamanho',
+          order: 1,
+          active: true,
+        },
+        {
+          id: 'alignment_btx',
+          label: 'BTX',
+          value: 'btx',
+          price: null,
+          priceLabel: 'Tabela por tamanho',
+          order: 2,
+          active: true,
+        },
+        {
+          id: 'alignment_blindagem',
+          label: 'Blindagem dos Fios',
+          value: 'blindagem_dos_fios',
+          price: null,
+          priceLabel: 'Tabela por tamanho',
+          order: 3,
+          active: true,
+        },
+        {
+          id: 'alignment_botox_organic',
+          label: 'Botox Organic',
+          value: 'botox_organic',
+          price: null,
+          priceLabel: 'Tabela por tamanho',
+          order: 4,
+          active: true,
+        },
+        {
+          id: 'alignment_acidificacao',
+          label: 'Acidificação',
+          value: 'acidificacao',
+          price: null,
+          priceLabel: 'Tabela por tamanho',
+          order: 5,
+          active: true,
+        },
+      ],
+      price: '',
+      grams: '',
+      observation: 'Cliente orientada a vir com o cabelo limpo.',
+      order: 4,
       active: true,
       required: true,
     },
@@ -373,7 +503,7 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
       price: '',
       grams: '',
       observation: 'Cliente orientada a vir com o cabelo limpo.',
-      order: 4,
+      order: 5,
       active: true,
       required: true,
     },
@@ -394,7 +524,7 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
       price: '',
       grams: '',
       observation: 'Permite configurar valores futuramente.',
-      order: 5,
+      order: 6,
       active: true,
       required: false,
     },
@@ -423,7 +553,7 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
       price: '',
       grams: '',
       observation: 'Permite configurar valores futuramente.',
-      order: 6,
+      order: 7,
       active: true,
       required: false,
     },
@@ -437,7 +567,7 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
       price: '',
       grams: '',
       observation: '',
-      order: 7,
+      order: 8,
       active: true,
       required: false,
     },
@@ -593,6 +723,11 @@ const DEFAULT_CONFIG: AdminOperationalConfig = {
       order: 4,
       active: true,
     },
+    createAlignmentService('align_selante_blond', 'Selante Blond', 190, 230, 270, 150, 20),
+    createAlignmentService('align_btx', 'BTX', 160, 200, 240, 120, 21),
+    createAlignmentService('align_blindagem_fios', 'Blindagem dos Fios', 160, 190, 260, 120, 22),
+    createAlignmentService('align_botox_organic', 'Botox Organic', 150, 180, 250, 120, 23),
+    createAlignmentService('align_acidificacao', 'Acidificação', 150, 180, 250, 90, 24),
     {
       id: 'svc_maintenance_point',
       name: 'Ponto Americano',

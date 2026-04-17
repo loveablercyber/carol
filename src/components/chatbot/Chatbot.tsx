@@ -60,7 +60,13 @@ type CustomerFormData = {
   methods: string
 }
 
-type PrimaryFlow = 'evaluation' | 'maintenance' | 'application' | 'faq' | null
+type PrimaryFlow =
+  | 'evaluation'
+  | 'maintenance'
+  | 'application'
+  | 'alignment'
+  | 'faq'
+  | null
 
 type MaintenanceOption = {
   label: string
@@ -125,6 +131,14 @@ const EXTENSION_CATEGORY: ServiceCategory = {
   nameEmoji: '💖',
   description: 'Comprimento e volume com técnicas invisíveis',
   image: '/images/services/extensions-destaque.png',
+}
+
+const ALIGNMENT_CATEGORY: ServiceCategory = {
+  id: 'alinhamento',
+  name: 'Alinhamento',
+  nameEmoji: '✨',
+  description: 'Selante, BTX, blindagem, botox e acidificação',
+  image: '/images/services/alisamento-destaque.png',
 }
 
 const MAINTENANCE_OPTIONS: MaintenanceOption[] = [
@@ -385,6 +399,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     evaluation: 'Agendar avaliação',
     maintenance: 'Manutenção do Megahair',
     application: 'Aplicação do Megahair',
+    alignment: 'Alinhamento',
     faq: 'Perguntas e Respostas',
   })
   const [selectedDate, setSelectedDate] = useState<string>('')
@@ -536,6 +551,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
             evaluation: findTitle('flow_evaluation', 'Agendar avaliação'),
             maintenance: findTitle('flow_maintenance', 'Manutenção do Megahair'),
             application: findTitle('flow_application', 'Aplicação do Megahair'),
+            alignment: findTitle('flow_alignment', 'Alinhamento'),
             faq: findTitle('flow_faq', 'Perguntas e Respostas'),
           })
         }
@@ -772,6 +788,20 @@ const Chatbot: React.FC<ChatbotProps> = ({
     })
   }
 
+  const fluxoAlinhamento = async () => {
+    setPrimaryFlow('alignment')
+    setSelectedCategory(ALIGNMENT_CATEGORY)
+    setMaintenanceType(null)
+    setHairSituation('')
+    setSelectedAddons([])
+    setSelectedKitItems([])
+    addMessage('bot', 'Perfeito! Vamos seguir com seu alinhamento.')
+    await handleCategorySelect(ALIGNMENT_CATEGORY, {
+      silentUserMessage: true,
+      introText: 'Escolha o serviço de alinhamento que deseja conhecer e agendar:',
+    })
+  }
+
   const fluxoFAQ = () => {
     setPrimaryFlow('faq')
     addMessage('bot', 'Claro. Escolha uma pergunta abaixo para ver a resposta:', {
@@ -796,6 +826,12 @@ const Chatbot: React.FC<ChatbotProps> = ({
     if (option === 'application') {
       addMessage('user', mainMenuLabels.application, {})
       void fluxoAplicacao()
+      return
+    }
+
+    if (option === 'alignment') {
+      addMessage('user', mainMenuLabels.alignment, {})
+      void fluxoAlinhamento()
       return
     }
 
@@ -1114,7 +1150,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setIsLoading(true)
     setSelectedOption(option)
 
-    if (primaryFlow === 'application') {
+    if (primaryFlow === 'application' || primaryFlow === 'alignment') {
       setTimeout(() => {
         addMessage(
           'bot',
@@ -1426,6 +1462,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
     if (primaryFlow === 'evaluation') return 'Avaliação'
     if (primaryFlow === 'maintenance') return 'Manutenção do Megahair'
     if (primaryFlow === 'application') return selectedService?.name || 'Aplicação do Megahair'
+    if (primaryFlow === 'alignment') return selectedService?.name || 'Alinhamento'
     return promoData?.serviceName || selectedService?.name || 'Serviço'
   }
 
@@ -1437,11 +1474,16 @@ const Chatbot: React.FC<ChatbotProps> = ({
   const getBasePrice = () => {
     if (primaryFlow === 'evaluation') return 0
     if (primaryFlow === 'maintenance') return maintenanceType?.price || selectedOption?.price || 0
-    if (primaryFlow === 'application') {
+    if (primaryFlow === 'application' || primaryFlow === 'alignment') {
       return parsePrice(selectedOption?.price || selectedService?.priceInfo?.fixedPrice || 0)
     }
     return parsePrice(promoData?.price || selectedOption?.price || selectedService?.priceInfo?.fixedPrice || 0)
   }
+
+  const getSelectedOptionLabel = () =>
+    [selectedOption?.grams, selectedOption?.size || selectedOption?.name]
+      .filter(Boolean)
+      .join(' - ')
 
   const formatList = (items: string[], emptyText: string) =>
     items.length > 0 ? items.join(', ') : emptyText
@@ -1475,6 +1517,9 @@ const Chatbot: React.FC<ChatbotProps> = ({
       ``,
       `Serviço principal: ${serviceName}`,
       `Duração: ${getDurationMinutes()} minutos`,
+      ...(primaryFlow === 'application' || primaryFlow === 'alignment'
+        ? [`Opção escolhida: ${getSelectedOptionLabel() || 'Não informada'}`]
+        : []),
       ...(primaryFlow === 'maintenance'
         ? [
             `Tipo: ${maintenanceType?.label || 'Não informado'}`,
@@ -1482,7 +1527,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
             `Situação do cabelo: ${hairSituation || 'Não informado'}`,
           ]
         : []),
-      ...(primaryFlow === 'application'
+      ...(primaryFlow === 'application' || primaryFlow === 'alignment'
         ? [
             `Serviços adicionais: ${formatList(selectedAddons, 'Nenhum')}`,
             `Kit de manutenção: ${formatList(selectedKitItems, 'Não incluído')}`,
@@ -1724,6 +1769,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
                   ? 'Manutenção do Megahair'
                   : primaryFlow === 'application'
                     ? 'Aplicação do Megahair'
+                    : primaryFlow === 'alignment'
+                      ? 'Alinhamento'
                     : '',
             maintenanceType: maintenanceType?.label || '',
             maintenanceBasePrice: maintenanceType?.priceLabel || '',
@@ -1731,7 +1778,9 @@ const Chatbot: React.FC<ChatbotProps> = ({
             additionalServices: selectedAddons.join(', '),
             maintenanceKit: selectedKitItems.join(', '),
             cleanHairObservation:
-              primaryFlow === 'maintenance' || primaryFlow === 'application'
+              primaryFlow === 'maintenance' ||
+              primaryFlow === 'application' ||
+              primaryFlow === 'alignment'
                 ? 'Cliente orientada a vir com cabelo limpo'
                 : '',
           },
@@ -1764,11 +1813,18 @@ const Chatbot: React.FC<ChatbotProps> = ({
     let message = `🚀 *NOVO AGENDAMENTO - CAROLSOL STUDIO*\n\n`
     message += `*Serviço:* ${serviceName}\n`
     message += `*Duração:* ${getDurationMinutes()} minutos\n`
+    if (primaryFlow === 'application' || primaryFlow === 'alignment') {
+      message += `*Opção escolhida:* ${getSelectedOptionLabel() || 'Não informada'}\n`
+    }
     if (primaryFlow === 'maintenance') {
       message += `*Tipo de manutenção:* ${maintenanceType?.label || 'Não informado'}\n`
       message += `*Situação do cabelo:* ${hairSituation || 'Não informado'}\n`
     }
-    if (primaryFlow === 'maintenance' || primaryFlow === 'application') {
+    if (
+      primaryFlow === 'maintenance' ||
+      primaryFlow === 'application' ||
+      primaryFlow === 'alignment'
+    ) {
       message += `*Serviços adicionais:* ${formatList(selectedAddons, 'Nenhum')}\n`
       message += `*Kit de manutenção:* ${formatList(selectedKitItems, 'Não incluído')}\n`
       message += `*Observação:* Cliente orientada a vir com cabelo limpo\n`
@@ -1875,6 +1931,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
             { label: mainMenuLabels.evaluation, flow: 'evaluation' as PrimaryFlow },
             { label: mainMenuLabels.maintenance, flow: 'maintenance' as PrimaryFlow },
             { label: mainMenuLabels.application, flow: 'application' as PrimaryFlow },
+            { label: mainMenuLabels.alignment, flow: 'alignment' as PrimaryFlow },
             { label: mainMenuLabels.faq, flow: 'faq' as PrimaryFlow },
           ].map((option) => (
             <button
@@ -2063,6 +2120,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
             { id: 'extensoes', name: 'Extensões / Fibra Russa', nameEmoji: '💖', description: 'Comprimento e volume com técnicas invisíveis', color: 'from-rose-100 to-rose-50', image: '/images/services/extensions-destaque.png' },
             { id: 'tratamentos', name: 'Tratamentos e Alinhamento', nameEmoji: '✨', description: 'Tratamentos que restauram a saúde do seu cabelo', color: 'from-purple-100 to-purple-50', image: '/images/services/tratamentos-destaque.png' },
             { id: 'alisamento', name: 'Alisamento', nameEmoji: '💇‍♀️', description: 'Alinhamento suave e natural para seu cabelo', color: 'from-pink-100 to-pink-50', image: '/images/services/alisamento-destaque.png' },
+            { id: 'alinhamento', name: 'Alinhamento', nameEmoji: '✨', description: 'Selante, BTX, blindagem, botox e acidificação', color: 'from-amber-100 to-rose-50', image: '/images/services/alisamento-destaque.png' },
             { id: 'cronograma', name: 'Cronograma Capilar', nameEmoji: '🌸', description: 'Tratamento completo com acompanhamento semanal', color: 'from-fuchsia-100 to-fuchsia-50', image: '/images/services/cronograma-destaque.png' }
           ].map((cat: any) => (
             <button
