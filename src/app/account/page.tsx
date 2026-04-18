@@ -10,9 +10,8 @@ import {
   ShoppingBag,
   LogOut,
   MapPin,
-  CreditCard,
-  Clock,
   Package,
+  ChevronLeft,
   LayoutDashboard,
   Search,
 } from 'lucide-react'
@@ -28,7 +27,13 @@ import AdminAppointments from '@/components/admin/AdminAppointments'
 import AdminShipping from '@/components/admin/AdminShipping'
 import AdminReviews from '@/components/admin/AdminReviews'
 import AdminBackup from '@/components/admin/AdminBackup'
+import AdminDonationCampaign from '@/components/admin/AdminDonationCampaign'
+import AdminDashboard from '@/components/admin/AdminDashboard'
 import { MercadoPagoTransparentCard } from '@/components/payment/MercadoPagoTransparentCard'
+import {
+  adminNavigationItems,
+  type AdminSectionKey,
+} from '@/lib/admin-navigation'
 
 interface Order {
   id: string
@@ -93,8 +98,18 @@ interface AppointmentHistory {
     hairType?: string
 	    hairColor?: string
 	    hairState?: string
-	    methods?: string
+      methods?: string
       hairPhotoUrl?: string
+      campaignSource?: string
+      donationHairOptionId?: string
+      donationHairName?: string
+      donationHairImageUrl?: string
+      donationHairDescription?: string
+      donationHairColor?: string
+      donationHairLength?: string
+      donationTechnique?: string
+      paymentMode?: string
+      paymentObservation?: string
 	    primaryFlow?: string
 	    primaryCategory?: string
 	    maintenanceType?: string
@@ -153,18 +168,7 @@ function AccountContent() {
     'orders' | 'profile' | 'addresses' | 'appointments' | 'cards' | 'admin'
   >('orders')
   const [adminSection, setAdminSection] = useState<
-    | 'dashboard'
-    | 'products'
-    | 'categories'
-    | 'orders'
-    | 'customers'
-    | 'homeModules'
-    | 'internalPages'
-    | 'chatbotConfig'
-    | 'appointments'
-    | 'shipping'
-    | 'reviews'
-    | 'backup'
+    AdminSectionKey | 'appointments'
   >('dashboard')
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
@@ -215,8 +219,13 @@ function AccountContent() {
     const tab = new URLSearchParams(window.location.search).get('tab')
     if (tab === 'appointments') {
       setActiveTab('appointments')
+      return
     }
-  }, [])
+    if (tab === 'admin' && session?.user?.role === 'admin') {
+      setActiveTab('admin')
+      setAdminSection('dashboard')
+    }
+  }, [session?.user?.role])
 
   // Buscar pedidos do usuário
   useEffect(() => {
@@ -869,8 +878,8 @@ function AccountContent() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#e8f0ff_0,_#d8e3ff_45%,_#e6defd_100%)] px-2 py-3 md:px-5 md:py-5">
-      <div className="mx-auto max-w-[1500px] rounded-[28px] border border-white/70 bg-gradient-to-br from-[#d8e5ff] via-[#dbe7ff] to-[#e7dfff] p-3 shadow-[0_32px_70px_-36px_rgba(32,36,64,0.75)] md:p-4">
-        <header className="mb-4 rounded-2xl border border-white/60 bg-white/55 px-4 py-4 backdrop-blur-sm md:px-6">
+      <div className="mx-auto max-w-[1500px] rounded-[28px] border border-white/70 bg-gradient-to-br from-[#d8e5ff] via-[#dbe7ff] to-[#e7dfff] p-3 shadow-[0_32px_70px_-36px_rgba(32,36,64,0.75)] md:p-4 2xl:max-w-[1720px]">
+        <header className="mb-4 rounded-2xl border border-white/60 bg-white/55 px-4 py-4 backdrop-blur-sm md:px-6 lg:rounded-[2rem] lg:px-7 lg:py-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-3">
               <Link
@@ -881,9 +890,15 @@ function AccountContent() {
               </Link>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Area do Cliente
+                  {activeTab === 'admin' && session.user?.role === 'admin'
+                    ? 'Painel Administrativo'
+                    : 'Area do Cliente'}
                 </p>
-                <h1 className="font-display text-xl font-bold text-slate-900">Minha Conta</h1>
+                <h1 className="font-display text-xl font-bold text-slate-900">
+                  {activeTab === 'admin' && session.user?.role === 'admin'
+                    ? 'Gestao Interna'
+                    : 'Minha Conta'}
+                </h1>
               </div>
             </div>
             <div className="flex w-full items-center gap-3 md:w-auto">
@@ -913,8 +928,8 @@ function AccountContent() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
-          <aside className="rounded-2xl border border-white/70 bg-white/80 p-5 backdrop-blur-sm">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[300px_1fr] xl:grid-cols-[320px_1fr]">
+          <aside className="rounded-2xl border border-white/70 bg-white/80 p-5 backdrop-blur-sm lg:sticky lg:top-5 lg:self-start lg:rounded-[2rem] lg:p-6">
             <div className="mb-6 rounded-xl bg-gradient-to-r from-[#3247d3] via-[#4d65e7] to-[#2995da] px-4 py-4 text-white shadow-[0_18px_35px_-24px_rgba(36,56,155,0.9)]">
               <div className="mb-3 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/25">
                 <User className="h-5 w-5" />
@@ -924,57 +939,68 @@ function AccountContent() {
             </div>
 
             <nav className="space-y-2">
-              {session.user?.role === 'admin' && (
-                <button
-                  onClick={() => {
-                    setActiveTab('admin')
-                    setAdminSection('dashboard')
-                  }}
-                  className={sidebarButtonClass(activeTab === 'admin')}
-                >
-                  <LayoutDashboard className="h-5 w-5" />
-                  Painel Admin
-                </button>
+              {session.user?.role === 'admin' && activeTab === 'admin' ? (
+                <>
+                  <button
+                    onClick={() => setActiveTab('orders')}
+                    className={sidebarButtonClass(false)}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                    Voltar para cliente
+                  </button>
+                  {adminNavigationItems.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <button
+                        key={item.key}
+                        onClick={() => {
+                          setActiveTab('admin')
+                          setAdminSection(item.key)
+                        }}
+                        className={sidebarButtonClass(
+                          activeTab === 'admin' && adminSection === item.key
+                        )}
+                      >
+                        <Icon className="h-5 w-5" />
+                        {item.label}
+                      </button>
+                    )
+                  })}
+                </>
+              ) : (
+                <>
+                  {session.user?.role === 'admin' && (
+                    <button
+                      onClick={() => {
+                        setActiveTab('admin')
+                        setAdminSection('dashboard')
+                      }}
+                      className={sidebarButtonClass(activeTab === 'admin')}
+                    >
+                      <LayoutDashboard className="h-5 w-5" />
+                      Painel Admin
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setActiveTab('orders')}
+                    className={sidebarButtonClass(activeTab === 'orders')}
+                  >
+                    <ShoppingBag className="h-5 w-5" />
+                    Meus Pedidos
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('profile')}
+                    className={sidebarButtonClass(activeTab === 'profile')}
+                  >
+                    <User className="h-5 w-5" />
+                    Perfil
+                  </button>
+                </>
               )}
-              <button
-                onClick={() => setActiveTab('orders')}
-                className={sidebarButtonClass(activeTab === 'orders')}
-              >
-                <ShoppingBag className="h-5 w-5" />
-                Meus Pedidos
-              </button>
-              <button
-                onClick={() => setActiveTab('profile')}
-                className={sidebarButtonClass(activeTab === 'profile')}
-              >
-                <User className="h-5 w-5" />
-                Perfil
-              </button>
-              <button
-                onClick={() => setActiveTab('appointments')}
-                className={sidebarButtonClass(activeTab === 'appointments')}
-              >
-                <Clock className="h-5 w-5" />
-                Agendamentos
-              </button>
-              <button
-                onClick={() => setActiveTab('cards')}
-                className={sidebarButtonClass(activeTab === 'cards')}
-              >
-                <CreditCard className="h-5 w-5" />
-                Cartoes salvos
-              </button>
-              <button
-                onClick={() => setActiveTab('addresses')}
-                className={sidebarButtonClass(activeTab === 'addresses')}
-              >
-                <MapPin className="h-5 w-5" />
-                Enderecos
-              </button>
             </nav>
           </aside>
 
-          <div className="rounded-2xl border border-white/70 bg-white/70 p-4 backdrop-blur-sm md:p-5">
+          <div className="min-h-[760px] rounded-2xl border border-white/70 bg-white/70 p-4 backdrop-blur-sm md:p-5 lg:rounded-[2rem] lg:p-6">
             {activeTab === 'orders' && (
               <>
                 {loading ? (
@@ -1569,6 +1595,54 @@ function AccountContent() {
 	                                  {appointment.questionnaireData.methods ||
 	                                    'Nao informado'}
 	                                </p>
+                                  {appointment.questionnaireData.campaignSource ? (
+                                    <>
+                                      <p>
+                                        <span className="font-semibold">Campanha:</span>{' '}
+                                        {appointment.questionnaireData.campaignSource}
+                                      </p>
+                                      <p>
+                                        <span className="font-semibold">Tecnica da doacao:</span>{' '}
+                                        {appointment.questionnaireData.donationTechnique ||
+                                          'Nao informado'}
+                                      </p>
+                                      <p>
+                                        <span className="font-semibold">Cabelo escolhido:</span>{' '}
+                                        {appointment.questionnaireData.donationHairName ||
+                                          'Nao informado'}
+                                      </p>
+                                      <p>
+                                        <span className="font-semibold">Detalhes do cabelo:</span>{' '}
+                                        {[
+                                          appointment.questionnaireData.donationHairColor,
+                                          appointment.questionnaireData.donationHairLength,
+                                        ]
+                                          .filter(Boolean)
+                                          .join(' - ') || 'Nao informado'}
+                                      </p>
+                                      {appointment.questionnaireData.donationHairDescription ? (
+                                        <p>
+                                          <span className="font-semibold">Descricao:</span>{' '}
+                                          {appointment.questionnaireData.donationHairDescription}
+                                        </p>
+                                      ) : null}
+                                      {appointment.questionnaireData.donationHairImageUrl ? (
+                                        <img
+                                          src={appointment.questionnaireData.donationHairImageUrl}
+                                          alt={
+                                            appointment.questionnaireData.donationHairName ||
+                                            'Cabelo escolhido'
+                                          }
+                                          className="mt-2 h-32 w-32 rounded-xl object-cover"
+                                        />
+                                      ) : null}
+                                      <p>
+                                        <span className="font-semibold">Pagamento:</span>{' '}
+                                        {appointment.questionnaireData.paymentObservation ||
+                                          'Nao informado'}
+                                      </p>
+                                    </>
+                                  ) : null}
 	                                <p>
 	                                  <span className="font-semibold">Categoria principal:</span>{' '}
 	                                  {appointment.questionnaireData.primaryCategory ||
@@ -1990,130 +2064,7 @@ function AccountContent() {
             {activeTab === 'admin' && session.user?.role === 'admin' && (
               <div className="space-y-6">
                 {adminSection === 'dashboard' ? (
-                  <div className="space-y-5 rounded-2xl border border-white/70 bg-white/80 p-5 shadow-[0_18px_40px_-28px_rgba(31,41,55,0.6)] md:p-6">
-                    <div className="grid gap-4 md:grid-cols-3">
-                      {[
-                        {
-                          label: 'Gestao de loja',
-                          value: '10',
-                          detail: 'modulos administrativos',
-                          color: 'from-[#4668ff] to-[#22a9e6]',
-                        },
-                        {
-                          label: 'Operacao',
-                          value: '24h',
-                          detail: 'acompanhamento de pedidos',
-                          color: 'from-[#fb5c8f] to-[#f8895d]',
-                        },
-                        {
-                          label: 'Atendimento',
-                          value: 'Ativo',
-                          detail: 'agendamentos e clientes',
-                          color: 'from-[#22b8cf] to-[#3f67f5]',
-                        },
-                      ].map((metric) => (
-                        <div
-                          key={metric.label}
-                          className="rounded-xl border border-[#d8e3ff] bg-gradient-to-b from-white to-[#f8faff] p-4"
-                        >
-                          <div className="mb-2 flex items-center gap-3">
-                            <div
-                              className={`h-10 w-10 rounded-full bg-gradient-to-br ${metric.color}`}
-                            />
-                            <div>
-                              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                                {metric.label}
-                              </p>
-                              <p className="font-display text-2xl font-bold text-slate-800">
-                                {metric.value}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-slate-600">{metric.detail}</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="flex flex-wrap items-end justify-between gap-3">
-                      <h2 className="font-display text-2xl font-bold text-slate-900">
-                        Painel Administrativo
-                      </h2>
-                      <p className="text-sm text-slate-500">
-                        Visual moderno com acesso rapido as areas de gestao.
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                      {[
-                        {
-                          key: 'products',
-                          title: 'Produtos',
-                          description: 'Gerencie catálogo, estoque e destaque.',
-                        },
-                        {
-                          key: 'categories',
-                          title: 'Categorias',
-                          description: 'Organize categorias e ordem de exibição.',
-                        },
-                        {
-                          key: 'orders',
-                          title: 'Pedidos',
-                          description: 'Atualize status, pagamentos e rastreio.',
-                        },
-                        {
-                          key: 'customers',
-                          title: 'Clientes',
-                          description: 'Gerencie contas, cadastros e acesso.',
-                        },
-                        {
-                          key: 'homeModules',
-                          title: 'Pagina Inicial',
-                          description: 'Ative modulos e personalize a ordem da home.',
-                        },
-                        {
-                          key: 'internalPages',
-                          title: 'Paginas Internas',
-                          description: 'Edite promocoes, servicos e paginas de conteudo.',
-                        },
-                        {
-                          key: 'chatbotConfig',
-                          title: 'Chatbot e Agenda',
-                          description: 'Configure fluxos, servicos, FAQ, midias e horarios.',
-                        },
-                        {
-                          key: 'appointments',
-                          title: 'Agendamentos',
-                          description: 'Gerencie horarios, confirmacoes e cancelamentos.',
-                        },
-                        {
-                          key: 'shipping',
-                          title: 'Frete',
-                          description: 'Defina regras por CEP, categoria e produto.',
-                        },
-                        {
-                          key: 'reviews',
-                          title: 'Comentarios',
-                          description: 'Modere avaliacoes e comentarios da loja.',
-                        },
-                        {
-                          key: 'backup',
-                          title: 'Backup',
-                          description: 'Exporte backup manual do banco de dados.',
-                        },
-                      ].map((card) => (
-                        <button
-                          key={card.key}
-                          onClick={() => setAdminSection(card.key as typeof adminSection)}
-                          className="group text-left rounded-xl border border-[#d8e3ff] bg-gradient-to-b from-white to-[#f8faff] p-5 shadow-[0_14px_35px_-25px_rgba(31,41,55,0.55)] transition hover:-translate-y-0.5 hover:border-[#9cb3ff]"
-                        >
-                          <h3 className="mb-2 font-display text-lg font-bold text-slate-800">
-                            {card.title}
-                          </h3>
-                          <p className="text-sm text-slate-600">{card.description}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  <AdminDashboard onNavigate={setAdminSection} />
                 ) : (
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
@@ -2134,6 +2085,7 @@ function AccountContent() {
                     {adminSection === 'homeModules' && <AdminHomeModules />}
                     {adminSection === 'internalPages' && <AdminInternalPages />}
                     {adminSection === 'chatbotConfig' && <AdminChatbotConfig />}
+                    {adminSection === 'donation' && <AdminDonationCampaign />}
                     {adminSection === 'appointments' && <AdminAppointments />}
                     {adminSection === 'shipping' && <AdminShipping />}
                     {adminSection === 'reviews' && <AdminReviews />}

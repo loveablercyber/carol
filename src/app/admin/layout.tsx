@@ -1,21 +1,11 @@
 import { getServerSession } from 'next-auth'
 import Link from 'next/link'
 import {
-  Archive,
-  CalendarClock,
-  FilePenLine,
-  Home,
-  Layers3,
-  LayoutGrid,
-  MessageSquare,
-  Package,
   Search,
   Settings2,
-  ShoppingCart,
-  Truck,
-  Users,
 } from 'lucide-react'
 import { authOptions } from '@/lib/auth-options'
+import { adminNavigationItems } from '@/lib/admin-navigation'
 
 export default async function AdminLayout({
   children,
@@ -46,33 +36,18 @@ export default async function AdminLayout({
     )
   }
 
-  const navItems = [
-    { href: '/admin', label: 'Visao Geral', icon: LayoutGrid },
-    { href: '/admin/orders', label: 'Pedidos', icon: ShoppingCart },
-    { href: '/admin/customers', label: 'Clientes', icon: Users },
-    { href: '/admin/products', label: 'Produtos', icon: Package },
-    { href: '/admin/categories', label: 'Categorias', icon: Layers3 },
-    { href: '/admin/home-modules', label: 'Pagina Inicial', icon: Home },
-    { href: '/admin/internal-pages', label: 'Paginas Internas', icon: FilePenLine },
-    { href: '/admin/chatbot-config', label: 'Chatbot e Agenda', icon: Settings2 },
-    { href: '/admin/appointments', label: 'Agendamentos', icon: CalendarClock },
-    { href: '/admin/shipping', label: 'Frete', icon: Truck },
-    { href: '/admin/reviews', label: 'Comentarios', icon: MessageSquare },
-    { href: '/admin/backup', label: 'Backup', icon: Archive },
-  ]
-
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#e8f0ff_0,_#d8e3ff_45%,_#e6defd_100%)] px-2 py-3 md:px-5 md:py-5">
-      <div className="mx-auto max-w-[1500px] rounded-[28px] border border-white/70 bg-gradient-to-br from-[#d8e5ff] via-[#dbe7ff] to-[#e7dfff] p-3 shadow-[0_32px_70px_-36px_rgba(32,36,64,0.75)] md:p-4">
-        <div className="grid gap-4 lg:grid-cols-[250px_1fr]">
-          <aside className="rounded-2xl bg-white/85 p-4 backdrop-blur-sm">
+      <div className="mx-auto max-w-[1500px] rounded-[28px] border border-white/70 bg-gradient-to-br from-[#d8e5ff] via-[#dbe7ff] to-[#e7dfff] p-3 shadow-[0_32px_70px_-36px_rgba(32,36,64,0.75)] md:p-4 2xl:max-w-[1720px]">
+        <div className="grid gap-4 lg:grid-cols-[280px_1fr] xl:grid-cols-[300px_1fr]">
+          <aside className="rounded-2xl bg-white/85 p-4 backdrop-blur-sm lg:sticky lg:top-5 lg:self-start lg:rounded-[2rem] lg:p-5">
             <div className="mb-5 rounded-xl bg-gradient-to-r from-[#3247d3] via-[#4d65e7] to-[#2995da] px-4 py-4 text-white">
               <p className="text-sm/4 opacity-90">CarolSol Studio</p>
               <p className="font-display text-lg font-bold">Painel Admin</p>
             </div>
 
             <nav className="space-y-1">
-              {navItems.map((item) => {
+              {adminNavigationItems.map((item) => {
                 const Icon = item.icon
                 return (
                   <Link
@@ -88,8 +63,8 @@ export default async function AdminLayout({
             </nav>
           </aside>
 
-          <div className="rounded-2xl bg-white/60 backdrop-blur-sm">
-            <header className="flex flex-col gap-3 border-b border-white/60 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6">
+          <div className="min-h-[820px] rounded-2xl bg-white/60 backdrop-blur-sm lg:rounded-[2rem]">
+            <header className="flex flex-col gap-3 border-b border-white/60 px-4 py-4 md:flex-row md:items-center md:justify-between md:px-6 lg:px-7 lg:py-6">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                   Gestao
@@ -119,7 +94,7 @@ export default async function AdminLayout({
                 </Link>
               </div>
             </header>
-            <main className="px-4 py-5 md:px-6 md:py-6">{children}</main>
+            <main className="px-4 py-5 md:px-6 md:py-6 lg:px-7 lg:py-7">{children}</main>
           </div>
         </div>
       </div>
