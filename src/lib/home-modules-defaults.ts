@@ -1,5 +1,6 @@
 export type HomeModuleKey =
   | 'scheduling'
+  | 'donation'
   | 'promotion'
   | 'services'
   | 'shop'
@@ -12,6 +13,7 @@ export type HomeModuleKey =
 export type HomeIconName =
   | 'Calendar'
   | 'Sparkles'
+  | 'Heart'
   | 'DollarSign'
   | 'ShoppingBag'
   | 'Camera'
@@ -56,6 +58,20 @@ export const DEFAULT_HOME_MODULES: HomeModuleConfig[] = [
     position: 0,
   },
   {
+    key: 'donation',
+    icon: 'Heart',
+    title: 'Doação de Cabelo',
+    subtitle: '🎁',
+    description: 'Agendamento liberado em 04/05. Vagas simbólicas para aplicação com valor reduzido.',
+    href: '/doacao-cabelo',
+    color: 'bg-gradient-to-br from-[#1f1308] via-[#5a2a08] to-[#0f0904]',
+    textColor: 'text-white',
+    buttonText: 'Ver Doação',
+    shadow: 'shadow-xl',
+    enabled: true,
+    position: 1,
+  },
+  {
     key: 'promotion',
     icon: 'Sparkles',
     title: 'Promocao Bio Proteina',
@@ -67,7 +83,7 @@ export const DEFAULT_HOME_MODULES: HomeModuleConfig[] = [
     buttonText: 'Ver Promocao',
     shadow: 'shadow-xl',
     enabled: true,
-    position: 1,
+    position: 2,
   },
   {
     key: 'services',
@@ -81,7 +97,7 @@ export const DEFAULT_HOME_MODULES: HomeModuleConfig[] = [
     buttonText: 'Ver Lista',
     shadow: 'shadow-lg',
     enabled: true,
-    position: 2,
+    position: 3,
   },
   {
     key: 'shop',
@@ -95,7 +111,7 @@ export const DEFAULT_HOME_MODULES: HomeModuleConfig[] = [
     color: 'bg-white',
     textColor: 'text-foreground',
     enabled: true,
-    position: 3,
+    position: 4,
   },
   {
     key: 'club',
@@ -109,7 +125,7 @@ export const DEFAULT_HOME_MODULES: HomeModuleConfig[] = [
     color: 'bg-[#F8B6D8]',
     textColor: 'text-foreground',
     enabled: true,
-    position: 4,
+    position: 5,
   },
   {
     key: 'testimonials',
@@ -123,7 +139,7 @@ export const DEFAULT_HOME_MODULES: HomeModuleConfig[] = [
     color: 'bg-white',
     textColor: 'text-foreground',
     enabled: true,
-    position: 5,
+    position: 6,
   },
   {
     key: 'professional',
@@ -137,7 +153,7 @@ export const DEFAULT_HOME_MODULES: HomeModuleConfig[] = [
     color: 'bg-[#FFF0F5]',
     textColor: 'text-foreground',
     enabled: true,
-    position: 6,
+    position: 7,
   },
   {
     key: 'instagram',
@@ -157,7 +173,7 @@ export const DEFAULT_HOME_MODULES: HomeModuleConfig[] = [
     textColor: 'text-white',
     shadow: 'shadow-lg',
     enabled: true,
-    position: 7,
+    position: 8,
   },
   {
     key: 'support',
@@ -170,7 +186,7 @@ export const DEFAULT_HOME_MODULES: HomeModuleConfig[] = [
     color: 'bg-[#F8B6D8]',
     textColor: 'text-foreground',
     enabled: true,
-    position: 8,
+    position: 9,
   },
 ]
 

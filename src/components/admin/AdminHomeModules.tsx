@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowDown, ArrowUp, GripVertical } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { HomeModuleConfig } from '@/lib/home-modules-defaults'
@@ -27,6 +27,8 @@ export default function AdminHomeModules() {
   const [modules, setModules] = useState<HomeModuleConfig[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [savingModuleKey, setSavingModuleKey] = useState('')
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({})
 
   const fetchModules = async () => {
     setLoading(true)
@@ -54,15 +56,10 @@ export default function AdminHomeModules() {
 
   const hasModules = modules.length > 0
 
-  const canSave = useMemo(() => {
-    if (!hasModules) return false
-    return modules.every(
-      (module) =>
-        module.title.trim().length > 0 &&
-        module.description.trim().length > 0 &&
-        module.buttonText.trim().length > 0
-    )
-  }, [hasModules, modules])
+  const canSaveModule = (module: HomeModuleConfig) =>
+    module.title.trim().length > 0 &&
+    module.description.trim().length > 0 &&
+    module.buttonText.trim().length > 0
 
   const updateModule = (index: number, patch: Partial<HomeModuleConfig>) => {
     setModules((prev) =>
@@ -91,8 +88,9 @@ export default function AdminHomeModules() {
     })
   }
 
-  const handleSave = async () => {
+  const handleSave = async (moduleKey?: string) => {
     setSaving(true)
+    if (moduleKey) setSavingModuleKey(moduleKey)
     try {
       const payload = {
         modules: modules.map((module, index) => ({
@@ -119,8 +117,8 @@ export default function AdminHomeModules() {
 
       setModules(sortModules(data.modules || []))
       toast({
-        title: 'Pagina inicial atualizada',
-        description: 'Modulos salvos com sucesso.',
+        title: moduleKey ? 'Modulo atualizado' : 'Pagina inicial atualizada',
+        description: moduleKey ? 'Alteracao deste modulo salva com sucesso.' : 'Modulos salvos com sucesso.',
       })
     } catch (error: any) {
       toast({
@@ -130,6 +128,7 @@ export default function AdminHomeModules() {
       })
     } finally {
       setSaving(false)
+      setSavingModuleKey('')
     }
   }
 
@@ -174,6 +173,18 @@ export default function AdminHomeModules() {
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
+                  onClick={() =>
+                    setExpandedModules((prev) => ({
+                      ...prev,
+                      [module.key]: !prev[module.key],
+                    }))
+                  }
+                  className="px-3 py-2 text-sm rounded-lg border border-pink-200 font-semibold text-primary"
+                >
+                  {expandedModules[module.key] ? 'Recolher' : 'Editar'}
+                </button>
+                <button
+                  type="button"
                   onClick={() => moveModule(index, 'up')}
                   disabled={index === 0}
                   className="px-3 py-2 text-sm rounded-lg border border-pink-200 disabled:opacity-50"
@@ -206,6 +217,8 @@ export default function AdminHomeModules() {
               </div>
             </div>
 
+            {expandedModules[module.key] ? (
+              <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold mb-2">Titulo</label>
@@ -334,24 +347,22 @@ export default function AdminHomeModules() {
                 </div>
               </div>
             )}
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => handleSave(module.key)}
+                disabled={!canSaveModule(module) || saving}
+                className="px-6 py-3 bg-primary text-white rounded-xl font-semibold disabled:opacity-60"
+              >
+                {savingModuleKey === module.key ? 'Salvando...' : 'Salvar este modulo'}
+              </button>
+            </div>
+              </>
+            ) : null}
           </div>
         ))
       )}
-
-      <div className="bg-white rounded-2xl shadow-md p-6 flex flex-wrap items-center justify-between gap-4">
-        <p className="text-sm text-muted-foreground">
-          Dica: o modulo de suporte pode receber link do WhatsApp em "Link".
-        </p>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={!canSave || saving}
-          className="px-6 py-3 bg-primary text-white rounded-xl font-semibold disabled:opacity-60"
-        >
-          {saving ? 'Salvando...' : 'Salvar configuracoes'}
-        </button>
-      </div>
     </div>
   )
 }
-

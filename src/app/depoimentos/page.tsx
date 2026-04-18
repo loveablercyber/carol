@@ -79,7 +79,7 @@ export default function DepoimentosPage() {
         </div>
       </header>
 
-      <section className="max-w-6xl mx-auto px-4 py-12">
+      <section className="max-w-6xl mx-auto px-4 py-12 lg:hidden">
         <div className="text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-md mb-4">
             <Sparkles className="w-4 h-4 text-primary" />
@@ -141,7 +141,7 @@ export default function DepoimentosPage() {
         </div>
       </section>
 
-      <section className="max-w-5xl mx-auto px-4 pb-16">
+      <section className="max-w-5xl mx-auto px-4 pb-16 lg:hidden">
         <div className="bg-gradient-to-r from-[#E91E63] to-[#F8B6D8] text-white rounded-2xl p-8 text-center shadow-xl">
           <h2 className="font-display font-bold text-3xl mb-3">{ctaTitle}</h2>
           <p className="text-base mb-6">{ctaDescription}</p>
@@ -154,7 +154,133 @@ export default function DepoimentosPage() {
           </Link>
         </div>
       </section>
+
+      <section className="mx-auto hidden max-w-[1500px] px-8 py-14 lg:block xl:px-12">
+        <div className="grid min-h-[520px] grid-cols-[0.88fr_1.12fr] items-center gap-12">
+          <div className="space-y-7">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/85 px-5 py-2.5 text-xs font-black uppercase tracking-[0.24em] text-primary shadow-lg">
+              <Sparkles className="h-4 w-4" />
+              {badgeText}
+            </div>
+            <h1 className="font-display text-7xl font-black leading-[0.92] tracking-[-0.06em] text-foreground xl:text-8xl">
+              {pageTitle}
+            </h1>
+            <p className="max-w-3xl text-xl leading-9 text-muted-foreground">
+              {pageDescription}
+            </p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-3 rounded-2xl bg-primary px-8 py-4 text-lg font-black text-white shadow-xl shadow-pink-200 transition hover:bg-primary/90"
+            >
+              <CalendarCheck className="h-5 w-5" />
+              {ctaButtonText}
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 gap-5">
+            {testimonials.slice(0, 2).map((item, index) => (
+              <div
+                key={item.id}
+                className={`overflow-hidden rounded-[2.25rem] border border-white bg-white shadow-xl shadow-pink-100/45 ${
+                  index === 1 ? 'translate-y-12' : ''
+                }`}
+              >
+                <div className="grid grid-cols-2">
+                  <div className="relative h-72">
+                    <Image
+                      src={item.before}
+                      alt={`${item.title} - Antes`}
+                      fill
+                      className="object-cover"
+                      sizes="20vw"
+                    />
+                    <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-xs font-black text-primary">
+                      Antes
+                    </span>
+                  </div>
+                  <div className="relative h-72">
+                    <Image
+                      src={item.after}
+                      alt={`${item.title} - Depois`}
+                      fill
+                      className="object-cover"
+                      sizes="20vw"
+                    />
+                    <span className="absolute left-4 top-4 rounded-full bg-primary px-3 py-1 text-xs font-black text-white">
+                      Depois
+                    </span>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <h2 className="font-display text-2xl font-black text-foreground">{item.title}</h2>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{item.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-24 grid grid-cols-2 gap-8">
+          {testimonials.map((item) => (
+            <article key={item.id} className="rounded-[2.25rem] border border-pink-100 bg-white p-7 shadow-xl shadow-pink-100/40">
+              <div className="mb-6 flex items-start justify-between gap-5">
+                <div>
+                  <h2 className="font-display text-3xl font-black text-foreground">{item.title}</h2>
+                  <p className="mt-2 text-base leading-7 text-muted-foreground">{item.description}</p>
+                </div>
+                <div className="flex items-center gap-2 rounded-full bg-pink-50 px-4 py-2 text-xs font-black text-pink-700">
+                  <Heart className="h-4 w-4" />
+                  Resultado aprovado
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="overflow-hidden rounded-[1.5rem] border border-pink-100 bg-pink-50">
+                  <div className="px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-pink-700">Antes</div>
+                  <div className="relative h-96">
+                    <Image
+                      src={item.before}
+                      alt={`${item.title} - Antes`}
+                      fill
+                      className="object-cover"
+                      sizes="24vw"
+                    />
+                  </div>
+                </div>
+                <div className="overflow-hidden rounded-[1.5rem] border border-pink-100 bg-pink-50">
+                  <div className="px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-pink-700">Depois</div>
+                  <div className="relative h-96">
+                    <Image
+                      src={item.after}
+                      alt={`${item.title} - Depois`}
+                      fill
+                      className="object-cover"
+                      sizes="24vw"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-[1.5rem] border border-pink-100 bg-pink-50 p-5">
+                <p className="text-base italic leading-7 text-foreground">“{item.quote}”</p>
+                <p className="mt-3 text-sm font-semibold text-muted-foreground">— {item.client}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-16 rounded-[2.25rem] bg-gradient-to-r from-[#E91E63] to-[#F8B6D8] p-10 text-center text-white shadow-xl shadow-pink-200">
+          <h2 className="font-display text-5xl font-black tracking-[-0.05em]">{ctaTitle}</h2>
+          <p className="mx-auto mt-4 max-w-3xl text-lg leading-8">{ctaDescription}</p>
+          <Link
+            href="/"
+            className="mt-8 inline-flex items-center gap-3 rounded-2xl bg-white px-8 py-4 text-lg font-black text-primary shadow-lg transition hover:shadow-xl"
+          >
+            <CalendarCheck className="h-5 w-5" />
+            {ctaButtonText}
+          </Link>
+        </div>
+      </section>
     </main>
   )
 }
-

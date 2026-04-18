@@ -87,7 +87,7 @@ export default function ClubeCapilarPage() {
         </div>
       </header>
 
-      <section className="max-w-6xl mx-auto px-4 py-12">
+      <section className="max-w-6xl mx-auto px-4 py-12 lg:hidden">
         <div className="text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-md mb-4">
             <Sparkles className="w-4 h-4 text-primary" />
@@ -146,7 +146,7 @@ export default function ClubeCapilarPage() {
         </div>
       </section>
 
-      <section className="max-w-5xl mx-auto px-4 pb-16">
+      <section className="max-w-5xl mx-auto px-4 pb-16 lg:hidden">
         <div className="bg-gradient-to-r from-[#E91E63] to-[#F8B6D8] text-white rounded-2xl p-8 text-center shadow-xl">
           <h2 className="font-display font-bold text-3xl mb-3">{ctaTitle}</h2>
           <p className="text-base mb-6">{ctaDescription}</p>
@@ -159,8 +159,94 @@ export default function ClubeCapilarPage() {
         </div>
       </section>
 
+      <section className="mx-auto hidden max-w-[1500px] px-8 py-14 lg:block xl:px-12">
+        <div className="grid min-h-[560px] grid-cols-[0.95fr_1.05fr] items-center gap-12">
+          <div className="space-y-7">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/85 px-5 py-2.5 text-xs font-black uppercase tracking-[0.24em] text-primary shadow-lg">
+              <Sparkles className="h-4 w-4" />
+              {badgeText}
+            </div>
+            <h1 className="font-display text-7xl font-black leading-[0.92] tracking-[-0.06em] text-foreground xl:text-8xl">
+              {pageTitle}
+            </h1>
+            <p className="max-w-3xl text-xl leading-9 text-muted-foreground">
+              {pageDescription}
+            </p>
+            <button
+              onClick={() => setIsChatbotOpen(true)}
+              className="inline-flex items-center gap-3 rounded-2xl bg-primary px-8 py-4 text-lg font-black text-white shadow-xl shadow-pink-200 transition hover:bg-primary/90"
+            >
+              {ctaButtonText}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-5">
+            {plans.map((plan, index) => (
+              <div
+                key={plan.name}
+                className={`flex min-h-[520px] flex-col rounded-[2.25rem] border border-pink-100 bg-white p-7 shadow-xl shadow-pink-100/45 ${
+                  index === 1 ? 'scale-105 border-primary/25' : ''
+                }`}
+              >
+                <div className="mb-6">
+                  <div className="mb-4 inline-flex rounded-full bg-pink-50 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-primary">
+                    Plano {index + 1}
+                  </div>
+                  <h2 className="font-display text-3xl font-black leading-tight text-foreground">
+                    {plan.name}
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{plan.highlight}</p>
+                </div>
+                <div className="mb-7 font-display text-4xl font-black text-primary">{plan.price}</div>
+                <ul className="mb-8 space-y-4">
+                  {plan.items.map((item) => (
+                    <li key={item} className="flex gap-3 text-sm leading-6 text-muted-foreground">
+                      <CheckCircle className="mt-0.5 h-5 w-5 flex-none text-primary" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => setIsChatbotOpen(true)}
+                  className="mt-auto w-full rounded-2xl bg-primary px-6 py-4 font-black text-white transition hover:bg-primary/90"
+                >
+                  Assinar agora
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-20 grid grid-cols-[1fr_1.25fr] gap-8">
+          <div className="rounded-[2.25rem] bg-gradient-to-r from-[#E91E63] to-[#F8B6D8] p-9 text-white shadow-xl shadow-pink-200">
+            <h2 className="font-display text-5xl font-black leading-tight tracking-[-0.05em]">
+              {ctaTitle}
+            </h2>
+            <p className="mt-5 text-lg leading-8">{ctaDescription}</p>
+            <button
+              onClick={() => setIsChatbotOpen(true)}
+              className="mt-8 rounded-2xl bg-white px-8 py-4 text-lg font-black text-primary shadow-lg transition hover:shadow-xl"
+            >
+              {ctaButtonText}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-5 rounded-[2.25rem] border border-pink-100 bg-white p-8 shadow-xl shadow-pink-100/40">
+            {benefits.map((benefit, index) => {
+              const Icon = benefitIcons[index] || Sparkles
+              return (
+                <div key={benefit.title} className="rounded-2xl bg-pink-50/70 p-5">
+                  <Icon className="mb-5 h-8 w-8 text-primary" />
+                  <h3 className="font-display text-xl font-black text-foreground">{benefit.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">{benefit.description}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
       <Chatbot isOpen={isChatbotOpen} onClose={() => setIsChatbotOpen(false)} />
     </main>
   )
 }
-

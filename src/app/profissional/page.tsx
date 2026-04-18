@@ -83,7 +83,7 @@ export default function ProfissionalPage() {
         </div>
       </header>
 
-      <section className="max-w-6xl mx-auto px-4 py-12">
+      <section className="max-w-6xl mx-auto px-4 py-12 lg:hidden">
         <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-10 items-start">
           <div className="flex flex-col items-center text-center bg-white rounded-2xl shadow-xl p-6">
             <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-xl relative">
@@ -189,8 +189,133 @@ export default function ProfissionalPage() {
         </div>
       </section>
 
+      <section className="mx-auto hidden max-w-[1500px] px-8 py-14 lg:block xl:px-12">
+        <div className="grid min-h-[680px] grid-cols-[0.9fr_1.1fr] items-center gap-12">
+          <div className="relative">
+            <div className="absolute -left-8 -top-8 h-64 w-64 rounded-full bg-pink-200/55 blur-3xl" />
+            <div className="relative overflow-hidden rounded-[3rem] border border-white bg-white p-4 shadow-[0_42px_120px_-75px_rgba(233,30,99,0.9)]">
+              <div className="relative h-[690px] overflow-hidden rounded-[2.4rem] bg-pink-50">
+                <Image
+                  src={profileImage}
+                  alt={`${profileName} - ${profileRole}`}
+                  fill
+                  className="object-cover object-[50%_18%]"
+                  sizes="42vw"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                <div className="absolute bottom-7 left-7 right-7 rounded-[1.75rem] border border-white/25 bg-white/18 p-6 text-white backdrop-blur-md">
+                  <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100">
+                    {profileRole}
+                  </p>
+                  <h1 className="mt-2 font-display text-5xl font-black tracking-[-0.05em]">
+                    {profileName}
+                  </h1>
+                  <div className="mt-4 flex items-center gap-2 text-sm font-semibold">
+                    <MapPin className="h-4 w-4 text-pink-100" />
+                    <span>{profileLocation}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-8">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/85 px-5 py-2.5 text-xs font-black uppercase tracking-[0.24em] text-primary shadow-lg">
+              <BadgeCheck className="h-4 w-4" />
+              {pageTitle}
+            </div>
+
+            <div>
+              <h2 className="font-display text-7xl font-black leading-[0.92] tracking-[-0.06em] text-foreground xl:text-8xl">
+                {profileSectionTitle}
+              </h2>
+              <p className="mt-6 max-w-4xl text-xl leading-9 text-muted-foreground">
+                {profileDescription}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              {badges.map((badge, index) => {
+                const Icon = [Star, Sparkles, BadgeCheck][index] || Sparkles
+                return (
+                  <div
+                    key={`${badge}-${index}`}
+                    className="flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-pink-900 shadow-md"
+                  >
+                    <Icon className="h-4 w-4 text-primary" />
+                    <span>{badge}</span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="grid grid-cols-3 gap-5">
+              {highlights.map((item) => (
+                <div key={item.title} className="rounded-[1.75rem] border border-pink-100 bg-white p-6 shadow-xl shadow-pink-100/40">
+                  <h3 className="font-display text-2xl font-black text-foreground">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.description}</p>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setIsChatbotOpen(true)}
+              className="inline-flex items-center gap-3 rounded-2xl bg-primary px-8 py-4 text-lg font-black text-white shadow-xl shadow-pink-200 transition hover:bg-primary/90"
+            >
+              {bookingButtonText}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-20 grid grid-cols-[0.92fr_1.08fr] gap-8">
+          <div className="rounded-[2.25rem] border border-pink-100 bg-white p-8 shadow-xl shadow-pink-100/40">
+            <div className="mb-6 flex items-center gap-3">
+              <Scissors className="h-7 w-7 text-primary" />
+              <h2 className="font-display text-3xl font-black text-foreground">
+                Como e o atendimento
+              </h2>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {techniques.map((item) => (
+                <div key={item} className="flex items-start gap-3 rounded-2xl bg-pink-50/70 p-4">
+                  <Heart className="mt-1 h-4 w-4 flex-none text-primary" />
+                  <span className="text-sm leading-6 text-muted-foreground">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-[2.25rem] bg-gradient-to-r from-[#E91E63] to-[#F8B6D8] p-8 text-white shadow-xl shadow-pink-200">
+            <h2 className="font-display text-4xl font-black tracking-[-0.04em]">{instagramTitle}</h2>
+            <p className="mt-4 text-lg leading-8">{instagramDescription}</p>
+            <div className="mt-7 grid grid-cols-5 gap-3">
+              {photos.map((photo, index) => (
+                <div key={`${photo}-${index}`} className="relative aspect-[3/4] overflow-hidden rounded-2xl">
+                  <Image
+                    src={photo}
+                    alt={`Instagram CarolSolHair ${index + 1}`}
+                    fill
+                    className="object-cover"
+                    sizes="9vw"
+                  />
+                </div>
+              ))}
+            </div>
+            <a
+              href={instagramUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-8 inline-flex items-center gap-2 rounded-2xl bg-white px-6 py-4 font-black text-primary shadow-lg transition hover:shadow-xl"
+            >
+              <Instagram className="h-5 w-5" />
+              {instagramButtonText}
+            </a>
+          </div>
+        </div>
+      </section>
+
       <Chatbot isOpen={isChatbotOpen} onClose={() => setIsChatbotOpen(false)} />
     </main>
   )
 }
-

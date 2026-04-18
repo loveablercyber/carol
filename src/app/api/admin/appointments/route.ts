@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 import { deleteAppointments, listAppointments } from '@/lib/appointments-store'
+import { releaseDonationHairByAppointment } from '@/lib/donation-campaign-store'
 
 async function ensureAdmin() {
   const session = await getServerSession(authOptions)
@@ -110,6 +111,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     const deleted = await deleteAppointments(ids)
+    for (const id of ids) {
+      await releaseDonationHairByAppointment(id).catch((error) => {
+        console.error('Erro ao liberar cabelo da doacao apos remocao em lote:', error)
+      })
+    }
     return NextResponse.json({ deleted })
   } catch (error) {
     console.error('Erro ao remover agendamentos em lote:', error)

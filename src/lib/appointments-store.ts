@@ -20,6 +20,16 @@ export type AppointmentQuestionnaire = {
   hairState?: string
   methods?: string
   hairPhotoUrl?: string
+  campaignSource?: string
+  donationHairOptionId?: string
+  donationHairName?: string
+  donationHairImageUrl?: string
+  donationHairDescription?: string
+  donationHairColor?: string
+  donationHairLength?: string
+  donationTechnique?: string
+  paymentMode?: string
+  paymentObservation?: string
   primaryFlow?: string
   primaryCategory?: string
   maintenanceType?: string
@@ -201,6 +211,26 @@ function sanitizeQuestionnaireData(
     methods: typeof parsed.methods === 'string' ? parsed.methods : undefined,
     hairPhotoUrl:
       typeof parsed.hairPhotoUrl === 'string' ? parsed.hairPhotoUrl : undefined,
+    campaignSource:
+      typeof parsed.campaignSource === 'string' ? parsed.campaignSource : undefined,
+    donationHairOptionId:
+      typeof parsed.donationHairOptionId === 'string' ? parsed.donationHairOptionId : undefined,
+    donationHairName:
+      typeof parsed.donationHairName === 'string' ? parsed.donationHairName : undefined,
+    donationHairImageUrl:
+      typeof parsed.donationHairImageUrl === 'string' ? parsed.donationHairImageUrl : undefined,
+    donationHairDescription:
+      typeof parsed.donationHairDescription === 'string' ? parsed.donationHairDescription : undefined,
+    donationHairColor:
+      typeof parsed.donationHairColor === 'string' ? parsed.donationHairColor : undefined,
+    donationHairLength:
+      typeof parsed.donationHairLength === 'string' ? parsed.donationHairLength : undefined,
+    donationTechnique:
+      typeof parsed.donationTechnique === 'string' ? parsed.donationTechnique : undefined,
+    paymentMode:
+      typeof parsed.paymentMode === 'string' ? parsed.paymentMode : undefined,
+    paymentObservation:
+      typeof parsed.paymentObservation === 'string' ? parsed.paymentObservation : undefined,
     primaryFlow:
       typeof parsed.primaryFlow === 'string' ? parsed.primaryFlow : undefined,
     primaryCategory:

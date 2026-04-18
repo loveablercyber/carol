@@ -23,6 +23,17 @@ interface ChatbotProps {
   promoData?: {
     serviceName: string
     price: string
+    source?: 'promo-bio-proteina' | 'hair-donation'
+    durationMinutes?: number
+    minDate?: string
+    paymentMode?: 'deposit' | 'full'
+    selectedTechnique?: string
+    donationHairOptionId?: string
+    donationHairName?: string
+    donationHairDescription?: string
+    donationHairImageUrl?: string
+    donationHairColor?: string
+    donationHairLength?: string
   }
 }
 
@@ -765,6 +776,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setTimeout(() => {
       if (promoData) {
         const promoPrice = parsePrice(promoData.price || 0)
+        const isHairDonation = promoData.source === 'hair-donation'
+        const durationMinutes = Number(promoData.durationMinutes || (isHairDonation ? 120 : 60))
         setPrimaryFlow(null)
         setSelectedCategory(null)
         setMaintenanceType(null)
@@ -772,22 +785,27 @@ const Chatbot: React.FC<ChatbotProps> = ({
         setSelectedAddons([])
         setSelectedKitItems([])
         setSelectedService({
-          id: 'promo-bio-proteina',
+          id: isHairDonation ? 'hair-donation' : 'promo-bio-proteina',
           name: promoData.serviceName,
           description:
-            'Promoção exclusiva da página Bio Proteína. Fluxo direto para agendar este serviço.',
-          durationMinutes: 60,
+            isHairDonation
+              ? 'Campanha de doação de cabelo com pagamento antecipado do valor total para garantir o horário.'
+              : 'Promoção exclusiva da página Bio Proteína. Fluxo direto para agendar este serviço.',
+          durationMinutes,
           priceInfo: {
             fixedPrice: promoPrice,
           },
         })
         setSelectedOption({
-          name: promoData.serviceName,
+          name: promoData.selectedTechnique || promoData.serviceName,
           price: promoPrice,
+          durationMinutes,
         })
         addMessage(
           'bot',
-          'Oi! Que maravilha que você se interessou pela nossa Bio Proteína.\n\nVamos agendar diretamente esse serviço da promoção.'
+          isHairDonation
+            ? 'Oi! Vamos agendar sua aplicação da doação de cabelo.\n\nPara garantir o horário, o pagamento antecipado do valor total será feito no painel do cliente após o agendamento.'
+            : 'Oi! Que maravilha que você se interessou pela nossa Bio Proteína.\n\nVamos agendar diretamente esse serviço da promoção.'
         )
         beginCustomerDataCollection(800)
         return
@@ -1073,7 +1091,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
       },
     })
     setSelectedOption({ name: 'Avaliação', price: 0 })
-    addMessage('bot', 'Perfeito! A avaliação tem duração de 15 minutos.')
+    addMessage('bot', 'Perfeito. Vamos fazer sua avaliação')
     setIsLoading(true)
     beginCustomerDataCollection()
   }
@@ -1588,6 +1606,61 @@ const Chatbot: React.FC<ChatbotProps> = ({
     )
   }
 
+  const addDaysToIsoDate = (isoDate: string, days: number) => {
+    const date = new Date(isoDate)
+    if (Number.isNaN(date.getTime())) return ''
+    date.setDate(date.getDate() + days)
+    return date.toISOString().slice(0, 10)
+  }
+
+  const getDateKeyFromIso = (isoDate: string) => {
+    const date = new Date(isoDate)
+    if (Number.isNaN(date.getTime())) return ''
+    return date.toISOString().slice(0, 10)
+  }
+
+  const getCronogramaPreviousIso = () =>
+    cronogramaAppointments.length > 0
+      ? cronogramaAppointments[cronogramaAppointments.length - 1].scheduledAt
+      : selectedTime
+
+  const getCronogramaWindow = (previousIso = getCronogramaPreviousIso()) => {
+    if (!previousIso) return { minDate: '', maxDate: '' }
+    return {
+      minDate: addDaysToIsoDate(previousIso, 10),
+      maxDate: addDaysToIsoDate(previousIso, 30),
+    }
+  }
+
+  const showCronogramaDateSelection = (
+    treatmentIndex: number,
+    previousIso = getCronogramaPreviousIso()
+  ) => {
+    const treatment = CRONOGRAMA_TREATMENTS[treatmentIndex]
+    const { minDate, maxDate } = getCronogramaWindow(previousIso)
+    const minDateText = minDate
+      ? new Date(`${minDate}T12:00:00`).toLocaleDateString('pt-BR')
+      : ''
+    const maxDateText = maxDate
+      ? new Date(`${maxDate}T12:00:00`).toLocaleDateString('pt-BR')
+      : ''
+
+    addMessage(
+      'bot',
+      [
+        treatmentIndex === 0
+          ? 'Agora vamos agendar os 4 procedimentos do cronograma capilar.'
+          : `Agora agende: ${treatment?.name || `Procedimento ${treatmentIndex + 1}`} - ${treatment?.objective || ''}`,
+        `A data precisa ficar entre ${minDateText} e ${maxDateText}, respeitando o intervalo de 10 a 30 dias do procedimento anterior.`,
+      ].join('\n\n'),
+      {
+        showDatePicker: true,
+        minDate,
+        maxDate,
+      }
+    )
+  }
+
   const handleKitOfferSelect = (includeKit: boolean) => {
     clearMessageFlag('showKitOffer')
     addMessage('user', includeKit ? 'Sim, quero incluir o kit' : 'Não, obrigado', {})
@@ -1656,16 +1729,14 @@ const Chatbot: React.FC<ChatbotProps> = ({
       return
     }
 
-    setScheduleMode('cronograma')
     setCronogramaAppointments([])
     setCronogramaStepIndex(0)
     setCronogramaMonth('')
-    const treatment = CRONOGRAMA_TREATMENTS[0]
     addMessage(
       'bot',
-      `Vamos agendar os 4 procedimentos do cronograma. Primeiro: ${treatment.name} - ${treatment.objective}\n\nSelecione a data dentro do mês contratado:`,
-      { showDatePicker: true }
+      'Perfeito. Primeiro vamos definir o atendimento principal. Depois de escolher data e horário, eu libero as 4 datas do cronograma com intervalo correto de 10 a 30 dias.'
     )
+    beginCustomerDataCollection(500)
   }
 
   const handleFAQSelect = (item: FAQItem) => {
@@ -1813,11 +1884,20 @@ const Chatbot: React.FC<ChatbotProps> = ({
     addMessage('bot', 'Obrigada por todas as informações! 💕\n\nAgora vamos escolher o melhor dia e horário para seu atendimento.')
     setTimeout(() => {
       setScheduleMode('main')
-      addMessage('bot', 'Selecione uma data para ver os horários disponíveis:', { showDatePicker: true })
+      addMessage('bot', 'Selecione uma data para ver os horários disponíveis:', {
+        showDatePicker: true,
+        minDate: promoData?.minDate,
+      })
     }, 500)
   }
 
   const handleDateSelect = async (date: string) => {
+    if (scheduleMode === 'main' && promoData?.minDate && date < promoData.minDate) {
+      const minDateText = new Date(`${promoData.minDate}T12:00:00`).toLocaleDateString('pt-BR')
+      addMessage('bot', `Este agendamento só estará disponível a partir de ${minDateText}. Escolha outra data.`)
+      return
+    }
+
     // Add time component to avoid timezone offset issues (UTC vs Local)
     const dateObj = new Date(date + 'T12:00:00')
     const datePrefix =
@@ -1835,11 +1915,24 @@ const Chatbot: React.FC<ChatbotProps> = ({
     }
 
     if (scheduleMode === 'cronograma') {
-      const selectedMonth = date.slice(0, 7)
-      if (!cronogramaMonth) {
-        setCronogramaMonth(selectedMonth)
-      } else if (selectedMonth !== cronogramaMonth) {
-        addMessage('bot', 'O cronograma precisa ser agendado dentro do mesmo mês contratado. Escolha outra data.')
+      const previousIso = getCronogramaPreviousIso()
+      const { minDate, maxDate } = getCronogramaWindow(previousIso)
+      if (!previousIso || !minDate || !maxDate || date < minDate || date > maxDate) {
+        const minDateText = minDate
+          ? new Date(`${minDate}T12:00:00`).toLocaleDateString('pt-BR')
+          : 'a data mínima'
+        const maxDateText = maxDate
+          ? new Date(`${maxDate}T12:00:00`).toLocaleDateString('pt-BR')
+          : 'a data máxima'
+        addMessage(
+          'bot',
+          `Essa data não respeita a janela do cronograma. Escolha uma data entre ${minDateText} e ${maxDateText}.`,
+          {
+            showDatePicker: true,
+            minDate,
+            maxDate,
+          }
+        )
         setIsLoading(false)
         return
       }
@@ -1856,13 +1949,20 @@ const Chatbot: React.FC<ChatbotProps> = ({
         date,
         durationMinutes: String(durationForLookup),
       })
+      if (scheduleMode === 'main' && promoData?.source === 'hair-donation') {
+        params.set('source', 'hair-donation')
+        if (promoData.donationHairOptionId) {
+          params.set('hairOptionId', promoData.donationHairOptionId)
+        }
+      }
       const response = await fetch(`/api/chatbot/appointments?${params.toString()}`)
       const data = await response.json()
       
       // Get booked slots from localStorage
       const localBookedSlots = JSON.parse(localStorage.getItem('booked_slots') || '[]')
       
-      const slotsWithAvailability = data.availableSlots.map((slot: any) => {
+      const availableSlots = Array.isArray(data.availableSlots) ? data.availableSlots : []
+      const slotsWithAvailability = availableSlots.map((slot: any) => {
         const slotDate = new Date(slot.time)
         
         // 1. Check exact match in localStorage
@@ -1890,10 +1990,29 @@ const Chatbot: React.FC<ChatbotProps> = ({
       })
 
       setTimeout(() => {
-        addMessage('bot', `Aqui estão os horários disponíveis para ${dateObj.toLocaleDateString('pt-BR')}:`, { 
-          showTimeSlots: true, 
-          timeSlots: slotsWithAvailability 
-        })
+        const hasSelectableSlot = slotsWithAvailability.some((slot: any) => !slot.isBooked)
+        if (!hasSelectableSlot) {
+          addMessage(
+            'bot',
+            'Não encontrei horários disponíveis nessa data para a duração do procedimento. Escolha outra data:',
+            {
+              showDatePicker: true,
+              minDate:
+                scheduleMode === 'cronograma'
+                  ? getCronogramaWindow().minDate
+                  : promoData?.minDate,
+              maxDate:
+                scheduleMode === 'cronograma'
+                  ? getCronogramaWindow().maxDate
+                  : undefined,
+            }
+          )
+        } else {
+          addMessage('bot', `Aqui estão os horários disponíveis para ${dateObj.toLocaleDateString('pt-BR')}:`, {
+            showTimeSlots: true,
+            timeSlots: slotsWithAvailability
+          })
+        }
         setIsLoading(false)
       }, 800)
     } catch (error) {
@@ -1950,18 +2069,8 @@ const Chatbot: React.FC<ChatbotProps> = ({
       const nextIndex = cronogramaStepIndex + 1
       if (nextIndex < CRONOGRAMA_TREATMENTS.length) {
         setCronogramaStepIndex(nextIndex)
-        const nextTreatment = CRONOGRAMA_TREATMENTS[nextIndex]
-        const month = cronogramaMonth || pendingExtraDate.slice(0, 7)
-        const minDate = `${month}-01`
-        const maxDate = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)
-          .toISOString()
-          .slice(0, 10)
         setTimeout(() => {
-          addMessage(
-            'bot',
-            `Agora agende: ${nextTreatment.name} - ${nextTreatment.objective}`,
-            { showDatePicker: true, minDate, maxDate }
-          )
+          showCronogramaDateSelection(nextIndex, timeSlot.time)
           setIsLoading(false)
         }, 600)
         return
@@ -1970,8 +2079,13 @@ const Chatbot: React.FC<ChatbotProps> = ({
       setScheduleMode('main')
       setCronogramaStepIndex(0)
       setTimeout(() => {
-        addMessage('bot', 'Cronograma capilar registrado. Agora vamos seguir com seus dados para concluir o agendamento principal.')
-        beginCustomerDataCollection(300)
+        addMessage('bot', 'Cronograma capilar registrado. Agora vamos concluir o agendamento principal.')
+        if (primaryFlow === 'evaluation') {
+          showConfirmation()
+        } else {
+          addMessage('bot', 'Perfeito! 💕\n\nQual forma de pagamento você prefere?', { showPayment: true })
+        }
+        setIsLoading(false)
       }, 600)
       return
     }
@@ -1979,9 +2093,18 @@ const Chatbot: React.FC<ChatbotProps> = ({
     setSelectedTime(timeSlot.time)
 
     setTimeout(() => {
+      if (cronogramaEnabled && cronogramaAppointments.length === 0) {
+        setScheduleMode('cronograma')
+        setCronogramaStepIndex(0)
+        setPendingExtraDate('')
+        showCronogramaDateSelection(0, timeSlot.time)
+        setIsLoading(false)
+        return
+      }
+
       if (primaryFlow === 'evaluation') {
         setPaymentMethod('pix')
-        showConfirmation()
+        showConfirmation(timeSlot.time)
         setIsLoading(false)
         return
       }
@@ -2048,20 +2171,29 @@ const Chatbot: React.FC<ChatbotProps> = ({
     return parsePrice(promoData?.price || selectedOption?.price || selectedService?.priceInfo?.fixedPrice || 0)
   }
 
-  const getSelectedOptionLabel = () =>
-    [selectedOption?.grams, selectedOption?.size || selectedOption?.name]
+  const formatCurrency = (value: unknown) =>
+    `R$ ${parsePrice(value).toFixed(2).replace('.', ',')}`
+
+  const getSelectedOptionLabel = (includePrice = false) => {
+    const label = [selectedOption?.grams, selectedOption?.size || selectedOption?.name]
       .filter(Boolean)
       .join(' - ')
+    if (!label) return ''
+    if (!includePrice || selectedOption?.price === undefined || selectedOption?.price === null) {
+      return label
+    }
+    return `${label} - ${formatCurrency(selectedOption.price)}`
+  }
 
   const formatList = (items: string[], emptyText: string) =>
     items.length > 0 ? items.join(', ') : emptyText
 
-  const showConfirmation = () => {
+  const showConfirmation = (timeOverride = selectedTime) => {
     const price = getBasePrice()
     const serviceName = getServiceName()
     // Adjust date for display to avoid timezone issues
     const date = selectedDate ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR') : ''
-    const time = selectedTime ? new Date(selectedTime).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''
+    const time = timeOverride ? new Date(timeOverride).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''
 
     const questions = [
       { label: 'Nome Completo', value: customerData.name || '' },
@@ -2086,14 +2218,27 @@ const Chatbot: React.FC<ChatbotProps> = ({
       ``,
       `Serviço principal: ${serviceName}`,
       `Duração: ${getDurationMinutes()} minutos`,
+      ...(promoData?.source === 'hair-donation'
+        ? [
+            `Campanha: Doação de Cabelo`,
+            `Cabelo escolhido: ${promoData.donationHairName || 'Não informado'}`,
+            `Descrição do cabelo: ${promoData.donationHairDescription || 'Não informada'}`,
+            `Cor/Comprimento: ${[
+              promoData.donationHairColor,
+              promoData.donationHairLength,
+            ].filter(Boolean).join(' - ') || 'Não informado'}`,
+            `Técnica escolhida: ${promoData.selectedTechnique || selectedOption?.name || serviceName}`,
+            `Pagamento: antecipado do valor total para confirmar o horário`,
+          ]
+        : []),
       ...(primaryFlow === 'application' || primaryFlow === 'alignment'
-        ? [`Opção escolhida: ${getSelectedOptionLabel() || 'Não informada'}`]
+        ? [`Opção escolhida: ${getSelectedOptionLabel(true) || 'Não informada'}`]
         : []),
       ...(primaryFlow === 'maintenance'
         ? [
             `Tipo: ${maintenanceType?.label || 'Não informado'}`,
             `Situação do cabelo: ${hairSituation || 'Não informado'}`,
-            `Opção escolhida: ${getSelectedOptionLabel() || selectedOption?.name || 'Não informada'}`,
+            `Opção escolhida: ${getSelectedOptionLabel(true) || selectedOption?.name || 'Não informada'}`,
           ]
         : []),
       ...(primaryFlow === 'application' || primaryFlow === 'alignment'
@@ -2356,6 +2501,40 @@ const Chatbot: React.FC<ChatbotProps> = ({
             hairState: customerData.hairState || '',
             methods: customerData.methods || '',
             hairPhotoUrl: customerData.hairPhotoUrl || '',
+            campaignSource: promoData?.source || '',
+            donationHairOptionId:
+              promoData?.source === 'hair-donation'
+                ? promoData.donationHairOptionId || ''
+                : '',
+            donationHairName:
+              promoData?.source === 'hair-donation'
+                ? promoData.donationHairName || ''
+                : '',
+            donationHairImageUrl:
+              promoData?.source === 'hair-donation'
+                ? promoData.donationHairImageUrl || ''
+                : '',
+            donationHairDescription:
+              promoData?.source === 'hair-donation'
+                ? promoData.donationHairDescription || ''
+                : '',
+            donationHairColor:
+              promoData?.source === 'hair-donation'
+                ? promoData.donationHairColor || ''
+                : '',
+            donationHairLength:
+              promoData?.source === 'hair-donation'
+                ? promoData.donationHairLength || ''
+                : '',
+            donationTechnique:
+              promoData?.source === 'hair-donation'
+                ? promoData.selectedTechnique || selectedOption?.name || serviceName
+                : '',
+            paymentMode: promoData?.paymentMode || '',
+            paymentObservation:
+              promoData?.source === 'hair-donation'
+                ? 'Pagamento antecipado do valor total para confirmar o horário'
+                : '',
             primaryFlow: primaryFlow || '',
             primaryCategory:
               primaryFlow === 'evaluation'
@@ -2370,7 +2549,7 @@ const Chatbot: React.FC<ChatbotProps> = ({
             maintenanceType: maintenanceType?.label || '',
             maintenanceBasePrice: maintenanceType?.priceLabel || '',
             hairSituation: hairSituation || '',
-            selectedOption: getSelectedOptionLabel() || selectedOption?.name || '',
+            selectedOption: getSelectedOptionLabel(true) || selectedOption?.name || '',
             additionalServices: formatSelectedChoices(selectedAddons, additionalServiceOptions, ''),
             additionalServicesTotal: `R$ ${getAdditionalServicesTotal().toFixed(2).replace('.', ',')}`,
             maintenanceKit: formatSelectedChoices(selectedKitItems, maintenanceKitOptions, ''),
@@ -2424,13 +2603,27 @@ const Chatbot: React.FC<ChatbotProps> = ({
     let message = `🚀 *NOVO AGENDAMENTO - CAROLSOL STUDIO*\n\n`
     message += `*Serviço:* ${serviceName}\n`
     message += `*Duração:* ${getDurationMinutes()} minutos\n`
+    if (promoData?.source === 'hair-donation') {
+      message += `*Campanha:* Doação de Cabelo\n`
+      if (promoData.donationHairName) {
+        message += `*Cabelo escolhido:* ${promoData.donationHairName}\n`
+      }
+      if (promoData.donationHairColor || promoData.donationHairLength) {
+        message += `*Detalhes do cabelo:* ${[
+          promoData.donationHairColor,
+          promoData.donationHairLength,
+        ].filter(Boolean).join(' - ')}\n`
+      }
+      message += `*Técnica:* ${promoData.selectedTechnique || selectedOption?.name || serviceName}\n`
+      message += `*Pagamento:* antecipado do valor total\n`
+    }
     if (primaryFlow === 'application' || primaryFlow === 'alignment') {
-      message += `*Opção escolhida:* ${getSelectedOptionLabel() || 'Não informada'}\n`
+      message += `*Opção escolhida:* ${getSelectedOptionLabel(true) || 'Não informada'}\n`
     }
     if (primaryFlow === 'maintenance') {
       message += `*Tipo de manutenção:* ${maintenanceType?.label || 'Não informado'}\n`
       message += `*Situação do cabelo:* ${hairSituation || 'Não informado'}\n`
-      message += `*Opção escolhida:* ${getSelectedOptionLabel() || selectedOption?.name || 'Não informada'}\n`
+      message += `*Opção escolhida:* ${getSelectedOptionLabel(true) || selectedOption?.name || 'Não informada'}\n`
     }
     if (
       primaryFlow === 'maintenance' ||

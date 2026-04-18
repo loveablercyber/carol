@@ -218,7 +218,7 @@ function ShopContent() {
   }, [filters])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-24">
+    <div className="min-h-screen overflow-hidden bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-24">
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -253,9 +253,60 @@ function ShopContent() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <section className="mx-auto hidden max-w-[1500px] px-8 py-12 lg:block xl:px-12">
+        <div className="grid min-h-[420px] grid-cols-[1.05fr_0.95fr] items-center gap-10 rounded-[2.75rem] border border-pink-100 bg-white/80 p-8 shadow-[0_35px_100px_-70px_rgba(233,30,99,0.75)] backdrop-blur">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-5 py-2.5 text-xs font-black uppercase tracking-[0.24em] text-primary">
+              <ShoppingBag className="h-4 w-4" />
+              Loja CarolSol
+            </div>
+            <h2 className="font-display text-7xl font-black leading-[0.92] tracking-[-0.06em] text-foreground">
+              Produtos para manter seu cabelo impecável
+            </h2>
+            <p className="max-w-3xl text-xl leading-9 text-muted-foreground">
+              Encontre produtos, acessórios e cuidados selecionados para complementar seu atendimento.
+            </p>
+            <div className="grid max-w-3xl grid-cols-3 gap-4">
+              {['Compra segura', 'Filtros rápidos', 'Entrega calculada'].map((item) => (
+                <div key={item} className="rounded-2xl border border-pink-100 bg-white p-5 shadow-lg shadow-pink-100/40">
+                  <Star className="mb-4 h-6 w-6 fill-current text-primary" />
+                  <p className="text-sm font-black text-foreground">{item}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="relative">
+            <div className="absolute -right-8 -top-8 h-64 w-64 rounded-full bg-pink-200/60 blur-3xl" />
+            <div className="relative overflow-hidden rounded-[2.5rem] bg-gradient-to-br from-[#E91E63] to-[#F8B6D8] p-8 text-white shadow-2xl shadow-pink-200">
+              <p className="text-xs font-black uppercase tracking-[0.24em] opacity-85">
+                Catálogo online
+              </p>
+              <p className="mt-4 font-display text-5xl font-black tracking-[-0.05em]">
+                {products.length || categories.reduce((sum, category) => sum + (category.productCount || 0), 0)} itens
+              </p>
+              <p className="mt-3 text-lg leading-8 opacity-90">
+                Use a busca e os filtros para encontrar o produto ideal.
+              </p>
+              <div className="mt-8 grid grid-cols-2 gap-4">
+                {categories.slice(0, 4).map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => setFilters({ ...filters, category: category.id })}
+                    className="rounded-2xl bg-white/18 p-4 text-left backdrop-blur transition hover:bg-white/25"
+                  >
+                    <p className="text-sm font-black">{category.name}</p>
+                    <p className="mt-1 text-xs opacity-80">{category.productCount} produtos</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-7xl px-4 py-8 lg:max-w-[1500px] lg:px-8 lg:py-4 xl:px-12">
         {/* Barra de Busca */}
-        <div className="mb-8">
+        <div className="mb-8 lg:rounded-[2rem] lg:border lg:border-pink-100 lg:bg-white/85 lg:p-4 lg:shadow-xl lg:shadow-pink-100/40">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
@@ -263,15 +314,15 @@ function ShopContent() {
               placeholder="Buscar produtos..."
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="w-full pl-12 pr-4 py-4 rounded-xl border border-pink-200 focus:border-pink-400 focus:ring-2 focus:ring-pink-200 outline-none transition-all"
+              className="w-full rounded-xl border border-pink-200 py-4 pl-12 pr-4 outline-none transition-all focus:border-pink-400 focus:ring-2 focus:ring-pink-200 lg:rounded-2xl lg:bg-pink-50/60 lg:text-lg"
             />
           </div>
         </div>
 
-        <div className="flex gap-8">
+        <div className="flex gap-8 lg:gap-10">
           {/* Sidebar de Filtros */}
-          <aside className="hidden lg:block w-64 flex-shrink-0">
-            <div className="sticky top-24 bg-white rounded-2xl shadow-md p-6">
+          <aside className="hidden w-72 flex-shrink-0 lg:block">
+            <div className="sticky top-24 rounded-[2rem] border border-pink-100 bg-white/90 p-7 shadow-xl shadow-pink-100/45 backdrop-blur">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-display font-bold text-lg">Filtros</h2>
                 {activeFiltersCount > 0 && (
@@ -411,7 +462,7 @@ function ShopContent() {
 
             {/* Grid de Produtos */}
             {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {[...Array(6)].map((_, i) => (
                   <div key={i} className="bg-white rounded-2xl shadow-md p-6 animate-pulse">
                     <div className="h-48 bg-gray-200 rounded-xl mb-4"></div>
@@ -437,9 +488,9 @@ function ShopContent() {
                   <Link
                     key={product.id}
                     href={`/shop/products/${product.slug}`}
-                    className="bg-white rounded-2xl shadow-md overflow-hidden border border-pink-100 hover:border-pink-300 hover:shadow-xl transition-all duration-300 group"
+                    className="group overflow-hidden rounded-2xl border border-pink-100 bg-white shadow-md transition-all duration-300 hover:border-pink-300 hover:shadow-xl lg:rounded-[2rem] lg:shadow-lg lg:shadow-pink-100/35 lg:hover:-translate-y-1"
                   >
-                    <div className="relative h-64 overflow-hidden">
+                    <div className="relative h-64 overflow-hidden lg:h-72">
                       {product.images[0] && (
                         <img
                           src={product.images[0]}

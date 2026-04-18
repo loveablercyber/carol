@@ -8,12 +8,12 @@ import {
   DollarSign,
   ShoppingBag,
   Sparkles,
+  Heart,
   Camera,
   User,
   Instagram,
   Mail,
   Star,
-  Heart,
   CalendarPlus,
   MessageCircle,
   LayoutDashboard,
@@ -29,6 +29,7 @@ import {
 const iconByName: Record<HomeIconName, ComponentType<{ className?: string }>> = {
   Calendar,
   Sparkles,
+  Heart,
   DollarSign,
   ShoppingBag,
   Camera,
@@ -82,6 +83,70 @@ const HeroSection = () => {
         </div>
       </div>
     </div>
+  )
+}
+
+const DesktopHeroSection = () => {
+  return (
+    <section className="grid min-h-[720px] grid-cols-[1.02fr_0.98fr] items-center gap-12">
+      <div className="space-y-8">
+        <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/85 px-5 py-2 text-xs font-black uppercase tracking-[0.24em] text-primary shadow-lg">
+          <Sparkles className="h-4 w-4" />
+          CarolSol Studio
+        </div>
+
+        <div className="space-y-6">
+          <h1 className="font-display text-7xl font-black leading-[0.92] tracking-[-0.06em] text-gradient-primary xl:text-8xl">
+            Megahair, Perucas e Tratamentos Capilares com Etica e Amor.
+          </h1>
+          <p className="max-w-3xl text-2xl font-medium leading-10 text-foreground/80">
+            Há 15 anos transformando vidas com serviços acessíveis e atendimento humano.
+          </p>
+        </div>
+
+        <div className="grid max-w-4xl grid-cols-3 gap-4">
+          {[
+            { icon: Star, text: '15 Anos de Experiência' },
+            { icon: User, text: 'Atendimento Individual' },
+            { icon: Calendar, text: 'Agendamento Online' },
+          ].map((badge) => (
+            <div
+              key={badge.text}
+              className="rounded-2xl border border-pink-100 bg-white/85 p-5 shadow-xl shadow-pink-100/50 backdrop-blur"
+            >
+              <badge.icon className="mb-4 h-7 w-7 text-primary" />
+              <span className="text-base font-bold leading-6 text-foreground">{badge.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className="absolute -right-8 -top-8 h-64 w-64 rounded-full bg-pink-200/50 blur-3xl" />
+        <div className="absolute -bottom-10 -left-10 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
+        <div className="relative overflow-hidden rounded-[3rem] border border-white bg-white p-4 shadow-[0_40px_120px_-70px_rgba(233,30,99,0.8)]">
+          <div className="relative h-[700px] overflow-hidden rounded-[2.35rem] bg-pink-50">
+            <Image
+              src="/images/carol.png"
+              alt="Carol - Profissional de Megahair e Perucas"
+              fill
+              className="object-cover object-[50%_18%]"
+              priority
+              sizes="44vw"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent" />
+            <div className="absolute bottom-7 left-7 right-7 rounded-[1.75rem] border border-white/25 bg-white/15 p-6 text-white backdrop-blur-md">
+              <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100">
+                Beleza com acompanhamento
+              </p>
+              <p className="mt-2 text-lg font-semibold leading-7">
+                Atendimento humano, técnico e personalizado para cada fase do seu cabelo.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -163,6 +228,83 @@ const ActionCard = ({
   )
 }
 
+const DesktopActionCard = ({
+  data,
+  onClick,
+}: {
+  data: HomeModuleConfig
+  onClick?: () => void
+}) => {
+  const Icon = iconByName[data.icon] || Sparkles
+  const instagramPhotos = data.instagramPhotos ?? []
+
+  return (
+    <article className={`${data.color} group flex min-h-[420px] flex-col overflow-hidden rounded-[2.25rem] p-7 ${data.shadow || 'shadow-xl'} transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl`}>
+      <div className={`flex flex-1 flex-col gap-5 ${data.textColor}`}>
+        <div className="flex items-start justify-between gap-5">
+          <div className="min-w-0">
+            <div className="mb-3 text-4xl">{data.subtitle}</div>
+            <h2 className="font-display text-4xl font-black leading-tight tracking-[-0.04em]">
+              {data.title}
+            </h2>
+            <p className="mt-3 text-base leading-7 opacity-80">{data.description}</p>
+          </div>
+          <div className="flex h-14 w-14 flex-none items-center justify-center rounded-2xl bg-white/35 backdrop-blur">
+            <Icon className="h-8 w-8" />
+          </div>
+        </div>
+
+        {data.image && (
+          <div className="relative h-64 w-full overflow-hidden rounded-[1.45rem]">
+            <Image
+              src={data.image}
+              alt={data.title}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="(min-width: 1024px) 33vw"
+            />
+          </div>
+        )}
+
+        {instagramPhotos.length > 0 && (
+          <div className="grid grid-cols-4 gap-3">
+            {instagramPhotos.map((photo, index) => (
+              <div key={index} className="relative aspect-square overflow-hidden rounded-xl">
+                <Image
+                  src={photo}
+                  alt={`Instagram CarolSolHair ${index + 1}`}
+                  fill
+                  className="object-cover"
+                  sizes="10vw"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {data.plans && data.plans.length > 0 && (
+          <div className="grid grid-cols-3 gap-3 text-center">
+            {data.plans.map((plan, index) => (
+              <div key={index} className="rounded-xl bg-white/55 px-3 py-4 backdrop-blur-sm">
+                <span className="text-xl font-black">{plan}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={onClick}
+          className={`${data.isPrimary ? 'bg-white text-primary' : 'bg-primary text-white'} mt-auto flex min-h-[56px] items-center justify-center gap-2 rounded-2xl px-6 py-4 text-lg font-black shadow-lg transition-all duration-300 hover:shadow-xl`}
+        >
+          {data.buttonText}
+          <Heart className={`h-5 w-5 ${data.isPrimary ? 'fill-current' : ''}`} />
+        </button>
+      </div>
+    </article>
+  )
+}
+
 export default function Home() {
   const [isChatbotOpen, setIsChatbotOpen] = useState(false)
   const [modules, setModules] = useState<HomeModuleConfig[]>(defaultModules)
@@ -200,7 +342,7 @@ export default function Home() {
   )
 
   useEffect(() => {
-    if (!hasSchedulingModule) {
+    if (!hasSchedulingModule || isChatbotOpen) {
       setShowSchedulingHint(false)
       return
     }
@@ -210,7 +352,7 @@ export default function Home() {
     }, 5000)
 
     return () => window.clearTimeout(timer)
-  }, [hasSchedulingModule])
+  }, [hasSchedulingModule, isChatbotOpen])
 
   const openModuleLink = (target: string) => {
     if (target.startsWith('http://') || target.startsWith('https://')) {
@@ -243,7 +385,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen">
-      <div className="max-w-lg mx-auto px-4 pb-8">
+      <div className="max-w-lg mx-auto px-4 pb-8 lg:hidden">
         <div className="pt-6 flex flex-wrap items-center justify-center gap-2">
           <Link
             href="/account"
@@ -284,7 +426,66 @@ export default function Home() {
         </div>
       </div>
 
-      {hasSchedulingModule && (
+      <div className="mx-auto hidden max-w-[1500px] px-8 pb-24 pt-6 lg:block xl:px-12">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/account"
+              className="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-white px-5 py-3 text-sm font-bold text-foreground shadow-sm transition hover:border-pink-400 hover:shadow-md"
+            >
+              <LayoutDashboard className="h-4 w-4 text-primary" />
+              Painel Cliente
+            </Link>
+            {supportUrl && (
+              <a
+                href={supportUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:opacity-90 hover:shadow-md"
+              >
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </a>
+            )}
+          </div>
+          <div className="rounded-full border border-pink-100 bg-white/80 px-5 py-3 text-sm font-black uppercase tracking-[0.2em] text-primary shadow-sm">
+            Beleza premium em Bauru
+          </div>
+        </div>
+
+        <DesktopHeroSection />
+
+        <section className="pt-10">
+          <div className="mb-8 flex items-end justify-between gap-8">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.25em] text-primary">
+                Serviços e experiências
+              </p>
+              <h2 className="mt-3 font-display text-5xl font-black tracking-[-0.05em] text-foreground">
+                Escolha por onde começar
+              </h2>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-7">
+            {modules.map((module) => (
+              <DesktopActionCard
+                key={module.key}
+                data={module}
+                onClick={() => handleCardClick(module)}
+              />
+            ))}
+
+            {!loadingModules && modules.length === 0 && (
+              <div className="col-span-3 rounded-[2rem] border border-pink-100 bg-white p-10 text-center text-muted-foreground shadow-md">
+                Nenhum modulo ativo para exibir na pagina inicial.
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      {hasSchedulingModule && !isChatbotOpen && (
         <div className="fixed bottom-24 right-4 md:bottom-28 md:right-7 z-[10000] flex items-end gap-3">
           {showSchedulingHint && (
             <div
@@ -321,7 +522,7 @@ export default function Home() {
 
       <Chatbot isOpen={isChatbotOpen} onClose={() => setIsChatbotOpen(false)} />
 
-      <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm shadow-[0_-4px_20px_rgba(233,30,99,0.1)] py-4 px-4 z-50">
+      <footer className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-sm shadow-[0_-4px_20px_rgba(233,30,99,0.1)] py-4 px-4 z-50 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:mt-10">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 items-center gap-2 text-sm text-muted-foreground">
           <div className="hidden md:block" />
           <div className="flex items-center justify-center gap-2">

@@ -72,6 +72,15 @@ const FLOW_TYPES = [
   'faq',
 ]
 
+const DEFAULT_SERVICE_CATEGORIES = [
+  'Avaliação',
+  'Extensões / Fibra Russa',
+  'Tratamentos e Alinhamento',
+  'Alinhamento',
+  'Cronograma Capilar',
+  'Promoções',
+]
+
 function newId(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 }
@@ -125,9 +134,10 @@ export default function AdminChatbotConfig() {
   const [tab, setTab] = useState<TabKey>('flow')
   const [config, setConfig] = useState<AdminConfig>(EMPTY_CONFIG)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [savingItem, setSavingItem] = useState('')
   const [uploading, setUploading] = useState('')
   const [drag, setDrag] = useState<{ section: SectionKey; index: number } | null>(null)
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     const load = async () => {
@@ -172,27 +182,85 @@ export default function AdminChatbotConfig() {
     [config.services]
   )
 
-  const save = async () => {
-    setSaving(true)
+  const serviceCategoryOptions = useMemo(() => {
+    const categories = new Set(DEFAULT_SERVICE_CATEGORIES)
+    config.services.forEach((service) => {
+      const category = String(service.category || '').trim()
+      if (category) categories.add(category)
+    })
+    return Array.from(categories).sort((a, b) => a.localeCompare(b, 'pt-BR'))
+  }, [config.services])
+
+  const subcategoriesByCategory = useMemo(() => {
+    const grouped = new Map<string, Set<string>>()
+    config.services.forEach((service) => {
+      const category = String(service.category || '').trim()
+      const subcategory = String(service.subcategory || '').trim()
+      if (!category || !subcategory) return
+      if (!grouped.has(category)) grouped.set(category, new Set())
+      grouped.get(category)?.add(subcategory)
+    })
+    return grouped
+  }, [config.services])
+
+  const cardKey = (section: SectionKey, id: string) => `${section}:${id}`
+
+  const patchConfig = async (payload: Record<string, unknown>, key: string) => {
+    setSavingItem(key)
     try {
       const response = await fetch('/api/admin/chatbot-config', {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config }),
+        body: JSON.stringify(payload),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Erro ao salvar')
       setConfig({ ...EMPTY_CONFIG, ...(data.config || {}) })
-      toast({ title: 'Configurações salvas' })
+      toast({ title: 'Alteração salva' })
+      return data.config
     } catch (error: any) {
       toast({
-        title: 'Erro ao salvar',
+        title: 'Erro ao salvar alteração',
         description: error?.message || 'Tente novamente.',
         variant: 'destructive',
       })
+      throw error
     } finally {
-      setSaving(false)
+      setSavingItem('')
     }
+  }
+
+  const saveItem = async (section: SectionKey, id: string) => {
+    const item = config[section].find((entry) => entry.id === id)
+    if (!item) return
+    await patchConfig(
+      {
+        action: 'update_item',
+        section,
+        item,
+      },
+      cardKey(section, id)
+    )
+  }
+
+  const saveItemPatch = async (
+    section: SectionKey,
+    item: any,
+    toastKey = cardKey(section, item.id)
+  ) => {
+    await patchConfig(
+      {
+        action: 'update_item',
+        section,
+        item,
+      },
+      toastKey
+    )
+  }
+
+  const toggleCard = (section: SectionKey, id: string) => {
+    const key = cardKey(section, id)
+    setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
   const patchItem = (section: SectionKey, id: string, patch: Record<string, unknown>) => {
@@ -266,21 +334,67 @@ export default function AdminChatbotConfig() {
 
   const deleteItem = (section: SectionKey, id: string) => {
     if (!confirm('Remover este item?')) return
+    const previous = config[section]
     setConfig((prev) => ({
       ...prev,
       [section]: reorder(prev[section].filter((item) => item.id !== id)),
     }))
+    void patchConfig(
+      {
+        action: 'delete_item',
+        section,
+        id,
+      },
+      `delete:${section}:${id}`
+    ).catch(() => {
+      setConfig((prev) => ({ ...prev, [section]: previous }))
+    })
   }
 
   const moveItem = (section: SectionKey, toIndex: number) => {
     if (!drag || drag.section !== section || drag.index === toIndex) return
+    let reordered: any[] = []
     setConfig((prev) => {
       const next = [...prev[section]]
       const [removed] = next.splice(drag.index, 1)
       next.splice(toIndex, 0, removed)
-      return { ...prev, [section]: reorder(next) }
+      reordered = reorder(next)
+      return { ...prev, [section]: reordered }
     })
     setDrag(null)
+    setTimeout(() => {
+      void patchConfig(
+        {
+          action: 'reorder_section',
+          section,
+          items: reordered,
+        },
+        `reorder:${section}`
+      ).catch(() => undefined)
+    }, 0)
+  }
+
+  const moveItemByDirection = (
+    section: SectionKey,
+    index: number,
+    direction: 'up' | 'down'
+  ) => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= config[section].length) return
+    const next = [...config[section]]
+    const current = next[index]
+    next[index] = next[targetIndex]
+    next[targetIndex] = current
+    const reordered = reorder(next)
+    setConfig((prev) => ({ ...prev, [section]: reordered }))
+    void patchConfig(
+      {
+        action: 'reorder_section',
+        section,
+        items: reordered,
+      },
+      `reorder:${section}`
+    ).catch(() => undefined)
   }
 
   const uploadMedia = async (
@@ -315,121 +429,138 @@ export default function AdminChatbotConfig() {
   }
 
   const addFlow = () => {
+    const newItem = {
+      id: newId('flow'),
+      type: 'single_choice',
+      title: 'Nova etapa',
+      subtitle: '',
+      description: '',
+      options: ['Opção 1'],
+      price: '',
+      grams: '',
+      observation: '',
+      active: true,
+      required: false,
+    }
     setConfig((prev) => ({
       ...prev,
       flowItems: reorder([
         ...prev.flowItems,
-        {
-          id: newId('flow'),
-          type: 'single_choice',
-          title: 'Nova etapa',
-          subtitle: '',
-          description: '',
-          options: ['Opção 1'],
-          price: '',
-          grams: '',
-          observation: '',
-          active: true,
-          required: false,
-        },
+        newItem,
       ]),
     }))
+    setExpandedCards((prev) => ({ ...prev, [cardKey('flowItems', newItem.id)]: true }))
+    void saveItemPatch('flowItems', newItem, cardKey('flowItems', newItem.id)).catch(() => undefined)
   }
 
   const addService = () => {
+    const newItem = {
+      id: newId('svc'),
+      name: 'Novo serviço',
+      category: serviceCategoryOptions[0] || 'Extensões / Fibra Russa',
+      subcategory: '',
+      price: 0,
+      priceLabel: '',
+      pricePerGram: null,
+      minGrams: null,
+      maxGrams: null,
+      durationMinutes: 60,
+      shortDescription: '',
+      longDescription: '',
+      observations: '',
+      extraQuestions: [],
+      active: true,
+    }
     setConfig((prev) => ({
       ...prev,
       services: reorder([
         ...prev.services,
-        {
-          id: newId('svc'),
-          name: 'Novo serviço',
-          category: 'Categoria',
-          subcategory: '',
-          price: 0,
-          priceLabel: '',
-          pricePerGram: null,
-          minGrams: null,
-          maxGrams: null,
-          durationMinutes: 60,
-          shortDescription: '',
-          longDescription: '',
-          observations: '',
-          extraQuestions: [],
-          active: true,
-        },
+        newItem,
       ]),
     }))
+    setExpandedCards((prev) => ({ ...prev, [cardKey('services', newItem.id)]: true }))
+    void saveItemPatch('services', newItem, cardKey('services', newItem.id)).catch(() => undefined)
   }
 
   const addBeforeAfter = () => {
+    const newItem = {
+      id: newId('ba'),
+      title: 'Novo resultado',
+      description: '',
+      category: '',
+      beforeImageUrl: '',
+      afterImageUrl: '',
+      active: true,
+    }
     setConfig((prev) => ({
       ...prev,
       beforeAfterItems: reorder([
         ...prev.beforeAfterItems,
-        {
-          id: newId('ba'),
-          title: 'Novo resultado',
-          description: '',
-          category: '',
-          beforeImageUrl: '',
-          afterImageUrl: '',
-          active: true,
-        },
+        newItem,
       ]),
     }))
+    setExpandedCards((prev) => ({ ...prev, [cardKey('beforeAfterItems', newItem.id)]: true }))
+    void saveItemPatch('beforeAfterItems', newItem, cardKey('beforeAfterItems', newItem.id)).catch(() => undefined)
   }
 
   const addBeforeAfterForService = (serviceId: string) => {
     const service = config.services.find((item) => item.id === serviceId)
+    const newItem = {
+      id: newId('ba'),
+      serviceId,
+      title: `Resultado - ${service?.name || 'serviço'}`,
+      description: '',
+      category: service?.category || '',
+      beforeImageUrl: '',
+      afterImageUrl: '',
+      active: true,
+    }
     setConfig((prev) => ({
       ...prev,
       beforeAfterItems: reorder([
         ...prev.beforeAfterItems,
-        {
-          id: newId('ba'),
-          serviceId,
-          title: `Resultado - ${service?.name || 'serviço'}`,
-          description: '',
-          category: service?.category || '',
-          beforeImageUrl: '',
-          afterImageUrl: '',
-          active: true,
-        },
+        newItem,
       ]),
     }))
+    void saveItemPatch('beforeAfterItems', newItem, cardKey('beforeAfterItems', newItem.id)).catch(() => undefined)
   }
 
   const addVideo = () => {
+    const newItem = {
+      id: newId('vid'),
+      title: 'Novo vídeo',
+      description: '',
+      thumbnailUrl: '',
+      videoUrl: '',
+      active: true,
+    }
     setConfig((prev) => ({
       ...prev,
       videoItems: reorder([
         ...prev.videoItems,
-        {
-          id: newId('vid'),
-          title: 'Novo vídeo',
-          description: '',
-          thumbnailUrl: '',
-          videoUrl: '',
-          active: true,
-        },
+        newItem,
       ]),
     }))
+    setExpandedCards((prev) => ({ ...prev, [cardKey('videoItems', newItem.id)]: true }))
+    void saveItemPatch('videoItems', newItem, cardKey('videoItems', newItem.id)).catch(() => undefined)
   }
 
   const addFaq = () => {
+    const newItem = {
+      id: newId('faq'),
+      question: 'Nova pergunta',
+      answer: '',
+      active: true,
+    }
     setConfig((prev) => ({
       ...prev,
       faqItems: reorder([
         ...prev.faqItems,
-        {
-          id: newId('faq'),
-          question: 'Nova pergunta',
-          answer: '',
-          active: true,
-        },
+        newItem,
       ]),
     }))
+    setExpandedCards((prev) => ({ ...prev, [cardKey('faqItems', newItem.id)]: true }))
+    void saveItemPatch('faqItems', newItem, cardKey('faqItems', newItem.id)).catch(() => undefined)
   }
 
   const addBlock = () => {
@@ -452,27 +583,125 @@ export default function AdminChatbotConfig() {
     }))
   }
 
+  const saveAgenda = async () => {
+    await patchConfig(
+      {
+        action: 'update_agenda',
+        schedulingSettings: config.schedulingSettings,
+      },
+      'agenda'
+    )
+  }
+
+  const getItemSummary = (section: SectionKey, item: any) => {
+    if (section === 'flowItems') return `Tipo: ${item.type || 'texto'}`
+    if (section === 'services') {
+      return `${item.category || 'Sem categoria'}${item.subcategory ? ` / ${item.subcategory}` : ''}`
+    }
+    if (section === 'beforeAfterItems') return item.serviceId ? `Serviço: ${item.serviceId}` : 'Resultado geral'
+    if (section === 'videoItems') return item.serviceId ? `Serviço: ${item.serviceId}` : 'Vídeo geral'
+    if (section === 'faqItems') return item.serviceId ? `Serviço: ${item.serviceId}` : 'FAQ geral'
+    return ''
+  }
+
+  const getItemTitle = (section: SectionKey, item: any) => {
+    if (section === 'faqItems') return item.question || 'Sem pergunta'
+    if (section === 'services') return item.name || 'Sem nome'
+    return item.title || item.name || 'Sem título'
+  }
+
   const card = (
     section: SectionKey,
     index: number,
+    item: any,
     children: React.ReactNode
-  ) => (
-    <div
-      draggable
-      onDragStart={() => setDrag({ section, index })}
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={() => moveItem(section, index)}
-      className="cursor-grab rounded-2xl border border-[#d8e3ff] bg-white p-4 shadow-[0_18px_40px_-30px_rgba(31,41,55,0.45)] active:cursor-grabbing"
-    >
-      {children}
-    </div>
-  )
+  ) => {
+    const key = cardKey(section, item.id)
+    const isExpanded = Boolean(expandedCards[key])
+    const isSavingThis = savingItem === key
+
+    return (
+      <div
+        key={key}
+        draggable
+        onDragStart={() => setDrag({ section, index })}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={() => moveItem(section, index)}
+        className="rounded-2xl border border-[#d8e3ff] bg-white p-4 shadow-[0_18px_40px_-30px_rgba(31,41,55,0.45)]"
+      >
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <div className="mt-1 cursor-grab rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-500 active:cursor-grabbing">
+              #{index + 1}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                {getItemSummary(section, item)}
+              </p>
+              <h3 className="truncate font-display text-lg font-bold text-slate-900">
+                {getItemTitle(section, item)}
+              </h3>
+              <p className="text-xs text-slate-500">
+                Arraste para reordenar ou use Subir/Descer no celular.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => moveItemByDirection(section, index, 'up')}
+              disabled={index === 0 || savingItem === `reorder:${section}`}
+              className="rounded-full border border-[#d8e3ff] px-3 py-1.5 text-xs font-bold text-slate-600 disabled:opacity-40"
+            >
+              Subir
+            </button>
+            <button
+              type="button"
+              onClick={() => moveItemByDirection(section, index, 'down')}
+              disabled={index === config[section].length - 1 || savingItem === `reorder:${section}`}
+              className="rounded-full border border-[#d8e3ff] px-3 py-1.5 text-xs font-bold text-slate-600 disabled:opacity-40"
+            >
+              Descer
+            </button>
+            {rowActions(section, item)}
+            <button
+              type="button"
+              onClick={() => toggleCard(section, item.id)}
+              className="rounded-full bg-[#3247d3] px-3 py-1.5 text-xs font-bold text-white"
+            >
+              {isExpanded ? 'Recolher' : 'Editar'}
+            </button>
+          </div>
+        </div>
+
+        {isExpanded && (
+          <div className="mt-5 border-t border-slate-100 pt-4">
+            <div className="space-y-4">{children}</div>
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => saveItem(section, item.id)}
+                disabled={isSavingThis}
+                className="rounded-xl bg-[#3247d3] px-5 py-3 text-sm font-bold text-white shadow-[0_14px_30px_-18px_rgba(50,71,211,0.9)] transition hover:bg-[#2435ad] disabled:opacity-60"
+              >
+                {isSavingThis ? 'Salvando...' : 'Salvar este item'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const rowActions = (section: SectionKey, item: any) => (
     <div className="flex flex-wrap gap-2">
       <button
         type="button"
-        onClick={() => patchItem(section, item.id, { active: !item.active })}
+        onClick={() => {
+          const nextItem = { ...item, active: !item.active }
+          patchItem(section, item.id, { active: nextItem.active })
+          void saveItemPatch(section, nextItem, cardKey(section, item.id)).catch(() => undefined)
+        }}
         className={`rounded-full px-3 py-1.5 text-xs font-bold ${
           item.active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
         }`}
@@ -529,14 +758,9 @@ export default function AdminChatbotConfig() {
               Edite visualmente fluxos, preços, FAQ, mídia, horários e bloqueios sem alterar código.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={save}
-            disabled={saving}
-            className="rounded-xl bg-[#3247d3] px-5 py-3 text-sm font-bold text-white shadow-[0_14px_30px_-18px_rgba(50,71,211,0.9)] transition hover:bg-[#2435ad] disabled:opacity-60"
-          >
-            {saving ? 'Salvando...' : 'Salvar configurações'}
-          </button>
+          <div className="rounded-xl border border-[#d8e3ff] bg-[#f8faff] px-4 py-3 text-sm font-semibold text-slate-600">
+            Salve cada item dentro do card editado. A ordem é salva ao mover.
+          </div>
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">
@@ -568,9 +792,8 @@ export default function AdminChatbotConfig() {
       {tab === 'flow' && (
         <Section title="Fluxo do chatbot" description="Arraste para reordenar etapas, edite botões, textos, preços e observações." actionLabel="Adicionar etapa" onAction={addFlow}>
           {config.flowItems.map((item, index) =>
-            card('flowItems', index, (
+            card('flowItems', index, item, (
               <div key={item.id} className="space-y-4">
-                <Header eyebrow={`Etapa #${index + 1}`} title={item.title} actions={rowActions('flowItems', item)} />
                 <div className="grid gap-3 md:grid-cols-3">
                   <Field label="Tipo">
                     <select value={item.type || 'text'} onChange={(event) => patchItem('flowItems', item.id, { type: event.target.value })} className="admin-input">
@@ -607,13 +830,27 @@ export default function AdminChatbotConfig() {
       {tab === 'services' && (
         <Section title="Serviços e opções" description="Crie serviços, subserviços, categorias, preços, gramas, duração e observações." actionLabel="Adicionar serviço" onAction={addService}>
           {config.services.map((item, index) =>
-            card('services', index, (
+            card('services', index, item, (
               <div key={item.id} className="space-y-4">
-                <Header eyebrow={`Serviço #${index + 1}`} title={item.name} actions={rowActions('services', item)} />
                 <div className="grid gap-3 md:grid-cols-4">
                   <TextInput label="Nome" value={item.name} onChange={(value) => patchItem('services', item.id, { name: value })} />
-                  <TextInput label="Categoria" value={item.category} onChange={(value) => patchItem('services', item.id, { category: value })} />
-                  <TextInput label="Subcategoria" value={item.subcategory} onChange={(value) => patchItem('services', item.id, { subcategory: value })} />
+                  <Field label="Categoria">
+                    <select
+                      value={item.category || serviceCategoryOptions[0] || ''}
+                      onChange={(event) => patchItem('services', item.id, { category: event.target.value })}
+                      className="admin-input"
+                    >
+                      {serviceCategoryOptions.map((category) => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <TextInputWithSuggestions
+                    label="Subcategoria"
+                    value={item.subcategory}
+                    suggestions={Array.from(subcategoriesByCategory.get(String(item.category || '')) || [])}
+                    onChange={(value) => patchItem('services', item.id, { subcategory: value })}
+                  />
                   <NumberInput label="Duração (min)" value={item.durationMinutes} onChange={(value) => patchItem('services', item.id, { durationMinutes: value })} />
                 </div>
                 <div className="grid gap-3 md:grid-cols-5">
@@ -671,6 +908,16 @@ export default function AdminChatbotConfig() {
                             >
                               Remover resultado
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => saveItem('beforeAfterItems', media.id)}
+                              disabled={savingItem === cardKey('beforeAfterItems', media.id)}
+                              className="ml-2 rounded-lg bg-[#3247d3] px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"
+                            >
+                              {savingItem === cardKey('beforeAfterItems', media.id)
+                                ? 'Salvando...'
+                                : 'Salvar resultado'}
+                            </button>
                           </div>
                         ))}
                     </div>
@@ -691,9 +938,8 @@ export default function AdminChatbotConfig() {
       {tab === 'beforeAfter' && (
         <Section title="Antes e depois" description="Cadastre resultados com upload, preview, categoria e ordem." actionLabel="Adicionar resultado" onAction={addBeforeAfter}>
           {config.beforeAfterItems.map((item, index) =>
-            card('beforeAfterItems', index, (
+            card('beforeAfterItems', index, item, (
               <div key={item.id} className="space-y-4">
-                <Header eyebrow={`Resultado #${index + 1}`} title={item.title} actions={rowActions('beforeAfterItems', item)} />
                 <div className="grid gap-3 md:grid-cols-3">
                   <TextInput label="Título" value={item.title} onChange={(value) => patchItem('beforeAfterItems', item.id, { title: value })} />
                   <ServiceSelect label="Serviço vinculado" value={item.serviceId || ''} services={serviceOptions} onChange={(value) => patchItem('beforeAfterItems', item.id, { serviceId: value })} />
@@ -713,9 +959,8 @@ export default function AdminChatbotConfig() {
       {tab === 'videos' && (
         <Section title="Vídeos" description="Cadastre links, thumbnails, descrições, ordem e status." actionLabel="Adicionar vídeo" onAction={addVideo}>
           {config.videoItems.map((item, index) =>
-            card('videoItems', index, (
+            card('videoItems', index, item, (
               <div key={item.id} className="space-y-4">
-                <Header eyebrow={`Vídeo #${index + 1}`} title={item.title} actions={rowActions('videoItems', item)} />
                 <div className="grid gap-3 md:grid-cols-3">
                   <TextInput label="Título" value={item.title} onChange={(value) => patchItem('videoItems', item.id, { title: value })} />
                   <ServiceSelect label="Serviço vinculado" value={item.serviceId || ''} services={serviceOptions} onChange={(value) => patchItem('videoItems', item.id, { serviceId: value })} />
@@ -732,9 +977,8 @@ export default function AdminChatbotConfig() {
       {tab === 'faq' && (
         <Section title="Dúvidas / FAQ" description="Edite perguntas e respostas exibidas no chatbot." actionLabel="Adicionar pergunta" onAction={addFaq}>
           {config.faqItems.map((item, index) =>
-            card('faqItems', index, (
+            card('faqItems', index, item, (
               <div key={item.id} className="space-y-4">
-                <Header eyebrow={`Pergunta #${index + 1}`} title={item.question} actions={rowActions('faqItems', item)} />
                 <ServiceSelect label="Serviço vinculado (opcional)" value={item.serviceId || ''} services={serviceOptions} onChange={(value) => patchItem('faqItems', item.id, { serviceId: value })} />
                 <TextInput label="Pergunta" value={item.question} onChange={(value) => patchItem('faqItems', item.id, { question: value })} />
                 <TextArea label="Resposta" value={item.answer} onChange={(value) => patchItem('faqItems', item.id, { answer: value })} />
@@ -749,6 +993,8 @@ export default function AdminChatbotConfig() {
           config={config}
           setConfig={setConfig}
           addBlock={addBlock}
+          onSave={saveAgenda}
+          saving={savingItem === 'agenda'}
         />
       )}
     </div>
@@ -759,10 +1005,14 @@ function AgendaEditor({
   config,
   setConfig,
   addBlock,
+  onSave,
+  saving,
 }: {
   config: AdminConfig
   setConfig: React.Dispatch<React.SetStateAction<AdminConfig>>
   addBlock: () => void
+  onSave: () => void
+  saving: boolean
 }) {
   const updateBusinessHour = (day: number, patch: Record<string, unknown>) => {
     setConfig((prev) => ({
@@ -800,6 +1050,16 @@ function AgendaEditor({
 
   return (
     <Section title="Configuração de agenda" description="Configure funcionamento, duração padrão, intervalos, feriados, pausas e bloqueios." actionLabel="Adicionar bloqueio" onAction={addBlock}>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving}
+          className="rounded-xl bg-[#3247d3] px-5 py-3 text-sm font-bold text-white shadow-[0_14px_30px_-18px_rgba(50,71,211,0.9)] transition hover:bg-[#2435ad] disabled:opacity-60"
+        >
+          {saving ? 'Salvando agenda...' : 'Salvar agenda'}
+        </button>
+      </div>
       <div className="rounded-2xl border border-[#d8e3ff] bg-white p-4 shadow-[0_18px_40px_-30px_rgba(31,41,55,0.45)]">
         <div className="grid gap-3 md:grid-cols-2">
           <NumberInput label="Intervalo entre horários (min)" value={config.schedulingSettings.slotIntervalMinutes} onChange={(value) => setConfig((prev) => ({ ...prev, schedulingSettings: { ...prev.schedulingSettings, slotIntervalMinutes: value } }))} />
@@ -857,30 +1117,31 @@ function Section({ title, description, actionLabel, onAction, children }: {
   children: React.ReactNode
 }) {
   return (
-    <section className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-2xl border border-white/70 bg-white/80 p-5 shadow-[0_18px_40px_-28px_rgba(31,41,55,0.45)] md:flex-row md:items-center md:justify-between">
+    <details className="group rounded-2xl border border-white/70 bg-white/75 shadow-[0_18px_40px_-28px_rgba(31,41,55,0.45)]">
+      <summary className="flex cursor-pointer list-none flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between [&::-webkit-details-marker]:hidden">
         <div>
-          <h3 className="font-display text-xl font-bold text-slate-900">{title}</h3>
-          <p className="text-sm text-slate-600">{description}</p>
+          <div className="flex items-center gap-3">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#edf2ff] text-sm font-bold text-[#3247d3] transition group-open:rotate-90">
+              ›
+            </span>
+            <h3 className="font-display text-xl font-bold text-slate-900">{title}</h3>
+          </div>
+          <p className="mt-2 text-sm text-slate-600">{description}</p>
         </div>
-        <button type="button" onClick={onAction} className="rounded-xl border border-[#b8c7ff] bg-white px-4 py-2 text-sm font-bold text-[#3247d3] transition hover:border-[#6b83ff]">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault()
+            event.stopPropagation()
+            onAction()
+          }}
+          className="rounded-xl border border-[#b8c7ff] bg-white px-4 py-2 text-sm font-bold text-[#3247d3] transition hover:border-[#6b83ff]"
+        >
           {actionLabel}
         </button>
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function Header({ eyebrow, title, actions }: { eyebrow: string; title: string; actions: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{eyebrow}</p>
-        <h3 className="font-display text-lg font-bold text-slate-900">{title || 'Sem título'}</h3>
-      </div>
-      {actions}
-    </div>
+      </summary>
+      <div className="space-y-4 border-t border-slate-100 p-5 pt-4">{children}</div>
+    </details>
   )
 }
 
@@ -897,6 +1158,37 @@ function TextInput({ label, value, onChange }: { label: string; value?: string; 
   return (
     <Field label={label}>
       <input value={value || ''} onChange={(event) => onChange(event.target.value)} className="admin-input" />
+    </Field>
+  )
+}
+
+function TextInputWithSuggestions({
+  label,
+  value,
+  suggestions,
+  onChange,
+}: {
+  label: string
+  value?: string
+  suggestions: string[]
+  onChange: (value: string) => void
+}) {
+  const listId = `${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${suggestions.length}`
+  return (
+    <Field label={label}>
+      <input
+        value={value || ''}
+        list={suggestions.length > 0 ? listId : undefined}
+        onChange={(event) => onChange(event.target.value)}
+        className="admin-input"
+      />
+      {suggestions.length > 0 && (
+        <datalist id={listId}>
+          {suggestions.map((suggestion) => (
+            <option key={suggestion} value={suggestion} />
+          ))}
+        </datalist>
+      )}
     </Field>
   )
 }

@@ -154,13 +154,19 @@ type SectionCardProps = {
 
 function SectionCard({ title, description, children }: SectionCardProps) {
   return (
-    <div className="border border-pink-100 rounded-2xl p-5 space-y-4 bg-pink-50/30">
-      <div className="space-y-1">
-        <h3 className="font-semibold text-foreground">{title}</h3>
-        {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
-      </div>
-      {children}
-    </div>
+    <details className="group rounded-2xl border border-pink-100 bg-pink-50/30">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-5 [&::-webkit-details-marker]:hidden">
+        <div className="space-y-1">
+          <h3 className="font-semibold text-foreground">{title}</h3>
+          {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
+        </div>
+        <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-primary shadow-sm">
+          <span className="group-open:hidden">Editar</span>
+          <span className="hidden group-open:inline">Recolher</span>
+        </span>
+      </summary>
+      <div className="space-y-4 border-t border-pink-100 p-5">{children}</div>
+    </details>
   )
 }
 
@@ -1085,7 +1091,7 @@ export default function AdminInternalPages() {
           onClick={handleSave}
           className="px-6 py-3 bg-primary text-white rounded-xl font-semibold disabled:opacity-60"
         >
-          {saving ? 'Salvando...' : 'Salvar paginas internas'}
+          {saving ? 'Salvando...' : 'Salvar pagina atual'}
         </button>
       </div>
     </div>

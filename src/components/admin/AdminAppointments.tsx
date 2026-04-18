@@ -23,6 +23,16 @@ type AppointmentQuestionnaire = {
   hairState?: string
   methods?: string
   hairPhotoUrl?: string
+  campaignSource?: string
+  donationHairOptionId?: string
+  donationHairName?: string
+  donationHairImageUrl?: string
+  donationHairDescription?: string
+  donationHairColor?: string
+  donationHairLength?: string
+  donationTechnique?: string
+  paymentMode?: string
+  paymentObservation?: string
   primaryFlow?: string
   primaryCategory?: string
   maintenanceType?: string
@@ -107,6 +117,16 @@ const emptyQuestionnaire: AppointmentQuestionnaire = {
   hairState: '',
   methods: '',
   hairPhotoUrl: '',
+  campaignSource: '',
+  donationHairOptionId: '',
+  donationHairName: '',
+  donationHairImageUrl: '',
+  donationHairDescription: '',
+  donationHairColor: '',
+  donationHairLength: '',
+  donationTechnique: '',
+  paymentMode: '',
+  paymentObservation: '',
   primaryFlow: '',
   primaryCategory: '',
   maintenanceType: '',
@@ -640,6 +660,16 @@ export default function AdminAppointments() {
             ['hairColor', 'Cor do cabelo'],
             ['hairState', 'Estado do cabelo'],
             ['methods', 'Metodos usados'],
+            ['campaignSource', 'Origem da campanha'],
+            ['donationHairOptionId', 'ID do cabelo da doacao'],
+            ['donationHairName', 'Cabelo escolhido'],
+            ['donationHairColor', 'Cor do cabelo da doacao'],
+            ['donationHairLength', 'Comprimento do cabelo da doacao'],
+            ['donationHairDescription', 'Descricao do cabelo da doacao'],
+            ['donationHairImageUrl', 'Imagem do cabelo da doacao'],
+            ['donationTechnique', 'Tecnica da doacao'],
+            ['paymentMode', 'Modo de pagamento'],
+            ['paymentObservation', 'Observacao pagamento'],
             ['primaryCategory', 'Categoria principal'],
             ['maintenanceType', 'Tipo de manutencao'],
             ['maintenanceBasePrice', 'Valor base manutencao'],
@@ -672,10 +702,11 @@ export default function AdminAppointments() {
               }
               className="w-full px-3 py-2 border border-pink-200 rounded-lg"
             />
-            {field === 'hairPhotoUrl' && update.questionnaireData.hairPhotoUrl ? (
+            {(field === 'hairPhotoUrl' || field === 'donationHairImageUrl') &&
+            update.questionnaireData[field] ? (
               <img
-                src={update.questionnaireData.hairPhotoUrl}
-                alt="Foto do cabelo atual"
+                src={String(update.questionnaireData[field] || '')}
+                alt={field === 'hairPhotoUrl' ? 'Foto do cabelo atual' : 'Cabelo da doacao'}
                 className="mt-2 h-36 w-full rounded-lg border border-pink-100 object-cover"
               />
             ) : null}

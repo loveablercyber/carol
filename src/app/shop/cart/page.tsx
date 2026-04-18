@@ -632,7 +632,7 @@ function CartContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-24">
+    <div className="min-h-screen overflow-hidden bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-24">
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -644,20 +644,44 @@ function CartContent() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <section className="mx-auto hidden max-w-[1500px] px-8 py-10 lg:block xl:px-12">
+        <div className="grid grid-cols-[1fr_auto] items-center gap-8 rounded-[2.5rem] border border-pink-100 bg-white/85 p-8 shadow-[0_35px_100px_-70px_rgba(233,30,99,0.75)] backdrop-blur">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-5 py-2.5 text-xs font-black uppercase tracking-[0.24em] text-primary">
+              <ShoppingBag className="h-4 w-4" />
+              Carrinho
+            </div>
+            <h2 className="mt-6 font-display text-6xl font-black leading-[0.95] tracking-[-0.055em] text-foreground">
+              Revise seus produtos antes do checkout
+            </h2>
+            <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
+              Ajuste quantidades, aplique cupom e siga para o pagamento em ambiente seguro.
+            </p>
+          </div>
+          <div className="rounded-[2rem] bg-gradient-to-br from-[#E91E63] to-[#F8B6D8] p-8 text-center text-white shadow-xl shadow-pink-200">
+            <p className="text-xs font-black uppercase tracking-[0.24em] opacity-85">Total parcial</p>
+            <p className="mt-3 font-display text-5xl font-black tracking-[-0.05em]">
+              R$ {total.toFixed(2).replace('.', ',')}
+            </p>
+            <p className="mt-2 text-sm opacity-85">{itemCount} {itemCount === 1 ? 'item' : 'itens'}</p>
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-7xl px-4 py-8 lg:max-w-[1500px] lg:px-8 lg:py-4 xl:px-12">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_460px]">
           {/* Lista de Itens */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-md overflow-hidden">
+          <div>
+            <div className="overflow-hidden rounded-2xl bg-white shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:shadow-xl lg:shadow-pink-100/35">
               {cart.items.map((item) => (
                 <div
                   key={item.id}
-                  className="flex gap-4 p-4 border-b border-gray-100 last:border-0"
+                  className="flex gap-4 border-b border-gray-100 p-4 last:border-0 lg:gap-6 lg:p-6"
                 >
                   {/* Imagem */}
                   <Link
                     href={`/shop/products/${item.product.slug}`}
-                    className="w-24 h-24 flex-shrink-0 bg-gray-100 rounded-lg overflow-hidden"
+                    className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 lg:h-32 lg:w-32 lg:rounded-2xl"
                   >
                     {item.product.images[0] ? (
                       <img
@@ -743,8 +767,8 @@ function CartContent() {
           </div>
 
           {/* Resumo e Checkout */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-md p-6 sticky top-24">
+          <div>
+            <div className="sticky top-24 rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-[0_30px_90px_-64px_rgba(233,30,99,0.9)]">
               <h2 className="font-display font-bold text-xl mb-6">Resumo do Pedido</h2>
 
               {/* Cupom de Desconto */}

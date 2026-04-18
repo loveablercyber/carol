@@ -96,7 +96,7 @@ export default function PromoPage() {
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8 md:py-12">
+      <main className="max-w-4xl mx-auto px-4 py-8 md:py-12 lg:hidden">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start">
           <div className="space-y-4">
             <div
@@ -219,6 +219,130 @@ export default function PromoPage() {
             </div>
           </div>
         </div>
+      </main>
+
+      <main className="mx-auto hidden max-w-[1500px] px-8 py-14 lg:block xl:px-12">
+        <section className="grid min-h-[720px] grid-cols-[0.92fr_1.08fr] items-center gap-12">
+          <div className="relative">
+            <div className="absolute -left-8 -top-8 h-64 w-64 rounded-full bg-pink-200/55 blur-3xl" />
+            <div
+              className="relative aspect-[4/5] cursor-zoom-in overflow-hidden rounded-[3rem] border border-white bg-white p-4 shadow-[0_42px_120px_-75px_rgba(233,30,99,0.9)]"
+              onClick={() => {
+                if (activeImage?.path) {
+                  openImageModal(activeImage.path)
+                }
+              }}
+            >
+              <div className="relative h-full overflow-hidden rounded-[2.4rem] bg-pink-50">
+                {activeImage?.path ? (
+                  <Image
+                    src={activeImage.path}
+                    alt={activeImage.name || promoTitle}
+                    fill
+                    className="object-cover transition-transform duration-500 hover:scale-105"
+                    priority
+                    sizes="42vw"
+                  />
+                ) : null}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent" />
+                <div className="absolute left-7 top-7 rounded-full bg-primary px-5 py-2.5 text-sm font-black uppercase tracking-[0.18em] text-white shadow-lg">
+                  Valor {promoPriceText}
+                </div>
+                <div className="absolute bottom-7 left-7 right-7 rounded-[1.75rem] border border-white/25 bg-white/20 p-6 text-white backdrop-blur-md">
+                  <p className="text-xs font-black uppercase tracking-[0.24em] text-pink-100">
+                    Cor selecionada
+                  </p>
+                  <p className="mt-2 font-display text-3xl font-black">{activeImage?.name || promoTitle}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-8">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-white/85 px-5 py-2.5 text-xs font-black uppercase tracking-[0.24em] text-primary shadow-lg">
+              <Star className="h-4 w-4 fill-current" />
+              {promoBadgeText}
+            </div>
+
+            <div className="space-y-5">
+              <h1 className="font-display text-7xl font-black leading-[0.92] tracking-[-0.06em] text-foreground xl:text-8xl">
+                {promoTitle}
+              </h1>
+              <p className="font-display text-5xl font-black text-primary">{promoPriceText}</p>
+              <p className="max-w-3xl text-xl leading-9 text-muted-foreground">
+                {promoDescription}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-[1fr_0.95fr] gap-5">
+              <div className="rounded-[2rem] border border-pink-100 bg-white p-7 shadow-xl shadow-pink-100/40">
+                <h3 className="flex items-center gap-3 font-display text-2xl font-black text-foreground">
+                  <Info className="h-6 w-6 text-primary" />
+                  {promoInfoTitle}
+                </h3>
+                <ul className="mt-5 space-y-4">
+                  {promoInfoItems.map((item) => (
+                    <li key={item} className="flex items-start gap-3 text-base text-muted-foreground">
+                      <CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-green-500" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-[2rem] border border-pink-100 bg-gradient-to-br from-white to-pink-50 p-7 shadow-xl shadow-pink-100/40">
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-primary">
+                  Agendamento direto
+                </p>
+                <p className="mt-3 text-base leading-7 text-muted-foreground">
+                  Selecione uma cor abaixo para abrir o chatbot no fluxo da promoção.
+                </p>
+                <button
+                  onClick={() => handleBooking()}
+                  className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#F8B6D8] to-[#E91E63] px-6 py-4 text-lg font-black text-white shadow-lg transition hover:shadow-xl"
+                >
+                  <ShoppingBag className="h-6 w-6" />
+                  Agendar Aplicacao
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-4 text-sm font-black uppercase tracking-[0.24em] text-muted-foreground">
+                Selecione a cor para agendar
+              </p>
+              <div className="grid grid-cols-4 gap-4">
+                {images.map((image) => (
+                  <button
+                    key={image.name}
+                    onClick={() => {
+                      setSelectedImage(image.name)
+                      handleBooking(image.name)
+                    }}
+                    className={`group overflow-hidden rounded-[1.5rem] border bg-white p-3 text-left shadow-md transition-all ${
+                      selectedImage === image.name
+                        ? 'border-primary ring-4 ring-primary/15'
+                        : 'border-pink-100 hover:border-pink-300'
+                    }`}
+                  >
+                    <div className="relative aspect-square overflow-hidden rounded-[1.1rem] bg-pink-50">
+                      <Image
+                        src={image.path}
+                        alt={image.name}
+                        fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        sizes="12vw"
+                      />
+                    </div>
+                    <p className="mt-3 min-h-[2.5rem] text-sm font-bold leading-tight text-foreground">
+                      {image.name.replace('Bio Proteina ', '')}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t md:hidden z-40">

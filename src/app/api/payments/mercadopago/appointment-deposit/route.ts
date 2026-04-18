@@ -5,6 +5,10 @@ import {
   getAppointmentById,
   updateAppointmentPaymentStatus,
 } from '@/lib/appointments-store'
+import {
+  getDonationCampaignSnapshot,
+  markDonationHairPaymentStatus,
+} from '@/lib/donation-campaign-store'
 import { resolveMercadoPagoConfig } from '@/lib/mercadopago-config'
 
 const MERCADO_PAGO_PAYMENTS_URL = 'https://api.mercadopago.com/v1/payments'
@@ -138,6 +142,44 @@ export async function POST(request: NextRequest) {
         orderNumber: appointment.id,
         message: 'Adiantamento ja aprovado.',
       })
+    }
+
+    const isDonationAppointment =
+      appointment.questionnaireData?.campaignSource === 'hair-donation'
+    const donationHairOptionId = String(
+      appointment.questionnaireData?.donationHairOptionId || ''
+    ).trim()
+
+    if (isDonationAppointment) {
+      const campaign = await getDonationCampaignSnapshot()
+      const hairOption = campaign.hairOptions.find((item) => item.id === donationHairOptionId)
+
+      if (!hairOption) {
+        return NextResponse.json(
+          { error: 'Opcao de cabelo da doacao nao encontrada.' },
+          { status: 409 }
+        )
+      }
+
+      const reservedByAnotherAppointment =
+        hairOption.appointmentId && hairOption.appointmentId !== appointment.id
+      const notHeldForThisAppointment = hairOption.appointmentId !== appointment.id
+      const unavailableForPayment =
+        hairOption.status === 'unavailable' ||
+        hairOption.status === 'paid' ||
+        hairOption.status === 'reserved' ||
+        reservedByAnotherAppointment ||
+        notHeldForThisAppointment
+
+      if (unavailableForPayment) {
+        return NextResponse.json(
+          {
+            error:
+              'Este cabelo da campanha nao esta mais reservado para este agendamento. Escolha uma opcao disponivel e agende novamente.',
+          },
+          { status: 409 }
+        )
+      }
     }
 
     const paymentAmount = Math.max(
@@ -298,6 +340,13 @@ export async function POST(request: NextRequest) {
       paymentStatus: nextPaymentStatus,
       paymentMethod,
     })
+
+    if (isDonationAppointment) {
+      await markDonationHairPaymentStatus({
+        appointmentId: appointment.id,
+        paymentStatus: nextPaymentStatus,
+      })
+    }
 
     const ticketUrl = asString(
       data?.transaction_details?.external_resource_url ||

@@ -11,6 +11,7 @@ import {
 } from '@/lib/appointments-store'
 import { dispatchAppointmentNotification } from '@/lib/appointment-notifications'
 import { buildGoogleCalendarUrl } from '@/lib/appointment-calendar'
+import { releaseDonationHairByAppointment } from '@/lib/donation-campaign-store'
 
 type PatchBody = {
   action?: 'confirm' | 'cancel'
@@ -170,6 +171,10 @@ export async function PATCH(
         )
 
         if (cancelled) {
+          await releaseDonationHairByAppointment(cancelled.id).catch((error) => {
+            console.error('Erro ao liberar cabelo da doacao apos expiracao:', error)
+          })
+
           await dispatchAppointmentNotification({
             appointment: cancelled,
             type: 'cancellation',
@@ -221,6 +226,10 @@ export async function PATCH(
         { status: 500 }
       )
     }
+
+    await releaseDonationHairByAppointment(cancelled.id).catch((error) => {
+      console.error('Erro ao liberar cabelo da doacao apos cancelamento:', error)
+    })
 
     await dispatchAppointmentNotification({
       appointment: cancelled,

@@ -5,10 +5,16 @@ import {
   createAppointment,
   hasAppointmentConflict,
   listDaySlots,
+  updateAppointmentStatus,
 } from '@/lib/appointments-store'
 import { dispatchAppointmentNotification } from '@/lib/appointment-notifications'
 import { buildGoogleCalendarUrl } from '@/lib/appointment-calendar'
 import { getAdminOperationalConfig } from '@/lib/admin-config-store'
+import {
+  buildDonationAvailableSlots,
+  markDonationHairAwaitingPayment,
+  validateDonationBooking,
+} from '@/lib/donation-campaign-store'
 import {
   buildAvailableSlots,
   normalizeDurationMinutes,
@@ -47,6 +53,40 @@ function rangesOverlap(startA: Date, durationA: number, startB: Date, durationB:
   const bStart = startB.getTime()
   const bEnd = bStart + durationB * 60 * 1000
   return aStart < bEnd && aEnd > bStart
+}
+
+function dateOnly(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate())
+}
+
+function daysBetweenCalendarDates(previous: Date, next: Date) {
+  const dayMs = 24 * 60 * 60 * 1000
+  return Math.round((dateOnly(next).getTime() - dateOnly(previous).getTime()) / dayMs)
+}
+
+function validateCronogramaSpacing(input: {
+  mainStart: Date
+  related: Array<{
+    type: string
+    serviceName: string
+    scheduledAt: Date
+  }>
+}) {
+  const cronogramaItems = input.related.filter((item) => item.type === 'cronograma')
+  let previous = input.mainStart
+
+  for (const item of cronogramaItems) {
+    const days = daysBetweenCalendarDates(previous, item.scheduledAt)
+    if (days < 10 || days > 30) {
+      return {
+        ok: false,
+        error: `${item.serviceName}: o cronograma precisa respeitar intervalo de 10 a 30 dias após o procedimento anterior.`,
+      }
+    }
+    previous = item.scheduledAt
+  }
+
+  return { ok: true, error: '' }
 }
 
 export async function POST(request: NextRequest) {
@@ -96,20 +136,62 @@ export async function POST(request: NextRequest) {
       config.schedulingSettings.defaultDurationMinutes
     )
     const scheduledAt = new Date(scheduledDate)
-    const scheduleWindow = validateScheduleWindow({
-      start: scheduledAt,
-      durationMinutes: safeDuration,
-      settings: config.schedulingSettings,
-    })
+    const questionnaire =
+      questionnaireData && typeof questionnaireData === 'object'
+        ? (questionnaireData as Record<string, unknown>)
+        : {}
+    const isDonationAppointment = questionnaire.campaignSource === 'hair-donation'
+    const donationHairOptionId = String(questionnaire.donationHairOptionId || '').trim()
 
-    if (!scheduleWindow.available) {
+    if (Number.isNaN(scheduledAt.getTime())) {
       return NextResponse.json(
-        {
-          success: false,
-          error: scheduleWindow.reason || 'Horario indisponivel para agendamento',
-        },
-        { status: 409 }
+        { success: false, error: 'Data de agendamento invalida.' },
+        { status: 400 }
       )
+    }
+
+    if (isDonationAppointment) {
+      if (!donationHairOptionId) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Escolha uma opcao de cabelo da doacao antes de agendar.',
+          },
+          { status: 400 }
+        )
+      }
+
+      const donationValidation = await validateDonationBooking({
+        hairOptionId: donationHairOptionId,
+        scheduledAt,
+        durationMinutes: safeDuration,
+      })
+
+      if (!donationValidation.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: donationValidation.error || 'Campanha de doacao indisponivel.',
+          },
+          { status: 409 }
+        )
+      }
+    } else {
+      const scheduleWindow = validateScheduleWindow({
+        start: scheduledAt,
+        durationMinutes: safeDuration,
+        settings: config.schedulingSettings,
+      })
+
+      if (!scheduleWindow.available) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: scheduleWindow.reason || 'Horario indisponivel para agendamento',
+          },
+          { status: 409 }
+        )
+      }
     }
 
     const hasConflict = await hasAppointmentConflict({
@@ -209,6 +291,21 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const cronogramaValidation = validateCronogramaSpacing({
+      mainStart: scheduledAt,
+      related: relatedInput,
+    })
+
+    if (!cronogramaValidation.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: cronogramaValidation.error,
+        },
+        { status: 409 }
+      )
+    }
+
     const serviceName = String(service.name || service.title || service.serviceName || service || '').trim()
     const depositRequired = !isEvaluationAppointment({
       serviceName,
@@ -287,6 +384,32 @@ export async function POST(request: NextRequest) {
     }
 
     if (appointment) {
+      if (isDonationAppointment) {
+        const reserved = await markDonationHairAwaitingPayment({
+          hairOptionId: donationHairOptionId,
+          appointmentId: appointment.id,
+          customerName: appointment.customerName,
+          customerEmail: appointment.customerEmail,
+          scheduledAt: appointment.scheduledAt,
+        })
+
+        if (!reserved) {
+          await updateAppointmentStatus(
+            appointment.id,
+            'cancelled',
+            'Cancelado automaticamente porque o cabelo selecionado deixou de estar disponivel antes do pagamento.'
+          )
+
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'Este cabelo acabou de ficar indisponivel. Escolha outra opcao.',
+            },
+            { status: 409 }
+          )
+        }
+      }
+
       await dispatchAppointmentNotification({
         appointment,
         type: 'confirmation',
@@ -337,6 +460,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')
   const durationMinutes = searchParams.get('durationMinutes')
+  const source = searchParams.get('source')
 
   if (!date) {
     return NextResponse.json(
@@ -348,6 +472,20 @@ export async function GET(request: NextRequest) {
   const selectedDate = new Date(date)
   const config = await getAdminOperationalConfig()
   const scheduled = await listDaySlots(selectedDate.toISOString())
+  if (source === 'hair-donation') {
+    const availableSlots = await buildDonationAvailableSlots({
+      date: selectedDate,
+      durationMinutes: normalizeDurationMinutes(durationMinutes, 120),
+      appointments: scheduled,
+    })
+
+    return NextResponse.json({
+      success: true,
+      date,
+      availableSlots,
+    })
+  }
+
   const availableSlots = buildAvailableSlots({
     date: selectedDate,
     durationMinutes: normalizeDurationMinutes(

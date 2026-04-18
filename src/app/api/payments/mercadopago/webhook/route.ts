@@ -3,6 +3,7 @@ import { OrderStatus, PaymentStatus } from '@prisma/client'
 import { db } from '@/lib/db'
 import { resolveMercadoPagoConfig } from '@/lib/mercadopago-config'
 import { updateAppointmentPaymentStatus } from '@/lib/appointments-store'
+import { markDonationHairPaymentStatus } from '@/lib/donation-campaign-store'
 
 const MERCADO_PAGO_API = 'https://api.mercadopago.com/v1/payments'
 
@@ -82,6 +83,11 @@ export async function POST(request: NextRequest) {
         id: appointmentId,
         paymentStatus: appointmentPaymentStatusMap[status] || 'PENDING',
         paymentMethod: `MERCADO_PAGO_${String(data?.payment_method_id || '').toUpperCase()}`,
+      })
+
+      await markDonationHairPaymentStatus({
+        appointmentId,
+        paymentStatus: appointmentPaymentStatusMap[status] || 'PENDING',
       })
 
       console.info('[MP] Appointment deposit webhook processed', {

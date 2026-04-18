@@ -627,7 +627,7 @@ function CheckoutContent() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-20">
+      <div className="min-h-screen overflow-hidden bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-20">
         <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
             <Link href="/shop/cart" className="flex items-center gap-2 text-sm">
@@ -639,8 +639,23 @@ function CheckoutContent() {
           </div>
         </header>
 
-        <div className="max-w-6xl mx-auto px-4 py-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white rounded-2xl shadow-md p-6">
+        <section className="mx-auto hidden max-w-[1500px] px-8 py-10 lg:block xl:px-12">
+          <div className="rounded-[2.5rem] border border-pink-100 bg-white/85 p-8 text-center shadow-[0_35px_100px_-70px_rgba(233,30,99,0.75)] backdrop-blur">
+            <div className="mx-auto inline-flex items-center gap-2 rounded-full bg-primary/10 px-5 py-2.5 text-xs font-black uppercase tracking-[0.24em] text-primary">
+              <Lock className="h-4 w-4" />
+              Conta obrigatória
+            </div>
+            <h2 className="mx-auto mt-6 max-w-4xl font-display text-6xl font-black leading-[0.95] tracking-[-0.055em] text-foreground">
+              Entre ou crie sua conta para finalizar a compra
+            </h2>
+            <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
+              Assim o sistema salva pedidos, endereço, histórico e pagamento com mais segurança.
+            </p>
+          </div>
+        </section>
+
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-4 py-10 lg:max-w-[1320px] lg:grid-cols-[0.85fr_1.15fr] lg:px-8 lg:py-6 xl:px-12">
+          <div className="rounded-2xl bg-white p-6 shadow-md lg:sticky lg:top-24 lg:self-start lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
             <h2 className="font-display font-bold text-2xl text-foreground mb-4">
               Entrar
             </h2>
@@ -687,7 +702,7 @@ function CheckoutContent() {
             </form>
           </div>
 
-          <div className="bg-white rounded-2xl shadow-md p-6">
+          <div className="rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
             <h2 className="font-display font-bold text-2xl text-foreground mb-4">
               Criar conta
             </h2>
@@ -936,7 +951,7 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-20">
+    <div className="min-h-screen overflow-hidden bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-20">
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -956,12 +971,44 @@ function CheckoutContent() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <section className="mx-auto hidden max-w-[1500px] px-8 py-10 lg:block xl:px-12">
+        <div className="grid grid-cols-[1.05fr_0.95fr] items-center gap-8 rounded-[2.5rem] border border-pink-100 bg-white/85 p-8 shadow-[0_35px_100px_-70px_rgba(233,30,99,0.75)] backdrop-blur">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-5 py-2.5 text-xs font-black uppercase tracking-[0.24em] text-primary">
+              <Lock className="h-4 w-4" />
+              Checkout seguro
+            </div>
+            <h2 className="mt-6 font-display text-6xl font-black leading-[0.95] tracking-[-0.055em] text-foreground">
+              Finalize seu pedido com clareza e segurança
+            </h2>
+            <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
+              Confirme endereço, frete, produtos e pagamento em um fluxo visual organizado.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { icon: MapPin, label: 'Endereço' },
+              { icon: Truck, label: 'Frete' },
+              { icon: CreditCard, label: 'Pagamento' },
+            ].map((item) => {
+              const Icon = item.icon
+              return (
+                <div key={item.label} className="rounded-2xl border border-pink-100 bg-pink-50/70 p-5 text-center">
+                  <Icon className="mx-auto mb-4 h-7 w-7 text-primary" />
+                  <p className="text-sm font-black text-foreground">{item.label}</p>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-7xl px-4 py-8 lg:max-w-[1500px] lg:px-8 lg:py-4 xl:px-12">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_420px] xl:grid-cols-[minmax(0,1fr)_460px]">
           {/* Coluna Esquerda - Formulários */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="space-y-6">
             {/* Endereço de Entrega */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
+            <div className="rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
               <h2 className="font-display font-bold text-xl mb-6 flex items-center gap-2">
                 <MapPin className="w-6 h-6 text-primary" />
                 Endereço de Entrega
@@ -1164,7 +1211,7 @@ function CheckoutContent() {
             </div>
 
             {/* Produtos pedidos */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
+            <div className="rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
               <h2 className="font-display font-bold text-xl mb-6 flex items-center gap-2">
                 <ShoppingBag className="w-6 h-6 text-primary" />
                 Produtos pedidos
@@ -1194,7 +1241,7 @@ function CheckoutContent() {
             </div>
 
             {/* Opções de Frete */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
+            <div className="rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
                 <h2 className="font-display font-bold text-xl flex items-center gap-2">
                   <Truck className="w-6 h-6 text-primary" />
@@ -1273,7 +1320,7 @@ function CheckoutContent() {
             </div>
 
             {/* CPF */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
+            <div className="rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
               <h2 className="font-display font-bold text-xl mb-4">CPF</h2>
               <input
                 type="text"
@@ -1285,7 +1332,7 @@ function CheckoutContent() {
             </div>
 
             {/* Cartao salvo */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
+            <div className="rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
               <h2 className="font-display font-bold text-xl mb-4">Cartao salvo (opcional)</h2>
               {savedCards.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -1321,7 +1368,7 @@ function CheckoutContent() {
             </div>
 
             {/* Pagamento */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
+            <div className="rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
               <h2 className="font-display font-bold text-xl mb-6 flex items-center gap-2">
                 <CreditCard className="w-6 h-6 text-primary" />
                 Pagamento
@@ -1351,8 +1398,8 @@ function CheckoutContent() {
           </div>
 
           {/* Coluna Direita - Resumo */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-md p-6 sticky top-24">
+          <div>
+            <div className="sticky top-24 rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-[0_30px_90px_-64px_rgba(233,30,99,0.9)]">
               <h2 className="font-display font-bold text-xl mb-6">Resumo do Pedido</h2>
 
               {/* Cupom */}

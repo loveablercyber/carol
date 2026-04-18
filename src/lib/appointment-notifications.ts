@@ -34,6 +34,55 @@ function normalizePhoneToWhatsApp(rawPhone: string) {
   return digits
 }
 
+function addLineIfValue(lines: string[], label: string, value?: string | null) {
+  const cleanValue = String(value || '').trim()
+  if (cleanValue) lines.push(`${label}: ${cleanValue}`)
+}
+
+function getAppointmentDetailLines(appointment: AppointmentRecord) {
+  const q = appointment.questionnaireData
+  const lines: string[] = []
+
+  lines.push(`Duracao: ${appointment.durationMinutes} minutos`)
+  if (Number(appointment.totalPrice || 0) > 0) {
+    lines.push(`Valor total: R$ ${Number(appointment.totalPrice).toFixed(2).replace('.', ',')}`)
+  }
+  addLineIfValue(lines, 'Status do pagamento', appointment.paymentStatus)
+  addLineIfValue(lines, 'Status do agendamento', appointment.status)
+
+  if (!q) return lines
+
+  addLineIfValue(lines, 'Categoria principal', q.primaryCategory)
+  addLineIfValue(lines, 'Tipo de manutencao', q.maintenanceType)
+  addLineIfValue(lines, 'Situacao do cabelo', q.hairSituation)
+  addLineIfValue(lines, 'Opcao escolhida', q.selectedOption || appointment.lengthLabel || '')
+  addLineIfValue(lines, 'Servicos adicionais', q.additionalServices)
+  addLineIfValue(lines, 'Total adicionais', q.additionalServicesTotal)
+  addLineIfValue(lines, 'Kit de manutencao', q.maintenanceKit)
+  addLineIfValue(lines, 'Total kit', q.maintenanceKitTotal)
+  addLineIfValue(lines, 'Manutencao 60 dias', q.futureMaintenance)
+  addLineIfValue(lines, 'Cronograma capilar', q.cronogramaCapilar)
+  addLineIfValue(lines, 'Observacao', q.cleanHairObservation)
+  addLineIfValue(lines, 'Campanha', q.campaignSource)
+  addLineIfValue(lines, 'Cabelo escolhido', q.donationHairName)
+  addLineIfValue(lines, 'Detalhes do cabelo', [q.donationHairColor, q.donationHairLength].filter(Boolean).join(' - '))
+  addLineIfValue(lines, 'Tecnica da doacao', q.donationTechnique)
+  addLineIfValue(lines, 'Pagamento da campanha', q.paymentObservation)
+  addLineIfValue(lines, 'Foto enviada', q.hairPhotoUrl)
+  addLineIfValue(lines, 'Nome', q.name || appointment.customerName)
+  addLineIfValue(lines, 'Telefone', q.phone || appointment.customerPhone)
+  addLineIfValue(lines, 'E-mail', q.email || appointment.customerEmail)
+  addLineIfValue(lines, 'Idade', q.age)
+  addLineIfValue(lines, 'Alergias', q.allergies)
+  addLineIfValue(lines, 'Historico mega hair', q.megaHairHistory)
+  addLineIfValue(lines, 'Tipo de cabelo', q.hairType)
+  addLineIfValue(lines, 'Cor natural', q.hairColor)
+  addLineIfValue(lines, 'Estado do cabelo', q.hairState)
+  addLineIfValue(lines, 'Metodos usados', q.methods)
+
+  return lines
+}
+
 function getTemplate(type: AppointmentNotificationType, appointment: AppointmentRecord) {
   const dateText = formatDateTimeBr(appointment.scheduledAt)
   const googleCalendarUrl = buildGoogleCalendarUrl({
@@ -48,6 +97,7 @@ function getTemplate(type: AppointmentNotificationType, appointment: Appointment
     `Oi, ${appointment.customerName}!`,
     `Servico: ${appointment.serviceName}`,
     `Data/Hora: ${dateText}`,
+    ...getAppointmentDetailLines(appointment),
   ]
 
   if (type === 'confirmation') {

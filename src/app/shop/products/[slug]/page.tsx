@@ -337,7 +337,7 @@ export default function ProductPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-24">
+    <div className="min-h-screen overflow-hidden bg-gradient-to-br from-[#FFF0F5] via-white to-white pb-24">
       {productJsonLd && (
         <script
           type="application/ld+json"
@@ -365,9 +365,9 @@ export default function ProductPage() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-8 lg:max-w-[1500px] lg:px-8 lg:py-12 xl:px-12">
         {/* Breadcrumb */}
-        <nav className="text-sm mb-6 text-muted-foreground">
+        <nav className="mb-6 text-sm text-muted-foreground lg:mb-8">
           <Link href="/" className="hover:text-primary">Home</Link>
           {' / '}
           <Link href="/shop" className="hover:text-primary">Loja</Link>
@@ -379,18 +379,18 @@ export default function ProductPage() {
           <span className="text-foreground">{product.name}</span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:items-start xl:gap-16">
           {/* Galeria de Imagens */}
-          <div>
-            <div className="relative bg-white rounded-2xl shadow-lg overflow-hidden mb-4">
+          <div className="lg:sticky lg:top-24">
+            <div className="relative mb-4 overflow-hidden rounded-2xl bg-white shadow-lg lg:rounded-[2.75rem] lg:border lg:border-pink-100 lg:p-4 lg:shadow-[0_35px_100px_-70px_rgba(233,30,99,0.8)]">
               {product.images.length > 0 ? (
                 <img
                   src={product.images[selectedImage]}
                   alt={product.name}
-                  className="w-full h-[500px] object-cover"
+                  className="h-[500px] w-full object-cover lg:h-[720px] lg:rounded-[2.1rem]"
                 />
               ) : (
-                <div className="w-full h-[500px] bg-gray-200 flex items-center justify-center">
+                <div className="flex h-[500px] w-full items-center justify-center bg-gray-200 lg:h-[720px] lg:rounded-[2.1rem]">
                   <span className="text-gray-400">Sem imagem</span>
                 </div>
               )}
@@ -414,12 +414,12 @@ export default function ProductPage() {
 
             {/* Thumbnails */}
             {product.images.length > 1 && (
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-2 lg:gap-4">
                 {product.images.map((image, index) => (
                   <button
                     key={index}
                     onClick={() => setSelectedImage(index)}
-                    className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                    className={`relative overflow-hidden rounded-lg border-2 transition-all lg:rounded-2xl ${
                       selectedImage === index ? 'border-primary' : 'border-gray-200'
                     }`}
                   >
@@ -433,13 +433,15 @@ export default function ProductPage() {
           {/* Informações do Produto */}
           <div>
             {/* Nome e Categoria */}
-            <div className="mb-4">
-              <p className="text-sm text-primary mb-2">{product.category.name}</p>
-              <h1 className="font-display font-bold text-3xl md:text-4xl text-foreground mb-2">
+            <div className="mb-6 rounded-[2rem] border border-pink-100 bg-white/80 p-6 shadow-xl shadow-pink-100/35 backdrop-blur lg:p-8">
+              <p className="mb-3 inline-flex rounded-full bg-primary/10 px-4 py-2 text-xs font-black uppercase tracking-[0.2em] text-primary">
+                {product.category.name}
+              </p>
+              <h1 className="font-display text-3xl font-bold text-foreground md:text-4xl lg:text-6xl lg:font-black lg:leading-[0.95] lg:tracking-[-0.055em]">
                 {product.name}
               </h1>
               {product.shortDescription && (
-                <p className="text-muted-foreground">{product.shortDescription}</p>
+                <p className="mt-4 text-muted-foreground lg:text-lg lg:leading-8">{product.shortDescription}</p>
               )}
             </div>
 
@@ -464,7 +466,7 @@ export default function ProductPage() {
             </div>
 
             {/* Preço */}
-            <div className="bg-white rounded-2xl shadow-md p-6 mb-6">
+            <div className="mb-6 rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
               {product.compareAtPrice && (
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-lg text-muted-foreground line-through">
@@ -555,18 +557,18 @@ export default function ProductPage() {
             </div>
 
             {/* Benefícios */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <div className="bg-white rounded-xl shadow-md p-4 text-center">
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="rounded-xl bg-white p-4 text-center shadow-md lg:rounded-2xl lg:border lg:border-pink-100">
                 <Truck className="w-8 h-8 text-primary mx-auto mb-2" />
                 <p className="text-sm font-semibold">Frete Grátis</p>
                 <p className="text-xs text-muted-foreground">Acima de R$ 300</p>
               </div>
-              <div className="bg-white rounded-xl shadow-md p-4 text-center">
+              <div className="rounded-xl bg-white p-4 text-center shadow-md lg:rounded-2xl lg:border lg:border-pink-100">
                 <Shield className="w-8 h-8 text-primary mx-auto mb-2" />
                 <p className="text-sm font-semibold">Compra Segura</p>
                 <p className="text-xs text-muted-foreground">Pagamento protegido</p>
               </div>
-              <div className="bg-white rounded-xl shadow-md p-4 text-center">
+              <div className="rounded-xl bg-white p-4 text-center shadow-md lg:rounded-2xl lg:border lg:border-pink-100">
                 <RefreshCw className="w-8 h-8 text-primary mx-auto mb-2" />
                 <p className="text-sm font-semibold">7 Dias</p>
                 <p className="text-xs text-muted-foreground">Troca garantida</p>
@@ -576,7 +578,7 @@ export default function ProductPage() {
         </div>
 
         {/* Descrição Completa */}
-        <div className="mt-12 bg-white rounded-2xl shadow-md p-6">
+        <div className="mt-12 rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
           <h2 className="font-display font-bold text-2xl mb-4">Descrição</h2>
           <div className="prose max-w-none text-muted-foreground whitespace-pre-line">
             {product.description}
@@ -585,7 +587,7 @@ export default function ProductPage() {
 
         {/* Especificações */}
         {product.specs && Object.keys(product.specs).length > 0 && (
-          <div className="mt-8 bg-white rounded-2xl shadow-md p-6">
+          <div className="mt-8 rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
             <h2 className="font-display font-bold text-2xl mb-4">Especificações Técnicas</h2>
             <div className="grid grid-cols-2 gap-4">
               {Object.entries(product.specs).map(([key, value]) => (
@@ -627,7 +629,7 @@ export default function ProductPage() {
         )}
 
         {/* Avaliações */}
-        <div className="mt-8 bg-white rounded-2xl shadow-md p-6 space-y-6">
+        <div className="mt-8 space-y-6 rounded-2xl bg-white p-6 shadow-md lg:rounded-[2rem] lg:border lg:border-pink-100 lg:p-8 lg:shadow-xl lg:shadow-pink-100/35">
           <h2 className="font-display font-bold text-2xl">Avaliacoes</h2>
 
           <div className="border border-pink-100 rounded-xl p-4 space-y-3 bg-pink-50/40">
@@ -775,7 +777,7 @@ export default function ProductPage() {
         {relatedProducts.length > 0 && (
           <div className="mt-12">
             <h2 className="font-display font-bold text-2xl mb-6">Produtos Relacionados</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:gap-6">
               {relatedProducts.slice(0, 4).map((related) => (
                 <Link
                   key={related.id}

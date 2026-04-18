@@ -16,6 +16,7 @@ import {
   normalizeDurationMinutes,
   validateScheduleWindow,
 } from '@/lib/scheduling-availability'
+import { releaseDonationHairByAppointment } from '@/lib/donation-campaign-store'
 
 async function ensureAdmin() {
   const session = await getServerSession(authOptions)
@@ -141,6 +142,12 @@ export async function PUT(
       )
     }
 
+    if (appointment.status === 'cancelled') {
+      await releaseDonationHairByAppointment(appointment.id).catch((error) => {
+        console.error('Erro ao liberar cabelo da doacao pelo admin:', error)
+      })
+    }
+
     if (previous && previous.status !== appointment.status) {
       if (appointment.status === 'cancelled') {
         await dispatchAppointmentNotification({
@@ -190,6 +197,10 @@ export async function DELETE(
         { status: 404 }
       )
     }
+
+    await releaseDonationHairByAppointment(id).catch((error) => {
+      console.error('Erro ao liberar cabelo da doacao apos remocao:', error)
+    })
 
     return NextResponse.json({ deleted })
   } catch (error) {
