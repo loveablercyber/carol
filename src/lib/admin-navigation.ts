@@ -1,5 +1,6 @@
 import {
   Archive,
+  CalendarClock,
   FilePenLine,
   Gift,
   Home,
@@ -23,6 +24,7 @@ export type AdminSectionKey =
   | 'homeModules'
   | 'internalPages'
   | 'chatbotConfig'
+  | 'appointments'
   | 'donation'
   | 'shipping'
   | 'reviews'
@@ -97,6 +99,14 @@ export const adminNavigationItems: AdminNavigationItem[] = [
     label: 'Chatbot e Agenda',
     description: 'Configure fluxos, servicos, FAQ, midias e horarios.',
     icon: Settings2,
+    featured: true,
+  },
+  {
+    key: 'appointments',
+    href: '/admin/appointments',
+    label: 'Agendamentos',
+    description: 'Gerencie horarios, confirmacoes, cancelamentos e historico tecnico.',
+    icon: CalendarClock,
     featured: true,
   },
   {

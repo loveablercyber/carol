@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Bell,
+  Clock,
+  CreditCard,
   User,
   ShoppingBag,
   LogOut,
@@ -150,6 +152,14 @@ interface SavedCard {
   isDefault: boolean
 }
 
+type AccountTab =
+  | 'orders'
+  | 'profile'
+  | 'addresses'
+  | 'appointments'
+  | 'cards'
+  | 'admin'
+
 const DEFAULT_COMPANY_WHATSAPP_URL =
   'https://wa.me/5514998373935'
 
@@ -164,12 +174,8 @@ export default function AccountPage() {
 function AccountContent() {
   const { data: session } = useSession()
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<
-    'orders' | 'profile' | 'addresses' | 'appointments' | 'cards' | 'admin'
-  >('orders')
-  const [adminSection, setAdminSection] = useState<
-    AdminSectionKey | 'appointments'
-  >('dashboard')
+  const [activeTab, setActiveTab] = useState<AccountTab>('orders')
+  const [adminSection, setAdminSection] = useState<AdminSectionKey>('dashboard')
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [addresses, setAddresses] = useState<Address[]>([])
@@ -217,13 +223,21 @@ function AccountContent() {
 
   useEffect(() => {
     const tab = new URLSearchParams(window.location.search).get('tab')
-    if (tab === 'appointments') {
-      setActiveTab('appointments')
-      return
-    }
     if (tab === 'admin' && session?.user?.role === 'admin') {
       setActiveTab('admin')
       setAdminSection('dashboard')
+      return
+    }
+
+    const clientTabs: AccountTab[] = [
+      'orders',
+      'profile',
+      'addresses',
+      'appointments',
+      'cards',
+    ]
+    if (clientTabs.includes(tab as AccountTab)) {
+      setActiveTab(tab as AccountTab)
     }
   }, [session?.user?.role])
 
@@ -994,6 +1008,27 @@ function AccountContent() {
                   >
                     <User className="h-5 w-5" />
                     Perfil
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('appointments')}
+                    className={sidebarButtonClass(activeTab === 'appointments')}
+                  >
+                    <Clock className="h-5 w-5" />
+                    Agendamentos
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('cards')}
+                    className={sidebarButtonClass(activeTab === 'cards')}
+                  >
+                    <CreditCard className="h-5 w-5" />
+                    Cartoes salvos
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('addresses')}
+                    className={sidebarButtonClass(activeTab === 'addresses')}
+                  >
+                    <MapPin className="h-5 w-5" />
+                    Enderecos
                   </button>
                 </>
               )}
